@@ -1,7 +1,7 @@
-module jfa {
+module jpassport {
     requires jdk.incubator.foreign;
     requires jdk.compiler;
 
-    exports jfa;
-    exports jfa.annotations;
+    exports jpassport;
+    exports jpassport.annotations;
 }

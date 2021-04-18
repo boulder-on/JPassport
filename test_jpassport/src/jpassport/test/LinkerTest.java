@@ -1,4 +1,4 @@
-package jfa.test;
+package jpassport.test;
 
 import com.sun.jna.Native;
 
@@ -8,7 +8,7 @@ import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.BeforeAll;
-import jfa.LinkFactory;
+import jpassport.LinkFactory;
 
 import org.junit.jupiter.api.Test;
 

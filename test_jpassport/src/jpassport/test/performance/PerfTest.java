@@ -1,7 +1,7 @@
-package jfa.test.performance;
+package jpassport.test.performance;
 
 import com.sun.jna.Library;
-import jfa.Foreign;
+import jpassport.Foreign;
 
 public interface PerfTest extends Foreign, Library {
     double sumD(double d, double d2);

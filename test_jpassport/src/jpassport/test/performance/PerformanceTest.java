@@ -1,7 +1,7 @@
-package jfa.test.performance;
+package jpassport.test.performance;
 
 import com.sun.jna.Native;
-import jfa.LinkFactory;
+import jpassport.LinkFactory;
 
 import java.util.stream.IntStream;
 

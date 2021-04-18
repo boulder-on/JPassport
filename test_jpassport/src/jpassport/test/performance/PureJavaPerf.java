@@ -1,4 +1,4 @@
-package jfa.test.performance;
+package jpassport.test.performance;
 
 public class PureJavaPerf implements PerfTest{
     @Override

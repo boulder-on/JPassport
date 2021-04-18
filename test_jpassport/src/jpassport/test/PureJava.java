@@ -1,4 +1,4 @@
-package jfa.test;
+package jpassport.test;
 
 public class PureJava implements TestLink
 {

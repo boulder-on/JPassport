@@ -1,9 +1,9 @@
-package jfa.test;
+package jpassport.test;
 
 import com.sun.jna.Library;
-import jfa.Foreign;
-import jfa.annotations.PtrPtrArg;
-import jfa.annotations.RefArg;
+import jpassport.Foreign;
+import jpassport.annotations.PtrPtrArg;
+import jpassport.annotations.RefArg;
 
 import java.util.stream.IntStream;
 

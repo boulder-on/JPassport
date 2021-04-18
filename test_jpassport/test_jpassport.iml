@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$/../test_jpassport">
+      <sourceFolder url="file://$MODULE_DIR$/../test_jpassport/src" isTestSource="false" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="JPassport" />
+    <orderEntry type="library" name="net.java.dev.jna:jna-platform:5.8.0" level="project" />
+    <orderEntry type="library" name="net.java.dev.jna:jna:5.8.0" level="project" />
+    <orderEntry type="library" name="org.junit.jupiter:junit-jupiter:5.4.2" level="project" />
+  </component>
+</module>

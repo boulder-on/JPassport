@@ -1,5 +1,5 @@
 module test.passport {
-    requires jfa;
+    requires jpassport;
     requires com.sun.jna;
     requires com.sun.jna.platform;
     requires jdk.incubator.foreign;
@@ -7,6 +7,6 @@ module test.passport {
     requires org.junit.jupiter.api;
     requires org.junit.platform.engine;
 
-    exports jfa.test;
-    exports jfa.test.performance;
+    exports jpassport.test;
+    exports jpassport.test.performance;
 }

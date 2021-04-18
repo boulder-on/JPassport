@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<project name="JFA" default="jar.JFA">
-    <property name="name" value="jfa"/>
+<project name="JPassport" default="jar.JPassport">
+    <property name="name" value="jpassport"/>
     <property name="version" value="0.1"/>
-    <property name="src.home.jfa" value="src"/>
-    <property name="build.home.jfa" value="out/production/jfa"/>
+    <property name="src.home.jpassport" value="src"/>
+    <property name="build.home.jpassport" value="out/production/jpassport"/>
     <property name="lib.home" value="lib"/>
 
     <target name="compile">
-        <mkdir dir="${build.home.jfa}"/>
-        <javac srcdir="${src.home.jfa}" destdir="${build.home.jfa}">
+        <mkdir dir="${build.home.jpassport}"/>
+        <javac srcdir="${src.home.jpassport}" destdir="${build.home.jpassport}">
         </javac>
     </target>
 
-    <target name="jar.JFA" depends="compile">
+    <target name="jar.JPassport" depends="compile">
         <jar file="${name}-${version}.jar">
-            <fileset dir="${build.home.jfa}"/>
+            <fileset dir="${build.home.jpassport}"/>
         </jar>
     </target>
 </project>

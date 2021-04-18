@@ -1,11 +1,10 @@
-# JFA
-Java Foreign Access
+# JPassport
 
-JFA is intended to be a replacement for Java Native Access (JNA). Similar to JNA, you can create an interface with the method definitions that exist in your library then JFA does the rest. To the caller the library is just an interface.
+JPassport is intended to be a replacement for Java Native Access (JNA). Similar to JNA, you can create an interface with the method definitions that exist in your library then JPassport does the rest. To the caller the library is just an interface.
 
 The Foreign Linker API is still an incubator at this time and Java 15 at least is required to use this library.
 
-The testing classes I have can be used to call JNA or JFA. The Foreign Linker appears to be significantly faster than JNA for some circumstances. Passing primitives via the Foreign Linker looks like it has 
+The testing classes I have can be used to call JNA or JPassport. The Foreign Linker appears to be significantly faster than JNA for some circumstances. Passing primitives via the Foreign Linker looks like it has 
 a performance benefit JNA. If you pass large arrays, there is a benefit to the Foreign Linker, but much less so.
 
 Performance of method that passes 2 doubles:
@@ -90,7 +89,7 @@ Struct arguments to C functions do not work, only basic types and C-strings.
 
 # Dependencies
 
-JFA itself only requires at least Java 16 to build and run.
+JPassport itself only requires at least Java 16 to build and run.
 
 The testing classes require:
 
