@@ -31,7 +31,7 @@ int n = L.string_length("hello");
 
 In order to use this library you will need to provide the VM these arguments:
 
-** -Djava.library.path=fl_dll\cmake-build-debug -Dforeign.restricted=permit ** 
+**-Djava.library.path=fl_dll\cmake-build-debug -Dforeign.restricted=permit ** 
 
 # How it works
 
