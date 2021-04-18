@@ -5,7 +5,14 @@ JFA is intended to be a replacement for Java Native Access (JNA). Similar to JNA
 
 The Foreign Linker API is still an incubator at this time and Java 15 at least is required to use this library.
 
-The testing classes I have can be used to call JNA or JFA. Using that framework it appears that the makers of the Foreign Linker have done their jobs well. The Forgeign Linker appears to be significantly faster than JNI/JNA. 
+The testing classes I have can be used to call JNA or JFA. The Foreign Linker appears to be significantly faster than JNA for some circumstances. Passing primitives via the Foreign Linker looks like it has 
+a performance benefit JNA. If you pass large arrays, there is a benefit to the Foreign Linker, but much less so.
+
+Performance of method that passes 2 doubles:
+![primative performance](passing_doubles.png)
+
+Performance of method that passes an array of doubles
+![array performance](passing_double_arr.png)
 
 Example:
 
