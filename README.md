@@ -24,7 +24,7 @@ Java Usage:
 Linked L = LinkFactory.link("libforeign_link", Linked.class);
 int n = L.string_length("hello");
 ```
-#How it works
+# How it works
 
 There are 2 stages to make the foreign linking to work:
 
@@ -33,7 +33,7 @@ There are 2 stages to make the foreign linking to work:
 
 Using compiled classes rather than interface proxy objects makes the solution very efficient. Most of the real speed of the solution is from the Foreign Linker API.
 
-#Library Data Types that work
+# Library Data Types that work
 
 Methods with the following data types for arguments can be called:
 1. double, double*, double[], double**, double[][]
@@ -65,3 +65,6 @@ L.readD(ref, 10);
 ```
 
 Without the @RefArg, when ref[] is returned it will not have been updated.
+
+# Example
+Review the test folder and the fl_dll C code to see how to make use of all of the parameters types.
