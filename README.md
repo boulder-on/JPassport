@@ -3,6 +3,10 @@ Java Foreign Access
 
 JFA is intended to be a replacement for Java Native Access (JNA). Similar to JNA, you can create an interface with the method definitions that exist in your library then JFA does the rest. To the caller the library is just an interface.
 
+The Foreign Linker API is still an incubator at this time and Java 15 at least is required to use this library.
+
+The testing classes I have can be used to call JNA or JFA. Using that framework it appears that the makers of the Foreign Linker have done their jobs well. The Forgeign Linker appears to be significantly faster than JNI/JNA. 
+
 Example:
 
 C:
