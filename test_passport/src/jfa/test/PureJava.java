@@ -1,0 +1,213 @@
+package jfa.test;
+
+public class PureJava implements TestLink
+{
+    @Override
+    public double sumD(double d, double d2) {
+        return d + d2;
+    }
+
+    @Override
+    public double sumArrD(double[] d, int len)
+    {
+        double ret = 0;
+        for (int n = 0; n < len; ++n)
+            ret += d[n];
+        return ret;
+    }
+
+    @Override
+    public double sumArrDD(double[] d, double[] d2, int len) {
+        double ret = 0;
+        for (int n = 0; n < len; ++n)
+        {
+            ret += d[n];
+            ret += d2[n];
+        }
+        return ret;
+    }
+
+    @Override
+    public void readD(double[] d, int set) {
+        d[0] = set;
+    }
+
+    @Override
+    public float sumArrF(float[] d, int len)
+    {
+        float ret = 0;
+        for (int n = 0; n < len; ++n)
+            ret += d[n];
+        return ret;
+    }
+
+    @Override
+    public void readF(float[] d, float set) {
+        d[0] = set;
+    }
+
+    @Override
+    public long sumArrL(long[] d, long len)
+    {
+        long ret = 0;
+        for (int n = 0; n < len; ++n)
+            ret += d[n];
+        return ret;
+    }
+
+    @Override
+    public void readL(long[] d, long set) {
+        d[0] = set;
+    }
+
+    @Override
+    public int sumArrI(int[] d, int len)
+    {
+        int ret = 0;
+        for (int n = 0; n < len; ++n)
+            ret += d[n];
+        return ret;
+    }
+
+    @Override
+    public void readI(int[] d, int set) {
+        d[0] = set;
+    }
+
+    @Override
+    public short sumArrS(short[] d, short len)
+    {
+        short ret = 0;
+        for (int n = 0; n < len; ++n)
+            ret += d[n];
+        return ret;
+    }
+
+    @Override
+    public void readS(short[] d, short set) {
+        d[0] = set;
+    }
+
+    @Override
+    public byte sumArrB(byte[] d, byte len)
+    {
+        byte ret = 0;
+        for (int n = 0; n < len; ++n)
+            ret += d[n];
+        return ret;
+    }
+
+    @Override
+    public void readB(byte[] d, byte set) {
+        d[0] = set;
+    }
+
+    @Override
+    public double sumMatD(int rows, int cols, double[][] mat)
+    {
+        double total = 0;
+        for (int y = 0; y < rows; ++y)
+        {
+            for (double i : mat[y])
+                total += i;
+        }
+        return total;
+    }
+
+    @Override
+    public double sumMatDPtrPtr(int rows, int cols, double[][] mat) {
+        return sumMatD(rows, cols, mat);
+    }
+
+    @Override
+    public float sumMatF(int rows, int cols, float[][] mat)
+    {
+        float total = 0;
+        for (int y = 0; y < rows; ++y)
+        {
+            for (float i : mat[y])
+                total += i;
+        }
+        return total;
+    }
+
+    @Override
+    public float sumMatFPtrPtr(int rows, int cols, float[][] mat) {
+        return sumMatF(rows, cols, mat);
+    }
+
+    @Override
+    public long sumMatL(int rows, int cols, long[][] mat)
+    {
+        long total = 0;
+        for (int y = 0; y < rows; ++y)
+        {
+            for (long i : mat[y])
+                total += i;
+        }
+        return total;
+    }
+
+    @Override
+    public long sumMatLPtrPtr(int rows, int cols, long[][] mat) {
+        return sumMatL(rows, cols, mat);
+    }
+
+    @Override
+    public int sumMatI(int rows, int cols, int[][] mat)
+    {
+        int total = 0;
+        for (int y = 0; y < rows; ++y)
+        {
+            for (int i : mat[y])
+                total += i;
+        }
+        return total;
+    }
+
+    @Override
+    public int sumMatIPtrPtr(int rows, int cols, int[][] mat) {
+        return sumMatI(rows, cols, mat);
+    }
+
+    @Override
+    public int sumMatS(int rows, int cols, short[][] mat)
+    {
+        int total = 0;
+        for (int y = 0; y < rows; ++y)
+        {
+            for (int i : mat[y])
+                total += i;
+        }
+        return total;
+    }
+
+    @Override
+    public int sumMatSPtrPtr(int rows, int cols, short[][] mat) {
+        return sumMatS(rows, cols, mat);
+    }
+
+    @Override
+    public int sumMatB(int rows, int cols, byte[][] mat)
+    {
+        int total = 0;
+        for (int y = 0; y < rows; ++y)
+        {
+            for (int i : mat[y])
+                total += i;
+        }
+        return total;
+    }
+
+    @Override
+    public int sumMatBPtrPtr(int rows, int cols, byte[][] mat) {
+        return sumMatB(rows, cols, mat);
+    }
+
+    @Override
+    public int cstringLength(String s)
+    {
+        return s.length();
+    }
+
+}
