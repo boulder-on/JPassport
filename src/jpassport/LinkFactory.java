@@ -75,7 +75,7 @@ public class LinkFactory
                             MethodType.methodType(methRet, parameters),
                             fd);
 
-            classWriter.addMethod(method, retType, memoryLayout);
+            classWriter.addMethod(method, retType);
 
             methodMap.put(method.getName(), methodHandle);
         }
@@ -126,9 +126,8 @@ public class LinkFactory
 
         }
 
-        public void addMethod(Method method, Class retType, MemoryLayout[] memoryLayout)
+        public void addMethod(Method method, Class retType)
         {
-            int v = 1;
             StringBuilder args = new StringBuilder();
             StringBuilder params = new StringBuilder();
             StringBuilder tryArgs = new StringBuilder();
@@ -143,6 +142,7 @@ public class LinkFactory
             }
 
             Annotation[][] paramAnnotations = method.getParameterAnnotations();
+            int v = 1;
 
             for (Class parameter : method.getParameterTypes())
             {
@@ -161,7 +161,10 @@ public class LinkFactory
                         readReferences.append(String.format("Utils.toArr(v%d, vv%d);\n", v, v));
                 }
                 else if (parameter.getSimpleName().equals("String"))
-                    params.append(String.format("CLinker.toCString(v%d).address(),", v));
+                {
+                    tryArgs.append(String.format("var vv%d = CLinker.toCString(v%d);", v, v));
+                    params.append("vv").append(v).append(".address(),");
+                }
                 else
                     params.append("v").append(v).append(",");
                 ++v;

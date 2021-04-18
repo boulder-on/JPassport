@@ -35,7 +35,7 @@ public class PerformanceTest
 //            System.out.printf("sum, %d, %f, %f, %f\n", loops, j, jna, jlink);
 //        }
 
-        System.out.println(",size , pure java, JNA, JFA");
+        System.out.println(",size , pure java, JNA, JPassport");
         for (int size = 1024; size <= 1024*256; size += 1024)
         {
             double j = sumTestArrD(testJava, 100, size);
