@@ -28,6 +28,11 @@ Java Usage:
 Linked L = LinkFactory.link("libforeign_link", Linked.class);
 int n = L.string_length("hello");
 ```
+
+In order to use this library you will need to provide the VM these arguments:
+
+** -Djava.library.path=fl_dll\cmake-build-debug -Dforeign.restricted=permit ** 
+
 # How it works
 
 There are 2 stages to make the foreign linking to work:
