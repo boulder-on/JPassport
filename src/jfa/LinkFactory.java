@@ -119,7 +119,7 @@ public class LinkFactory
             m_moduleSource.append(String.format("""
                     module foreign.caller {
                         requires jdk.incubator.foreign;
-                        requires passport;
+                        requires jfa;
                         requires %s;
                     }
                     """, interfaceClass.getModule().getName()));

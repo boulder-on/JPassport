@@ -18,8 +18,9 @@ public class Utils
 {
 /* Double ///////////////////////////////////////////////////////////////// */
     public static MemorySegment toMS(double[] arr) {
-        MemorySegment segment = MemorySegment.allocateNative((long) arr.length * Double.BYTES);
-        for (int n = 0; n < arr.length; ++n) MemoryAccess.setDoubleAtIndex(segment, n, arr[n]);
+        MemorySegment iseg = MemorySegment.ofArray(arr);
+        MemorySegment segment = MemorySegment.allocateNative(iseg.byteSize());
+        segment.copyFrom(iseg);
         return segment;
     }
 
@@ -49,9 +50,9 @@ public class Utils
     /* Float ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(float[] arr) {
-        MemorySegment segment = MemorySegment.allocateNative((long) arr.length * Float.BYTES);
-        for (int n = 0; n < arr.length; ++n)
-            MemoryAccess.setFloatAtIndex(segment, n, arr[n]);
+        MemorySegment iseg = MemorySegment.ofArray(arr);
+        MemorySegment segment = MemorySegment.allocateNative(iseg.byteSize());
+        segment.copyFrom(iseg);
         return segment;
     }
 
@@ -81,8 +82,9 @@ public class Utils
 /* Long ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(long[] arr) {
-        MemorySegment segment = MemorySegment.allocateNative((long) arr.length * Long.BYTES);
-        for (int n = 0; n < arr.length; ++n) MemoryAccess.setLongAtIndex(segment, n, arr[n]);
+        MemorySegment iseg = MemorySegment.ofArray(arr);
+        MemorySegment segment = MemorySegment.allocateNative(iseg.byteSize());
+        segment.copyFrom(iseg);
         return segment;
     }
 
@@ -111,8 +113,9 @@ public class Utils
 /* Int ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(int[] arr) {
-        MemorySegment segment = MemorySegment.allocateNative((long) arr.length * Integer.BYTES);
-        for (int n = 0; n < arr.length; ++n) MemoryAccess.setIntAtIndex(segment, n, arr[n]);
+        MemorySegment iseg = MemorySegment.ofArray(arr);
+        MemorySegment segment = MemorySegment.allocateNative(iseg.byteSize());
+        segment.copyFrom(iseg);
         return segment;
     }
 
@@ -141,8 +144,9 @@ public class Utils
 /* Short ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(short[] arr) {
-        MemorySegment segment = MemorySegment.allocateNative((long) arr.length * Short.BYTES);
-        for (int n = 0; n < arr.length; ++n) MemoryAccess.setShortAtIndex(segment, n, arr[n]);
+        MemorySegment iseg = MemorySegment.ofArray(arr);
+        MemorySegment segment = MemorySegment.allocateNative(iseg.byteSize());
+        segment.copyFrom(iseg);
         return segment;
     }
 
@@ -172,9 +176,9 @@ public class Utils
 /* Byte ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(byte[] arr) {
-        MemorySegment segment = MemorySegment.allocateNative((long) arr.length * Byte.BYTES);
-        for (int n = 0; n < arr.length; ++n)
-            MemoryAccess.setByteAtOffset(segment, n, arr[n]);
+        MemorySegment iseg = MemorySegment.ofArray(arr);
+        MemorySegment segment = MemorySegment.allocateNative(iseg.byteSize());
+        segment.copyFrom(iseg);
         return segment;
     }
 
@@ -203,39 +207,6 @@ public class Utils
 
 /*///////////////////////////////////////////////////////////////// */
 
-    /**
-     * Given a folder or file this will recursively delete it.
-     *
-     * @param folder The root folder to recursively delete everything under.
-     * @return True if everything was deleted.
-     */
-    public static boolean deleteFolder(Path folder) {
-        if (!Files.exists(folder))
-            return true;
-
-        try {
-            Files.walkFileTree(folder, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                        throws IOException {
-                    Files.delete(file);
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    if (exc != null)
-                        throw exc;
-
-                    Files.delete(dir);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return true;
-    }
 
     static class PtrPtrMemorySegment implements MemorySegment {
 
@@ -414,5 +385,39 @@ public class Utils
         public double[] toDoubleArray() {
             return new double[0];
         }
+    }
+
+    /**
+     * Given a folder or file this will recursively delete it.
+     *
+     * @param folder The root folder to recursively delete everything under.
+     * @return True if everything was deleted.
+     */
+    public static boolean deleteFolder(Path folder) {
+        if (!Files.exists(folder))
+            return true;
+
+        try {
+            Files.walkFileTree(folder, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                        throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (exc != null)
+                        throw exc;
+
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return true;
     }
 }

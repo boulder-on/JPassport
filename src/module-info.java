@@ -1,4 +1,4 @@
-module passport {
+module jfa {
     requires jdk.incubator.foreign;
     requires jdk.compiler;
 
