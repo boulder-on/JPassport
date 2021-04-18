@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="JFA" default="jar.JFA">
+    <property name="name" value="jfa"/>
+    <property name="version" value="0.1"/>
+    <property name="src.home.jfa" value="src"/>
+    <property name="build.home.jfa" value="out/production/jfa"/>
+    <property name="lib.home" value="lib"/>
+
+    <target name="compile">
+        <mkdir dir="${build.home.jfa}"/>
+        <javac srcdir="${src.home.jfa}" destdir="${build.home.jfa}">
+        </javac>
+    </target>
+
+    <target name="jar.JFA" depends="compile">
+        <jar file="${name}-${version}.jar">
+            <fileset dir="${build.home.jfa}"/>
+        </jar>
+    </target>
+</project>

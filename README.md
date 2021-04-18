@@ -75,5 +75,20 @@ L.readD(ref, 10);
 
 Without the @RefArg, when ref[] is returned it will not have been updated.
 
+# Limitations
+
+The interface file passed to LinkFactory must be exported by your module.
+
+Struct arguments to C functions do not work, only basic types and C-strings.
+
+# Dependencies
+
+JFA itself only requires at least Java 16 to build and run.
+
+The testing classes require:
+
+* JNA 5.8.0
+* JUnit 5.4.2 (later versions of JUnit do not play nice with modules yet)
+
 # Example
 Review the test folder and the fl_dll C code to see how to make use of all of the parameters types.
