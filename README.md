@@ -10,18 +10,18 @@ The Foreign Linker API is still an incubator at this time and Java 16 at least i
 The testing classes I have use JNA, JNA Direct, JPassport and pure Java. The performance difference break down as:
 
 Passing primatives: 
-4. JNA - Slowest by a significant margin
-3. JNA Direct - Very good, about 7-8x faster than JAN
-2. JPassport - About 5.5x faster than JNA Direct
 1. Java - About 4.5 times faster than JPassport
+2. JPassport - About 5.5x faster than JNA Direct
+3. JNA Direct - Very good, about 7-8x faster than JAN
+4. JNA - Slowest by a significant margin
 
 Passing Arrays:
 
 There was less of a difference here.
-4. JNA
-3. JNA Direct - About the same as JNA
-2. JPassport - About 1.3x faster than JNA Direct (better at larger array sizes)
 1. Java - About 4 times faster than JPassport
+2. JPassport - About 1.3x faster than JNA Direct (better at larger array sizes)
+3. JNA Direct - About the same as JNA
+4. JNA
 
 NOTE: I tried without success to use th jextract tool. I was able to get it to generate code and I saw little substantive difference it what it tried to generate over what I generated.
 Performance of method that passes 2 doubles:
