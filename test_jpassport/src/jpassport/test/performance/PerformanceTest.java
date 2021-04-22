@@ -1,7 +1,19 @@
+/* Copyright (c) 2021 Duncan McLean, All Rights Reserved
+ *
+ * The contents of this file is dual-licensed under the
+ * Apache License 2.0.
+ *
+ * You may obtain a copy of the Apache License at:
+ *
+ * http://www.apache.org/licenses/
+ *
+ * A copy is also included in the downloadable source code.
+ */
 package jpassport.test.performance;
 
 import com.sun.jna.Native;
 import jpassport.LinkFactory;
+import jpassport.test.TestLinkJNADirect;
 
 import java.util.stream.IntStream;
 
@@ -10,6 +22,7 @@ public class PerformanceTest
 {
     static PerfTest testFL;
     static PerfTest testJNA;
+    static PerfTest testJNADirect;
     static PerfTest testJava;
 
 
@@ -17,6 +30,7 @@ public class PerformanceTest
     {
         testFL = LinkFactory.link("libforeign_link", PerfTest.class);
         testJNA =  Native.load("libforeign_link.dll", PerfTest.class);
+        testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();
     }
 
@@ -24,26 +38,28 @@ public class PerformanceTest
     {
         startup();
 
-//        System.out.println(",iteration, pure java, JNA, JFA");
+        System.out.println(",iteration, pure java, JNA, JNA Direct, JPassport");
 
-//        for (int loops = 1000; loops < 100000; loops += 1000)
-//        {
-//            double j = sumTest(testJava, loops);
-//            double jlink = sumTest(testFL, loops);
-//            double jna = sumTest(testJNA, loops);
-//
-//            System.out.printf("sum, %d, %f, %f, %f\n", loops, j, jna, jlink);
-//        }
-
-        System.out.println(",size , pure java, JNA, JPassport");
-        for (int size = 1024; size <= 1024*256; size += 1024)
+        for (int loops = 1000; loops < 100000; loops += 1000)
         {
-            double j = sumTestArrD(testJava, 100, size);
-            double jlink = sumTestArrD(testFL, 100, size);
-            double jna = sumTestArrD(testJNA, 100, size);
+            double j = sumTest(testJava, loops);
+            double jlink = sumTest(testFL, loops);
+            double jna = sumTest(testJNA, loops);
+            double jnaDirect = sumTest(testJNADirect, loops);
 
-            System.out.printf("sum, %d, %f, %f, %f\n", size, j, jna, jlink);
+            System.out.printf("sum, %d, %f, %f, %f, %f\n", loops, j, jna, jnaDirect, jlink);
         }
+
+//        System.out.println(",size , pure java, JNA, JPassport");
+//        for (int size = 1024; size <= 1024*256; size += 1024)
+//        {
+//            double j = sumTestArrD(testJava, 100, size);
+//            double jlink = sumTestArrD(testFL, 100, size);
+//            double jna = sumTestArrD(testJNA, 100, size);
+//            double jnaDirect = sumTestArrD(testJNADirect, 100, size);
+//
+//            System.out.printf("sum, %d, %f, %f, %f, %f\n", size, j, jna, jnaDirect, jlink);
+//        }
     }
 
 

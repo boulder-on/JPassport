@@ -1,3 +1,14 @@
+/* Copyright (c) 2021 Duncan McLean, All Rights Reserved
+ *
+ * The contents of this file is dual-licensed under the
+ * Apache License 2.0.
+ *
+ * You may obtain a copy of the Apache License at:
+ *
+ * http://www.apache.org/licenses/
+ *
+ * A copy is also included in the downloadable source code.
+ */
 package jpassport;
 
 import jdk.incubator.foreign.*;
@@ -28,8 +39,8 @@ public class Utils
         MemorySegment segment = MemorySegment.allocateNative((long) arr.length * arr[0].length * Double.BYTES);
         int n = 0;
         for (double[] row : arr) {
-            for (double i : row)
-                MemoryAccess.setDoubleAtIndex(segment, n++, i);
+            segment.asSlice(n, (long)row.length * Double.BYTES).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Double.BYTES;
         }
 
         return segment;
@@ -60,8 +71,8 @@ public class Utils
         MemorySegment segment = MemorySegment.allocateNative((long) arr.length * arr[0].length * Float.BYTES);
         int n = 0;
         for (float[] row : arr) {
-            for (float i : row)
-                MemoryAccess.setFloatAtIndex(segment, n++, i);
+            segment.asSlice(n, (long)row.length * Float.BYTES).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Float.BYTES;
         }
 
         return segment;
@@ -98,8 +109,8 @@ public class Utils
         MemorySegment segment = MemorySegment.allocateNative((long) arr.length * arr[0].length * Long.BYTES);
         int n = 0;
         for (long[] row : arr) {
-            for (long i : row)
-                MemoryAccess.setLongAtIndex(segment, n++, i);
+            segment.asSlice(n, (long)row.length * Long.BYTES).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Long.BYTES;
         }
 
         return segment;
@@ -129,8 +140,8 @@ public class Utils
         MemorySegment segment = MemorySegment.allocateNative((long) arr.length * arr[0].length * Integer.BYTES);
         int n = 0;
         for (int[] row : arr) {
-            for (int i : row)
-                MemoryAccess.setIntAtIndex(segment, n++, i);
+            segment.asSlice(n, (long)row.length * Integer.BYTES).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Integer.BYTES;
         }
 
         return segment;
@@ -161,8 +172,8 @@ public class Utils
         MemorySegment segment = MemorySegment.allocateNative((long) arr.length * arr[0].length * Short.BYTES);
         int n = 0;
         for (short[] row : arr) {
-            for (short i : row)
-                MemoryAccess.setShortAtIndex(segment, n++, i);
+            segment.asSlice(n, (long)row.length * Short.BYTES).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Short.BYTES;
         }
 
         return segment;
@@ -193,8 +204,8 @@ public class Utils
         MemorySegment segment = MemorySegment.allocateNative((long) arr.length * arr[0].length * Byte.BYTES);
         int n = 0;
         for (byte[] row : arr) {
-            for (byte i : row)
-                MemoryAccess.setByteAtOffset(segment, n++, i);
+            segment.asSlice(n, row.length * Byte.BYTES).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Byte.BYTES;
         }
 
         return segment;
@@ -207,7 +218,9 @@ public class Utils
 
 /*///////////////////////////////////////////////////////////////// */
 
-
+    /**
+     * This class helps allocate and deallocate a pointer to a list of pointers.
+     */
     static class PtrPtrMemorySegment implements MemorySegment {
 
 

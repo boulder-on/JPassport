@@ -1,6 +1,15 @@
+/* Copyright (c) 2021 Duncan McLean, All Rights Reserved
+ *
+ * The contents of this file is dual-licensed under the
+ * Apache License 2.0.
+ *
+ * You may obtain a copy of the Apache License at:
+ *
+ * http://www.apache.org/licenses/
+ *
+ * A copy is also included in the downloadable source code.
+ */
 package jpassport;
-
-
 
 import jdk.incubator.foreign.*;
 import jpassport.annotations.PtrPtrArg;
@@ -23,6 +32,14 @@ import java.util.Map;
 
 public class LinkFactory
 {
+    /**
+     * Call this method to generate the library linkage.
+     *
+     * @param libraryName The name of the dll or SO file (no extension).
+     * @param interfaceClass The class to wrap.
+     * @param <T>
+     * @return A class linked to call into a DLL or SO using the Foreign Linker.
+     */
     public static <T extends Foreign> T link(String libraryName, Class<T> interfaceClass) throws Throwable
     {
         if (!Foreign.class.isAssignableFrom(interfaceClass)) {
@@ -83,11 +100,15 @@ public class LinkFactory
         return (T)classWriter.build(methodMap);
     }
 
-
+    /**
+     * This class is to write out a java file that we will compile to access a foreign library
+     * @param <T>
+     */
     private static class ClassWriter<T extends Foreign>
     {
         StringBuilder m_source = new StringBuilder();
         StringBuilder m_moduleSource = new StringBuilder();
+        StringBuilder m_initSource = new StringBuilder();
         String m_className;
         String m_fullClassName;
 
@@ -112,9 +133,14 @@ public class LinkFactory
                         public %s(HashMap<String, MethodHandle> methods)
                         {
                             m_methods = methods;
+                            init();
                         }
 
                     """, packageName, interfaceClass.getName(), m_className, interfaceClass.getSimpleName(), m_className));
+
+            m_initSource.append("""
+                    private void init(){
+                    """);
 
             m_moduleSource.append(String.format("""
                     module foreign.caller {
@@ -176,10 +202,11 @@ public class LinkFactory
                 tryArgs.insert(0, "(").append(")");
 
             m_source.append(String.format("""
+                                private MethodHandle m_%s;
                                 public %s %s(%s)
                                 {
                                     try %s {
-                                        %s m_methods.get("%s").invokeExact(%s);
+                                        %s m_%s.invokeExact(%s);
                                         %s
                                         %s;
                                     } 
@@ -189,15 +216,21 @@ public class LinkFactory
                                     }
                                 }
                                 
-                            """,  retType.getSimpleName(), method.getName(),args,
+                            """,
+                    method.getName(),
+                    retType.getSimpleName(), method.getName(),args,
                     tryArgs,
                     strCallReturn, method.getName(), params,
                     readReferences,
                     strReturn));
+
+            m_initSource.append(String.format("m_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
         }
 
         T build(Map<String, MethodHandle> methods) throws Throwable
         {
+            m_initSource.append("}");
+            m_source.append(m_initSource);
             m_source.append("\n}");
 
             Path buildRoot = Path.of(System.getProperty("java.io.tmpdir"), "jpassport");

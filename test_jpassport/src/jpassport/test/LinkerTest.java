@@ -1,3 +1,14 @@
+/* Copyright (c) 2021 Duncan McLean, All Rights Reserved
+ *
+ * The contents of this file is dual-licensed under the
+ * Apache License 2.0.
+ *
+ * You may obtain a copy of the Apache License at:
+ *
+ * http://www.apache.org/licenses/
+ *
+ * A copy is also included in the downloadable source code.
+ */
 package jpassport.test;
 
 import com.sun.jna.Native;
@@ -16,6 +27,7 @@ public class LinkerTest
 {
     static TestLink testFL;
     static TestLink testJNA;
+    static TestLink testJNADirect;
     static TestLink testJava;
 
     static List<TestLink> allLinks;
@@ -24,52 +36,15 @@ public class LinkerTest
     @BeforeAll
     public static void startup() throws Throwable
     {
-//        System.out.println(new java.io.File(".").getAbsolutePath());
-//        System.setProperty("java.library.path", "fl_dll\\cmake-build-debug");
-
         testFL = LinkFactory.link("libforeign_link", TestLink.class);
         testJNA =  Native.load("libforeign_link.dll", TestLink.class);
+        testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJava();
 
-        allLinks = List.of(testJava,  testFL, testJNA);
+        allLinks = List.of(testJava,  testFL, testJNA, testJNADirect);
         allLinksPtrPtr = List.of(testJava,  testFL);
     }
 
-//    public static void main(String[] str)
-//    {
-//
-//        testSumD(allLinks);
-//        testSumArrD(allLinks);
-//        testSumArrDD(allLinks);
-//        testReadD(allLinks);
-//
-//        testSumArrF(allLinks);
-//        testReadF(allLinks);
-//
-//        testSumArrL(allLinks);
-//        testReadL(allLinks);
-//
-//        testSumArrI(allLinks);
-//        testReadI(allLinks);
-//
-//        testSumArrS(allLinks);
-//        testReadS(allLinks);
-//
-//        testSumArrB(allLinks);
-//        testReadB(allLinks);
-//
-//        testSumMatI(allLinks);
-//        testSumMatIPtrPtr(allLinks);
-////        for (int loops = 1000; loops < 100000; loops += 1000)
-////        {
-////            double j = pj.sumTest(loops);
-////            double jna = TestLib.sumTest(testLib, loops);
-////            double clink = linked.sumTest(loops);
-////            double clink2 = TestLibLinked2.sumTest(linked2, loops);
-////
-////            System.out.printf("sum, %d, %f, %f, %f, %f\n", loops, j, jna, clink, clink2);
-////        }
-//    }
 
     @Test
     void testD()
@@ -124,7 +99,7 @@ public class LinkerTest
         {
             assertEquals(correct, test.sumArrI(testRange, testRange.length));
 
-            int v[] = new int[1];
+            int[] v = new int[1];
             test.readI(v, 5);
             assertEquals(5, v[0]);
         }
@@ -138,7 +113,7 @@ public class LinkerTest
         {
             assertEquals(1+2+3, test.sumArrS(new short[] {1, 2, 3}, (short)3));
 
-            short v[] = new short[1];
+            short[] v = new short[1];
             test.readS(v, (short)5);
             assertEquals(5, v[0]);
         }
@@ -152,7 +127,7 @@ public class LinkerTest
         {
             assertEquals(1+2+3, test.sumArrB(new byte[] {1, 2, 3}, (byte)3));
 
-            byte v[] = new byte[1];
+            byte[] v = new byte[1];
             test.readB(v, (byte)5);
             assertEquals(5, v[0]);
         }

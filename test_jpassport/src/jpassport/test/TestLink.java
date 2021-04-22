@@ -1,11 +1,20 @@
+/* Copyright (c) 2021 Duncan McLean, All Rights Reserved
+ *
+ * The contents of this file is dual-licensed under the
+ * Apache License 2.0.
+ *
+ * You may obtain a copy of the Apache License at:
+ *
+ * http://www.apache.org/licenses/
+ *
+ * A copy is also included in the downloadable source code.
+ */
 package jpassport.test;
 
 import com.sun.jna.Library;
 import jpassport.Foreign;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
-
-import java.util.stream.IntStream;
 
 public interface TestLink extends Foreign, Library {
 
@@ -44,23 +53,4 @@ public interface TestLink extends Foreign, Library {
     int sumMatBPtrPtr(int rows, int cols, @PtrPtrArg byte[][] mat);
 
     int cstringLength(String s);
-
-    static double sumTest(TestLink testLib, int count) {
-        long start = System.nanoTime();
-        double m = 0;
-        for (double n = 0; n < count; ++n) {
-            m = testLib.sumD(n, m);
-        }
-        return (System.nanoTime() - start) / 1e9;
-    }
-
-    static double sumArrTest(TestLink testLib, int count, int arrLen) {
-        double[] arr = IntStream.range(0, arrLen).mapToDouble(n -> (double) n).toArray();
-        long start = System.nanoTime();
-        double m = 0;
-        for (double n = 0; n < count; ++n) {
-            m = testLib.sumArrD(arr, arr.length);
-        }
-        return (System.nanoTime() - start) / 1e9;
-    }
 }
