@@ -433,4 +433,11 @@ public class Utils
         }
         return true;
     }
+
+    public static Path getBuildFolder()
+    {
+        if (System.getProperty("jpassport.build.home") != null)
+            return Path.of(System.getProperty("jpassport.build.home"));
+        return Path.of(System.getProperty("java.io.tmpdir"), "jpassport");
+    }
 }

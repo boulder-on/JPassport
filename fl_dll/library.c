@@ -278,3 +278,10 @@ int cstringLength(const char* string)
 {
     return strlen(string);
 }
+
+char* mallocString(const char* origString)
+{
+    char* ret = malloc(strlen(origString) * sizeof(char));
+    strcpy(ret, origString);
+    return ret;
+}

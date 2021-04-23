@@ -53,4 +53,6 @@ public interface TestLink extends Foreign, Library {
     int sumMatBPtrPtr(int rows, int cols, @PtrPtrArg byte[][] mat);
 
     int cstringLength(String s);
+
+    String mallocString(String origString);
 }

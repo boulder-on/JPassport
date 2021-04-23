@@ -32,6 +32,8 @@ import java.util.Map;
 
 public class LinkFactory
 {
+    private static int Class_ID = 1;
+
     /**
      * Call this method to generate the library linkage.
      *
@@ -40,7 +42,7 @@ public class LinkFactory
      * @param <T>
      * @return A class linked to call into a DLL or SO using the Foreign Linker.
      */
-    public static <T extends Foreign> T link(String libraryName, Class<T> interfaceClass) throws Throwable
+    public synchronized static <T extends Foreign> T link(String libraryName, Class<T> interfaceClass) throws Throwable
     {
         if (!Foreign.class.isAssignableFrom(interfaceClass)) {
             throw new IllegalArgumentException("Interface (" + interfaceClass.getSimpleName() + ") of library=" + libraryName + " does not extend " + Foreign.class.getSimpleName());
@@ -60,8 +62,6 @@ public class LinkFactory
             if ((method.getModifiers() & Modifier.STATIC) != 0)
                 continue;
 
-            System.out.println("Building: " + method.getName());
-
             LibraryLookup.Symbol symb = libLookup.lookup(method.getName()).orElse(null);
             if (symb == null)
                 throw new IllegalArgumentException("Method not found in library: " + method.getName());
@@ -69,7 +69,7 @@ public class LinkFactory
             Class retType = method.getReturnType();
             Class[] parameters = method.getParameterTypes();
             Class methRet = retType;
-            if (methRet.isArray()) {
+            if (methRet.isArray() || retType.equals(String.class)) {
                 methRet= MemoryAddress.class;
             }
 
@@ -111,11 +111,13 @@ public class LinkFactory
         StringBuilder m_initSource = new StringBuilder();
         String m_className;
         String m_fullClassName;
+        int m_ID;
 
         ClassWriter(Class<T> interfaceClass)
         {
+            m_ID = Class_ID;
             m_className = interfaceClass.getSimpleName() + "_impl";
-            String packageName = "jpassport.called";
+            String packageName = "jpassport.called_" + m_ID;
             m_fullClassName = packageName + "." + m_className;
 
             m_source.append(String.format("""
@@ -163,8 +165,16 @@ public class LinkFactory
 
             if (!void.class.equals(retType))
             {
-                strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
-                strReturn = "return ret";
+                if (retType.equals(String.class))
+                {
+                    strCallReturn = "var ret = (MemoryAddress)";
+                    strReturn = "return CLinker.toJavaStringRestricted(ret)";
+                }
+                else
+                {
+                    strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
+                    strReturn = "return ret";
+                }
             }
 
             Annotation[][] paramAnnotations = method.getParameterAnnotations();
@@ -233,8 +243,8 @@ public class LinkFactory
             m_source.append(m_initSource);
             m_source.append("\n}");
 
-            Path buildRoot = Path.of(System.getProperty("java.io.tmpdir"), "jpassport");
-            Path sourceRoot = buildRoot.resolve("jpassport").resolve("called");
+            Path buildRoot = Utils.getBuildFolder();
+            Path sourceRoot = buildRoot.resolve("jpassport").resolve("called_" + m_ID);
             if (Files.exists(sourceRoot))
                 Utils.deleteFolder(sourceRoot);
             Files.createDirectories(sourceRoot);

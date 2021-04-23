@@ -36,6 +36,8 @@ public class LinkerTest
     @BeforeAll
     public static void startup() throws Throwable
     {
+        System.setProperty("jpassport.build.home", "out/testing");
+
         testFL = LinkFactory.link("libforeign_link", TestLink.class);
         testJNA =  Native.load("libforeign_link.dll", TestLink.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
@@ -45,6 +47,16 @@ public class LinkerTest
         allLinksPtrPtr = List.of(testJava,  testFL);
     }
 
+    @Test
+    void testAllocString()
+    {
+        for (TestLink test : allLinksPtrPtr)
+        {
+            String orig = "hello";
+            String ret = test.mallocString(orig);
+            assertEquals(orig, ret);
+        }
+    }
 
     @Test
     void testD()

@@ -35,6 +35,7 @@ public class TestLinkJNADirect
 
     public static native byte sumArrB(byte[] i, byte len);
     public static native void readB(byte[] d, byte set);
+//    public static native int[] mallocInts(int count);
 
     static
     {
@@ -175,6 +176,11 @@ public class TestLinkJNADirect
         @Override
         public int cstringLength(String s) {
             return 0;
+        }
+
+        @Override
+        public String mallocString(String orig) {
+            return new String(orig);
         }
     }
 }

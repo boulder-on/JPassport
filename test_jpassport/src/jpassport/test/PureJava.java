@@ -11,6 +11,8 @@
  */
 package jpassport.test;
 
+import java.util.stream.IntStream;
+
 public class PureJava implements TestLink
 {
     @Override
@@ -219,6 +221,11 @@ public class PureJava implements TestLink
     public int cstringLength(String s)
     {
         return s.length();
+    }
+
+    @Override
+    public String mallocString(String origString) {
+        return new String(origString);
     }
 
 }
