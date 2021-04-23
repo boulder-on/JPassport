@@ -1,8 +1,9 @@
 # JPassport
 
-JPassport is intended to be a replacement for Java Native Access (JNA) but uses the Foreign Linker API instead of JNI. 
-Similar to JNA, you can create an interface with the method definitions that exist in your library then JPassport does 
-the rest. To the caller the library is just an interface.
+JPassport works like Java Native Access (JNA) but uses the Foreign Linker API instead of JNI. 
+Similar to JNA, you create an interface with the method definitions that exist in your 
+library then JPassport does the rest. JPassport will build a class that implements your interface
+and call into the library you specify.
 
 The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
 
@@ -29,14 +30,14 @@ double sumArrD(const double *arr, const int count)
 ```
 
 Java:
-```
+```Java
 public interface Linked extends Foreign {
    int string_length(String s);
    double sumArrD(double[] arr, int count);
 }
 ```
 Java Usage:
-```
+```Java
 Linked L = LinkFactory.link("libforeign", Linked.class);
 int n = L.string_length("hello");
 double sum = L.sumArrD(new double[] {1, 2, 3}, 3);
@@ -118,7 +119,7 @@ void readB(int *val, int set)
 ```
 
 Java:
-```
+```Java
 public interface Test extends Foreign {
   void readD(@RefArg int[] d, int set);
 }
