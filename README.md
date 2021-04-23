@@ -53,7 +53,7 @@ The testing classes I have use JNA, JNA Direct, JPassport and pure Java. The per
 Passing primatives: 
 1. Java - About 4.5 times faster than JPassport
 2. JPassport - About 5.5x faster than JNA Direct
-3. JNA Direct - Very good, about 7-8x faster than JAN
+3. JNA Direct - Very good, about 7-8x faster than JNA
 4. JNA - Slowest by a significant margin
 
 Passing Arrays:
