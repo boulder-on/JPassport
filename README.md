@@ -48,13 +48,13 @@ In order to use this library you will need to provide the VM these arguments:
 __-Djava.library.path=[path to lib] -Dforeign.restricted=permit__
 
 # Performance
-The testing classes I have use JNA, JNA Direct, JPassport and pure Java. The performance difference break down as:
+The testing classes I have use JNA, JNA Direct, JPassport and pure Java. The performance breaks down as:
 
 Passing primatives: 
 1. Java - About 4.5 times faster than JPassport
 2. JPassport - About 5.5x faster than JNA Direct
 3. JNA Direct - Very good, about 7-8x faster than JNA
-4. JNA - Slowest by a significant margin
+4. JNA
 
 Passing Arrays:
 
@@ -64,7 +64,7 @@ There was less of a difference here.
 3. JNA Direct - About the same as JNA
 4. JNA
 
-NOTE: I tried without success to use th jextract tool. I was able to get it to generate code and I saw little substantive difference it what it tried to generate over what I generated.
+NOTE: I tried without success to use the jextract tool. 
 
 Performance of method that passes 2 doubles:
 
@@ -77,7 +77,7 @@ Performance of method that passes an array of doubles
 
 # How it works
 
-There are 2 stages to make the foreign linking to work:
+There are 2 stages to make the foreign linking work:
 
 1. The interface is scanned for non-static methods. All non-static methods are found by name in the given library
 2. A new class is built using the given interface and then compiled.
