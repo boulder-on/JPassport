@@ -13,5 +13,6 @@
     <orderEntry type="library" name="org.junit.jupiter:junit-jupiter:5.4.2" level="project" />
     <orderEntry type="library" name="org.openjdk.jmh:jmh-core:1.29" level="project" />
     <orderEntry type="library" name="org.openjdk.jmh:jmh-generator-annprocess:1.29" level="project" />
+    <orderEntry type="library" name="org.apache.commons:commons-csv:1.8" level="project" />
   </component>
 </module>

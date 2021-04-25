@@ -3,7 +3,7 @@
 JPassport works like Java Native Access (JNA) but uses the Foreign Linker API instead of JNI. 
 Similar to JNA, you create an interface with the method definitions that exist in your 
 library then JPassport does the rest. JPassport will build a class that implements your interface
-and call into the library you specify.
+and call into the library you specify. JPassport is no as full featured as JNA at this time.
 
 The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
 
@@ -48,23 +48,7 @@ In order to use this library you will need to provide the VM these arguments:
 __-Djava.library.path=[path to lib] -Dforeign.restricted=permit__
 
 # Performance
-The testing classes I have use JNA, JNA Direct, JPassport and pure Java. The performance breaks down as:
-
-Passing primatives: 
-1. Java - About 4.5 times faster than JPassport
-2. JPassport - About 5.5x faster than JNA Direct
-3. JNA Direct - Very good, about 7-8x faster than JNA
-4. JNA
-
-Passing Arrays:
-
-There was less of a difference here.
-1. Java - About 4 times faster than JPassport
-2. JPassport - About 1.3x faster than JNA Direct (better at larger array sizes)
-3. JNA Direct - About the same as JNA
-4. JNA
-
-NOTE: I tried without success to use the jextract tool. 
+The testing classes I have use JNA, JNA Direct, JPassport and pure Java.
 
 Performance of method that passes 2 doubles:
 
@@ -74,6 +58,7 @@ Performance of method that passes an array of doubles
 
 ![array performance](passing_double_arr.png)
 
+(Tests were run on Windows 10 with an i7-10850H.)
 
 # How it works
 
@@ -108,7 +93,7 @@ Return types can be:
 7. void
 8. char*
 
-If an argument is changed by the library call then an annotation is required. Ex
+If an argument is changed by the library call then an annotation is required. Ex.
 
 C:
 ```
@@ -124,9 +109,9 @@ public interface Test extends Foreign {
   void readD(@RefArg int[] d, int set);
 }
 
-Linked L = LinkFactory.link("libforeign_link", Test.class);
+Linked lib = LinkFactory.link("libforeign_link", Test.class);
 int ref[] = new int[1];
-L.readD(ref, 10);
+lib.readD(ref, 10);
 ```
 
 Without the @RefArg, when ref[] is returned it will not have been updated.
@@ -145,9 +130,11 @@ The testing classes require:
 
 * JNA 5.8.0
 * JUnit 5.4.2 (later versions of JUnit do not play nice with modules yet)
+* Apache Commons CSV 1.8 (only used to output performance data)
 
 # Work To-Do
 Roughly in order of importance
 
-1. Support struct arguments 
-2. Use the Java Micro-benchmarking harness
+1. Support struct arguments.
+2. Figure out a method to allow custom parameter and return value handling.
+3. Use the Java Micro-benchmarking harness.

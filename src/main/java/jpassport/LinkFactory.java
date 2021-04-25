@@ -159,7 +159,9 @@ public class LinkFactory
             StringBuilder args = new StringBuilder();
             StringBuilder params = new StringBuilder();
             StringBuilder tryArgs = new StringBuilder();
-            StringBuilder readReferences = new StringBuilder();
+            StringBuilder postCall = new StringBuilder();
+            StringBuilder preCall = new StringBuilder();
+
             String strCallReturn = "";
             String strReturn = "";
 
@@ -179,6 +181,7 @@ public class LinkFactory
 
             Annotation[][] paramAnnotations = method.getParameterAnnotations();
             int v = 1;
+            boolean bHasAllocatedMemory = false;
 
             for (Class parameter : method.getParameterTypes())
             {
@@ -186,18 +189,20 @@ public class LinkFactory
 
                 if (parameter.isArray())
                 {
+                    bHasAllocatedMemory = true;
                     if (isPtrPtrArg(paramAnnotations[v-1]))
-                        tryArgs.append(String.format("var vv%d = Utils.toPtrPTrMS(v%d);", v, v));
+                        preCall.append(String.format("var vv%d = Utils.toPtrPTrMS(scope, v%d);", v, v));
                     else
-                        tryArgs.append(String.format("var vv%d = Utils.toMS(v%d);", v, v));
+                        preCall.append(String.format("var vv%d = Utils.toMS(scope, v%d);\n", v, v));
 
                     params.append("vv").append(v).append(".address(),");
 
                     if (isRefArg(paramAnnotations[v-1]))
-                        readReferences.append(String.format("Utils.toArr(v%d, vv%d);\n", v, v));
+                        postCall.append(String.format("Utils.toArr(v%d, vv%d);\n", v, v));
                 }
                 else if (parameter.getSimpleName().equals("String"))
                 {
+                    bHasAllocatedMemory = true;
                     tryArgs.append(String.format("var vv%d = CLinker.toCString(v%d);", v, v));
                     params.append("vv").append(v).append(".address(),");
                 }
@@ -208,6 +213,8 @@ public class LinkFactory
 
             args.setLength(args.length() - 1);
             params.setLength(params.length() - 1);
+            if (bHasAllocatedMemory)
+                tryArgs.append("var scope = NativeScope.unboundedScope();");
             if (tryArgs.length() > 0)
                 tryArgs.insert(0, "(").append(")");
 
@@ -216,6 +223,7 @@ public class LinkFactory
                                 public %s %s(%s)
                                 {
                                     try %s {
+                                        %s
                                         %s m_%s.invokeExact(%s);
                                         %s
                                         %s;
@@ -230,8 +238,9 @@ public class LinkFactory
                     method.getName(),
                     retType.getSimpleName(), method.getName(),args,
                     tryArgs,
+                    preCall,
                     strCallReturn, method.getName(), params,
-                    readReferences,
+                    postCall,
                     strReturn));
 
             m_initSource.append(String.format("m_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));

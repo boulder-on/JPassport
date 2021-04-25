@@ -19,6 +19,8 @@ import java.lang.annotation.Target;
 /**
  * This annotation is for an array that will be changed in the foreign library and
  * therefore should be read back in after the library call.
+ *
+ * This annotation is only observed for array arguments.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
