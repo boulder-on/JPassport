@@ -12,6 +12,7 @@
 package jpassport.test;
 
 import com.sun.jna.Native;
+import jdk.incubator.foreign.MemoryAddress;
 import jpassport.test.performance.PerfTest;
 
 public class TestLinkJNADirect
@@ -181,6 +182,16 @@ public class TestLinkJNADirect
         @Override
         public String mallocString(String orig) {
             return new String(orig);
+        }
+
+        @Override
+        public MemoryAddress mallocDoubles(int count) {
+            return null;
+        }
+
+        @Override
+        public void freeMemory(MemoryAddress address) {
+
         }
     }
 }

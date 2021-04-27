@@ -3,7 +3,7 @@
 JPassport works like Java Native Access (JNA) but uses the Foreign Linker API instead of JNI. 
 Similar to JNA, you create an interface with the method definitions that exist in your 
 library then JPassport does the rest. JPassport will build a class that implements your interface
-and call into the library you specify. JPassport is no as full featured as JNA at this time.
+and call into the library you specify. JPassport is not as full featured as JNA at this time (see the Limitations below).
 
 The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
 
@@ -75,13 +75,16 @@ compiled there.
 
 # Library Data Types that work
 
-Methods with the following data types for arguments can be called:
+Methods with the following C data types for arguments can be called:
 1. double, double*, double[], double**, double[][]
 2. float, float*, float[], float**, float[][]
 3. long, long*, long[], long**, long[][]
 4. int, int*, int[], int**, int[][]
 5. short, short*, short[], short**, short[][]
 6. char, char*, char[], char**, char[][]
+7. any other pointer (see Limitations)
+
+Any C argument that is defined with ** must be annotated with @PTrPtrArg.
 
 Return types can be:
 1. double
@@ -92,8 +95,9 @@ Return types can be:
 6. char
 7. void
 8. char*
+9. any pointer (see limitations)
 
-If an argument is changed by the library call then an annotation is required. Ex.
+If an argument is changed by the library call then the @RefArg annotation is required for that argument. Ex.
 
 C:
 ```
@@ -119,9 +123,51 @@ Without the @RefArg, when ref[] is returned it will not have been updated.
 # Limitations
 
 * Struct arguments to C functions do not work.
-* Pointers as function returns do not work
 * The interface file passed to LinkFactory must be exported by your module.
 
+Pointers as function returns only work in a limited fashion. There isn't a way
+that you can tell much about a pointer returned from a function. So there is
+little a library like JPassport can do to handle returned pointers automatically. 
+The work-around is to have your interface function return a MemoryAddress object 
+so that you can decipher it yourself. The extension to this idea is that you
+can have your method declared to take MemoryAddress arguments as well. This
+would allow you to handle your own structs for now.
+
+```
+double* mallocDoubles(const int count)
+{
+    double* ret = malloc(count *sizeof(double ));
+
+    for (int n = 0; n < count; ++n)
+        ret[n] = (double)n;
+
+    return ret;
+}
+
+void freeMemory(void *memory)
+{
+    free(memory);
+}
+```
+
+```Java
+    import jdk.incubator.foreign.MemoryAddress;
+
+public interface TestLink extends Foreign {
+    MemoryAddress mallocDoubles(int count);
+
+    void freeMemory(MemoryAddress addr);
+}
+
+double[] testReturnPointer(int count) {
+    MemoryAddress address = linked_lib.mallocDoubles(count);
+    double[] values = new double[count];
+    Utils.toArr(values, address.asSegmentRestricted(count * Double.BYTES));
+    linked_lib.freeMemory(address);
+    return values;
+}
+
+```
 # Dependencies
 
 JPassport itself only requires at least Java 16 to build and run.
@@ -136,5 +182,5 @@ The testing classes require:
 Roughly in order of importance
 
 1. Support struct arguments.
-2. Figure out a method to allow custom parameter and return value handling.
-3. Use the Java Micro-benchmarking harness.
+2. Use the Java Micro-benchmarking harness.
+3. Compile classes in memory instead of from disk

@@ -14,10 +14,16 @@ package jpassport.test;
 import com.sun.jna.Native;
 
 import java.util.List;
+import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import jdk.incubator.foreign.MemoryAddress;
+import jdk.incubator.foreign.MemorySegment;
+import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.LinkFactory;
 
@@ -224,5 +230,18 @@ public class LinkerTest
         {
             assertEquals(5, test.cstringLength("12345"));
         }
+    }
+
+    @Test
+    void testReturnPointer()
+    {
+        double[] values = new double[5];
+        MemoryAddress address = testFL.mallocDoubles(values.length);
+        MemorySegment segment = address.asSegmentRestricted(values.length * Double.BYTES);
+        Utils.toArr(values, segment);
+
+        assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
+
+        testFL.freeMemory(address);
     }
 }
