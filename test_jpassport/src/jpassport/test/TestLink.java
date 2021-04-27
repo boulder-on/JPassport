@@ -12,6 +12,7 @@
 package jpassport.test;
 
 import com.sun.jna.Library;
+import jdk.incubator.foreign.MemoryAddress;
 import jpassport.Foreign;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
@@ -55,4 +56,6 @@ public interface TestLink extends Foreign, Library {
     int cstringLength(String s);
 
     String mallocString(String origString);
+    MemoryAddress mallocDoubles(int count);
+    void freeMemory(MemoryAddress address);
 }

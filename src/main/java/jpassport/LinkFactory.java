@@ -74,7 +74,7 @@ public class LinkFactory
             }
 
             for (int n = 0; n < parameters.length; ++n) {
-                if (parameters[n].isArray() ||parameters[n].getSimpleName().equals("String")) {
+                if (parameters[n].isArray() || parameters[n].equals(String.class)) {
                     parameters[n] = MemoryAddress.class;
                 }
             }
@@ -141,8 +141,8 @@ public class LinkFactory
                     """, packageName, interfaceClass.getName(), m_className, interfaceClass.getSimpleName(), m_className));
 
             m_initSource.append("""
-                    private void init(){
-                    """);
+                                    private void init(){
+                                """);
 
             m_moduleSource.append(String.format("""
                     module foreign.caller {
@@ -170,12 +170,12 @@ public class LinkFactory
                 if (retType.equals(String.class))
                 {
                     strCallReturn = "var ret = (MemoryAddress)";
-                    strReturn = "return CLinker.toJavaStringRestricted(ret)";
+                    strReturn = "return CLinker.toJavaStringRestricted(ret);";
                 }
                 else
                 {
                     strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
-                    strReturn = "return ret";
+                    strReturn = "return ret;";
                 }
             }
 
@@ -226,8 +226,8 @@ public class LinkFactory
                                         %s
                                         %s m_%s.invokeExact(%s);
                                         %s
-                                        %s;
-                                    } 
+                                        %s
+                                    }
                                     catch(Throwable th)
                                     {
                                         throw new Error(th);
@@ -243,12 +243,12 @@ public class LinkFactory
                     postCall,
                     strReturn));
 
-            m_initSource.append(String.format("m_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
+            m_initSource.append(String.format("\t\tm_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
         }
 
         T build(Map<String, MethodHandle> methods) throws Throwable
         {
-            m_initSource.append("}");
+            m_initSource.append("\t}");
             m_source.append(m_initSource);
             m_source.append("\n}");
 

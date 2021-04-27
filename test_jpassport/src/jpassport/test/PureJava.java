@@ -11,6 +11,8 @@
  */
 package jpassport.test;
 
+import jdk.incubator.foreign.MemoryAddress;
+
 import java.util.stream.IntStream;
 
 public class PureJava implements TestLink
@@ -228,4 +230,12 @@ public class PureJava implements TestLink
         return new String(origString);
     }
 
+    @Override
+    public MemoryAddress mallocDoubles(int count) {
+        return null;
+    }
+
+    @Override
+    public void freeMemory(MemoryAddress address) {
+    }
 }

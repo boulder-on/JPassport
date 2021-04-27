@@ -285,3 +285,18 @@ char* mallocString(const char* origString)
     strcpy(ret, origString);
     return ret;
 }
+
+double* mallocDoubles(const int count)
+{
+    double* ret = malloc(count *sizeof(double ));
+
+    for (int n = 0; n < count; ++n)
+        ret[n] = (double)n;
+
+    return ret;
+}
+
+void freeMemory(void *memory)
+{
+    free(memory);
+}
