@@ -13,11 +13,11 @@ package jpassport.test;
 
 import com.sun.jna.Library;
 import jdk.incubator.foreign.MemoryAddress;
-import jpassport.Foreign;
+import jpassport.Passport;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 
-public interface TestLink extends Foreign, Library {
+public interface TestLink extends Passport, Library {
 
     double sumD(double d, double d2);
     double sumArrD(double[] d, int len);

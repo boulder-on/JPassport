@@ -1,7 +1,7 @@
 package jpassport.test.performance;
 
 import com.sun.jna.Native;
-import jpassport.LinkFactory;
+import jpassport.PassportFactory;
 import jpassport.test.PureJava;
 import jpassport.test.TestLink;
 import jpassport.test.TestLinkJNADirect;
@@ -11,7 +11,6 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 
-import java.util.List;
 import java.util.stream.IntStream;
 
 @State(Scope.Benchmark)
@@ -47,7 +46,7 @@ public class JPassportMicroBenchmark
     @Setup()
     public void setUp() throws Throwable
     {
-        testFL = LinkFactory.link("libforeign_link", TestLink.class);
+        testFL = PassportFactory.link("libforeign_link", TestLink.class);
         testJNA =  Native.load("libforeign_link.dll", TestLink.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJava();

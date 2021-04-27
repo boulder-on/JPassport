@@ -14,5 +14,5 @@ package jpassport;
 /**
  * An interface needs to extend this interface in order to link to the foreign library.
  */
-public interface Foreign {
+public interface Passport {
 }

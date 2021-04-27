@@ -30,7 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class LinkFactory
+public class PassportFactory
 {
     private static int Class_ID = 1;
 
@@ -42,16 +42,16 @@ public class LinkFactory
      * @param <T>
      * @return A class linked to call into a DLL or SO using the Foreign Linker.
      */
-    public synchronized static <T extends Foreign> T link(String libraryName, Class<T> interfaceClass) throws Throwable
+    public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass) throws Throwable
     {
-        if (!Foreign.class.isAssignableFrom(interfaceClass)) {
-            throw new IllegalArgumentException("Interface (" + interfaceClass.getSimpleName() + ") of library=" + libraryName + " does not extend " + Foreign.class.getSimpleName());
+        if (!Passport.class.isAssignableFrom(interfaceClass)) {
+            throw new IllegalArgumentException("Interface (" + interfaceClass.getSimpleName() + ") of library=" + libraryName + " does not extend " + Passport.class.getSimpleName());
         } else {
             return buildClass(libraryName, interfaceClass);
         }
     }
 
-    private static <T extends Foreign> T buildClass(String libName, Class<T> interfaceClass) throws Throwable
+    private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable
     {
         LibraryLookup libLookup = LibraryLookup.ofLibrary(libName);
         Method[] methods = interfaceClass.getDeclaredMethods();
@@ -79,7 +79,7 @@ public class LinkFactory
                 }
             }
 
-            MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(LinkFactory::classToMemory).toArray(MemoryLayout[]::new);
+            MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
 
             FunctionDescriptor fd;
             if (void.class.equals(retType))
@@ -104,7 +104,7 @@ public class LinkFactory
      * This class is to write out a java file that we will compile to access a foreign library
      * @param <T>
      */
-    private static class ClassWriter<T extends Foreign>
+    private static class ClassWriter<T extends Passport>
     {
         StringBuilder m_source = new StringBuilder();
         StringBuilder m_moduleSource = new StringBuilder();

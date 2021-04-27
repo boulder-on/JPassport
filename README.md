@@ -1,9 +1,11 @@
 # JPassport
 
 JPassport works like Java Native Access (JNA) but uses the Foreign Linker API instead of JNI. 
-Similar to JNA, you create an interface with the method definitions that exist in your 
-library then JPassport does the rest. JPassport will build a class that implements your interface
-and call into the library you specify. JPassport is not as full featured as JNA at this time (see the Limitations below).
+Similar to JNA, in order to call an external C library you need to declare a Java interface 
+with the method definitions that match the methods in the external library. 
+JPassport will build a class that implements your interface
+and manages calls into the library. JPassport is not as full featured as JNA at this time 
+(see the Limitations below) but for simple applications it would be a near drop in replacement.
 
 The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
 
@@ -31,14 +33,14 @@ double sumArrD(const double *arr, const int count)
 
 Java:
 ```Java
-public interface Linked extends Foreign {
+public interface Linked extends Passport {
    int string_length(String s);
    double sumArrD(double[] arr, int count);
 }
 ```
 Java Usage:
 ```Java
-Linked L = LinkFactory.link("libforeign", Linked.class);
+Linked L = PassportFactory.link("libforeign", Linked.class);
 int n = L.string_length("hello");
 double sum = L.sumArrD(new double[] {1, 2, 3}, 3);
 ```
@@ -64,12 +66,12 @@ Performance of method that passes an array of doubles
 
 There are 2 stages to make the foreign linking work:
 
-1. The interface is scanned for non-static methods. All non-static methods are found by name in the given library
-2. A new class is built using the given interface and then compiled.
+1. The interface is scanned for non-static methods. The given library is searched to find methods that match the names given in the Java interface.
+2. A new class is written using the given interface and then compiled. The created class does the required data conversions to call into the library.
 
 Using compiled classes rather than interface proxy objects makes the solution fairly efficient.
 
-By default the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
+By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
 If you provide the system property "jpassport.build.home" then the classes will be written and
 compiled there.
 
@@ -84,7 +86,7 @@ Methods with the following C data types for arguments can be called:
 6. char, char*, char[], char**, char[][]
 7. any other pointer (see Limitations)
 
-Any C argument that is defined with ** must be annotated with @PTrPtrArg.
+Any C argument that is defined with ** must be annotated with @PTrPtrArg in your Java interface.
 
 Return types can be:
 1. double
@@ -109,11 +111,11 @@ void readB(int *val, int set)
 
 Java:
 ```Java
-public interface Test extends Foreign {
+public interface Test extends Passport {
   void readD(@RefArg int[] d, int set);
 }
 
-Linked lib = LinkFactory.link("libforeign_link", Test.class);
+Linked lib = PassportFactory.link("libforeign_link", Test.class);
 int ref[] = new int[1];
 lib.readD(ref, 10);
 ```
@@ -125,13 +127,15 @@ Without the @RefArg, when ref[] is returned it will not have been updated.
 * Struct arguments to C functions do not work.
 * The interface file passed to LinkFactory must be exported by your module.
 
-Pointers as function returns only work in a limited fashion. There isn't a way
-that you can tell much about a pointer returned from a function. So there is
+Pointers as function returns only work in a limited fashion. Based on a C 
+function declaration there isn't a way to tell exactly what a method is returning.
+For example, returning int* could return any number of ints. There is
 little a library like JPassport can do to handle returned pointers automatically. 
-The work-around is to have your interface function return a MemoryAddress object 
-so that you can decipher it yourself. The extension to this idea is that you
-can have your method declared to take MemoryAddress arguments as well. This
-would allow you to handle your own structs for now.
+The work-around is for your interface function return MemoryAddress. From there
+it would be up to you to decipher the return. 
+
+Declaring your interface method to take MemoryAddress objects allow you to
+manage passing your own structs as well.
 
 ```
 double* mallocDoubles(const int count)
@@ -151,17 +155,15 @@ void freeMemory(void *memory)
 ```
 
 ```Java
-    import jdk.incubator.foreign.MemoryAddress;
-
-public interface TestLink extends Foreign {
+public interface TestLink extends Passport {
     MemoryAddress mallocDoubles(int count);
-
     void freeMemory(MemoryAddress addr);
 }
 
 double[] testReturnPointer(int count) {
     MemoryAddress address = linked_lib.mallocDoubles(count);
     double[] values = new double[count];
+    // Use the provided Util function to copy data out of the MemorySegment
     Utils.toArr(values, address.asSegmentRestricted(count * Double.BYTES));
     linked_lib.freeMemory(address);
     return values;

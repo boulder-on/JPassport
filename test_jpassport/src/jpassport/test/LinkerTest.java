@@ -14,7 +14,6 @@ package jpassport.test;
 import com.sun.jna.Native;
 
 import java.util.List;
-import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 
 
@@ -25,7 +24,7 @@ import jdk.incubator.foreign.MemoryAddress;
 import jdk.incubator.foreign.MemorySegment;
 import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
-import jpassport.LinkFactory;
+import jpassport.PassportFactory;
 
 import org.junit.jupiter.api.Test;
 
@@ -44,7 +43,7 @@ public class LinkerTest
     {
         System.setProperty("jpassport.build.home", "out/testing");
 
-        testFL = LinkFactory.link("libforeign_link", TestLink.class);
+        testFL = PassportFactory.link("libforeign_link", TestLink.class);
         testJNA =  Native.load("libforeign_link.dll", TestLink.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJava();

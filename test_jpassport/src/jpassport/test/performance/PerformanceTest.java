@@ -12,15 +12,11 @@
 package jpassport.test.performance;
 
 import com.sun.jna.Native;
-import jpassport.LinkFactory;
+import jpassport.PassportFactory;
 import jpassport.test.TestLinkJNADirect;
 import jpassport.test.util.CSVOutput;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.IntStream;
 
@@ -36,7 +32,7 @@ public class PerformanceTest
     public static void startup() throws Throwable
     {
         System.setProperty("jpassport.build.home", "out/testing");
-        testFL = LinkFactory.link("libforeign_link", PerfTest.class);
+        testFL = PassportFactory.link("libforeign_link", PerfTest.class);
         testJNA =  Native.load("libforeign_link.dll", PerfTest.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();
