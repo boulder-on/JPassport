@@ -1,15 +1,24 @@
 # JPassport
 
-JPassport works like Java Native Access (JNA) but uses the Foreign Linker API instead of JNI. 
-Similar to JNA, in order to call an external C library you need to declare a Java interface 
-with the method definitions that match the methods in the external library. 
-JPassport will build a class that implements your interface
-and manages calls into the library. JPassport is not as full featured as JNA at this time 
-(see the Limitations below) but for simple applications it would be a near drop in replacement.
+JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
+[Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
+Similar to JNA, you declare a Java interface that is bound to the external C library using method names.  
+JPassport is not as full featured as JNA at this time (see the Limitations below) but for simple 
+applications it would be a near drop in replacement.
+
+As part of the Foreign Linker API a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
+is available. Given a header file JExtract will build the classes needed to access a C library. The
+main differences with JPassport and JExtract are:
+
+* JExtract requires a header file, JPassport does not.
+* JExtract requires you to convert Java objects to MemoryAddress objects manually, JPassport will handle some conversions for you.
+* JExtract builds the classes ahead of time, JPassport builds classes at run time.
+
+Which tool is right for you will greatly depend on your situation.
 
 The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
 
-# Getting started
+# Getting Started
 
 Download the source and run the maven build, or run the ant build.
 
@@ -49,42 +58,52 @@ In order to use this library you will need to provide the VM these arguments:
 
 __-Djava.library.path=[path to lib] -Dforeign.restricted=permit__
 
-# Performance
-The testing classes I have use JNA, JNA Direct, JPassport and pure Java.
+By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
+If you provide the system property __"jpassport.build.home"__ then the classes will be written and
+compiled there.
 
-Performance of method that passes 2 doubles:
+# Performance
+Performance was tested vs JNA, JNA Direct, and pure Java.
+
+Performance of a method that passes 2 doubles:
 
 ![primative performance](passing_doubles.png)
 
-Performance of method that passes an array of doubles
+Performance of a method that passes an array of doubles
 
 ![array performance](passing_double_arr.png)
 
 (Tests were run on Windows 10 with an i7-10850H.)
 
-# How it works
+# C Data Types Handled Automatically
 
-There are 2 stages to make the foreign linking work:
-
-1. The interface is scanned for non-static methods. The given library is searched to find methods that match the names given in the Java interface.
-2. A new class is written using the given interface and then compiled. The created class does the required data conversions to call into the library.
-
-Using compiled classes rather than interface proxy objects makes the solution fairly efficient.
-
-By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
-If you provide the system property "jpassport.build.home" then the classes will be written and
-compiled there.
-
-# Library Data Types that work
-
-Methods with the following C data types for arguments can be called:
-1. double, double*, double[], double**, double[][]
-2. float, float*, float[], float**, float[][]
-3. long, long*, long[], long**, long[][]
-4. int, int*, int[], int**, int[][]
-5. short, short*, short[], short**, short[][]
-6. char, char*, char[], char**, char[][]
-7. any other pointer (see Limitations)
+C Data Type | Java Data Type
+------------|---------------
+double|double
+double*, double[] | double[]
+double** | @PtrPtrArg double[][]
+double[][] | double[][]
+float|float
+float*, float[] | float[]
+float** | @PtrPtrArg float[][]
+float[][] | float[][]
+long|long
+long*, long[] | long[]
+long** | @PtrPtrArg long[][]
+long[][] | long[][]
+int|int
+int*, int[] | int[]
+int** | @PtrPtrArg int[][]
+int[][] | int[][]
+short|short
+short*, short[] | short[]
+short** | @PtrPtrArg short[][]
+short[][] | short[][]
+char|byte
+char*| byte[] or String
+char[] | byte[] or String
+char** | @PtrPtrArg byte[][]
+char[][] | byte[][]
 
 Any C argument that is defined with ** must be annotated with @PTrPtrArg in your Java interface.
 
@@ -96,10 +115,10 @@ Return types can be:
 5. short
 6. char
 7. void
-8. char*
+8. char* (maps to a Java String)
 9. any pointer (see limitations)
 
-If an argument is changed by the library call then the @RefArg annotation is required for that argument. Ex.
+If an argument is changed by the C library call then the @RefArg annotation is required for that argument. Ex.
 
 C:
 ```

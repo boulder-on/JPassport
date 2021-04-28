@@ -17,8 +17,36 @@ extern double sumArrD(const double *arr, int count);
 extern double sumArrDD(const double *arr, const double *arr2, int count);
 extern void readD(double *v, int set);
 extern double sumMatD(int rows, int cols, double mat[rows][cols]);
-extern double sumMatDPtrPtr(const int rows, const int cols, const double** mat);
+extern double sumMatDPtrPtr(int rows, int cols, const double** mat);
 
+extern float sumArrF(const float *arr, int count);
+extern void readF(float *val, float set);
+extern float sumMatF(int rows, int cols, float mat[rows][cols]);
+extern float sumMatFPtrPtr(int rows, int cols, const float** mat);
+
+extern long long sumArrL(const long long *arr, long long count);
+extern void readL(long long *val, long long set);
+extern long long sumMatL(int rows, int cols, long long mat[rows][cols]);
+extern long long sumMatLPtrPtr(int rows, int cols, const long long** mat);
+
+extern int sumArrI(const int *arr, int count);
+extern void readI(int *val, int set);
+extern int sumMatI(int rows, int cols, int mat[rows][cols]);
+extern int sumMatIPtrPtr(int rows, int cols, const int** mat);
+
+extern short sumArrS(const short *arr, short count);
+extern void readS(short *val, short set);
+extern int sumMatS(int rows, int cols, short mat[rows][cols]);
+extern int sumMatSPtrPtr(int rows, int cols, const short ** mat);
+
+extern char sumArrB(const char *arr, char count);
+extern void readB(char *val, char set);
+extern int sumMatB(int rows, int cols, char mat[rows][cols]);
+extern int sumMatBPtrPtr(int rows, int cols, const char ** mat);
+
+extern int cstringLength(const char* string);
 extern char* mallocString(const char* origString);
+extern double* mallocDoubles(int count);
+extern void freeMemory(void *memory);
 
 #endif //FL_DLL_LIBRARY_H
