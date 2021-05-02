@@ -20,15 +20,15 @@ import javax.tools.ToolProvider;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class PassportFactory
 {
@@ -55,13 +55,13 @@ public class PassportFactory
     {
         LibraryLookup libLookup = LibraryLookup.ofLibrary(libName);
         Method[] methods = interfaceClass.getDeclaredMethods();
-        ClassWriter classWriter = new ClassWriter(interfaceClass);
+
+        List<Method> interfaceMethods = Arrays.stream(methods).filter(method -> (method.getModifiers() & Modifier.STATIC) == 0).toList();
+        Set<Class> extraImports = findAllExtraImports(interfaceMethods);
+        ClassWriter classWriter = new ClassWriter(interfaceClass, extraImports);
         Map<String, MethodHandle> methodMap = new HashMap<>();
 
-        for (Method method : methods) {
-            if ((method.getModifiers() & Modifier.STATIC) != 0)
-                continue;
-
+        for (Method method : interfaceMethods) {
             LibraryLookup.Symbol symb = libLookup.lookup(method.getName()).orElse(null);
             if (symb == null)
                 throw new IllegalArgumentException("Method not found in library: " + method.getName());
@@ -69,14 +69,13 @@ public class PassportFactory
             Class retType = method.getReturnType();
             Class[] parameters = method.getParameterTypes();
             Class methRet = retType;
-            if (methRet.isArray() || retType.equals(String.class)) {
+
+            if (!methRet.isPrimitive())
                 methRet= MemoryAddress.class;
-            }
 
             for (int n = 0; n < parameters.length; ++n) {
-                if (parameters[n].isArray() || parameters[n].equals(String.class)) {
+                if (!parameters[n].isPrimitive())
                     parameters[n] = MemoryAddress.class;
-                }
             }
 
             MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
@@ -101,186 +100,84 @@ public class PassportFactory
     }
 
     /**
-     * This class is to write out a java file that we will compile to access a foreign library
-     * @param <T>
+     * This will search the interface method for return types and arguments that should be imported.
+     * These will all be Records.
+     *
+     * @param interfaceMethods All of the methods in the interfacee
+     * @return The list of Record types that should be imported.
      */
-    private static class ClassWriter<T extends Passport>
+    private static Set<Class> findAllExtraImports(List<Method> interfaceMethods) {
+        Set<Class> extraImports = new HashSet<>();
+        for (Method m : interfaceMethods) {
+            Class retType = m.getReturnType();
+            Class[] params = m.getParameterTypes();
+
+            if (!isValidArgType(retType))
+                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
+
+            List<Class> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).collect(Collectors.toList());
+            if (!invalid.isEmpty())
+                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
+
+            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()))
+                extraImports.add(retType);
+            Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
+        }
+
+        extraImports.remove(String.class);
+        extraImports.remove(MemoryAddress.class);
+        //In case any of the Records are made up of Records then this will pick those up to
+        for (Class c : extraImports)
+        {
+            if (c.isRecord())
+                extraImports.addAll(findSubRecords(c));
+        }
+
+        return extraImports;
+    }
+
+    /**
+     * Search all Record types recursively to make sure we import and handle all Record types needed.
+     * @param record A record class to search for other records
+     * @return All of the sub-Records.
+     */
+    static Set findSubRecords(Class record)
     {
-        StringBuilder m_source = new StringBuilder();
-        StringBuilder m_moduleSource = new StringBuilder();
-        StringBuilder m_initSource = new StringBuilder();
-        String m_className;
-        String m_fullClassName;
-        int m_ID;
-
-        ClassWriter(Class<T> interfaceClass)
-        {
-            m_ID = Class_ID;
-            m_className = interfaceClass.getSimpleName() + "_impl";
-            String packageName = "jpassport.called_" + m_ID;
-            m_fullClassName = packageName + "." + m_className;
-
-            m_source.append(String.format("""
-                    package %s;
-
-                    import %s;                                      
-                    import jpassport.Utils;  
-                    import java.lang.invoke.MethodHandle;
-                    import jdk.incubator.foreign.*;
-                    import java.util.HashMap;
-                    
-                    public class %s implements %s {
-                        HashMap<String, MethodHandle> m_methods;
-                        
-                        public %s(HashMap<String, MethodHandle> methods)
-                        {
-                            m_methods = methods;
-                            init();
-                        }
-
-                    """, packageName, interfaceClass.getName(), m_className, interfaceClass.getSimpleName(), m_className));
-
-            m_initSource.append("""
-                                    private void init(){
-                                """);
-
-            m_moduleSource.append(String.format("""
-                    module foreign.caller {
-                        requires jdk.incubator.foreign;
-                        requires jpassport;
-                        requires %s;
-                    }
-                    """, interfaceClass.getModule().getName()));
-
-        }
-
-        public void addMethod(Method method, Class retType)
-        {
-            StringBuilder args = new StringBuilder();
-            StringBuilder params = new StringBuilder();
-            StringBuilder tryArgs = new StringBuilder();
-            StringBuilder postCall = new StringBuilder();
-            StringBuilder preCall = new StringBuilder();
-
-            String strCallReturn = "";
-            String strReturn = "";
-
-            if (!void.class.equals(retType))
+        Set<Class> subRecords = new HashSet<>();
+        for (Field f : record.getDeclaredFields()) {
+            if (f.getType().isRecord())
             {
-                if (retType.equals(String.class))
-                {
-                    strCallReturn = "var ret = (MemoryAddress)";
-                    strReturn = "return CLinker.toJavaStringRestricted(ret);";
-                }
-                else
-                {
-                    strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
-                    strReturn = "return ret;";
-                }
+                subRecords.add(f.getType());
+                subRecords.addAll(findSubRecords(f.getType()));
             }
-
-            Annotation[][] paramAnnotations = method.getParameterAnnotations();
-            int v = 1;
-            boolean bHasAllocatedMemory = false;
-
-            for (Class parameter : method.getParameterTypes())
-            {
-                args.append(String.format("%s v%d,", parameter.getSimpleName(), v));
-
-                if (parameter.isArray())
-                {
-                    bHasAllocatedMemory = true;
-                    if (isPtrPtrArg(paramAnnotations[v-1]))
-                        preCall.append(String.format("var vv%d = Utils.toPtrPTrMS(scope, v%d);", v, v));
-                    else
-                        preCall.append(String.format("var vv%d = Utils.toMS(scope, v%d);\n", v, v));
-
-                    params.append("vv").append(v).append(".address(),");
-
-                    if (isRefArg(paramAnnotations[v-1]))
-                        postCall.append(String.format("Utils.toArr(v%d, vv%d);\n", v, v));
-                }
-                else if (parameter.getSimpleName().equals("String"))
-                {
-                    bHasAllocatedMemory = true;
-                    tryArgs.append(String.format("var vv%d = CLinker.toCString(v%d);", v, v));
-                    params.append("vv").append(v).append(".address(),");
-                }
-                else
-                    params.append("v").append(v).append(",");
-                ++v;
-            }
-
-            args.setLength(args.length() - 1);
-            params.setLength(params.length() - 1);
-            if (bHasAllocatedMemory)
-                tryArgs.append("var scope = NativeScope.unboundedScope();");
-            if (tryArgs.length() > 0)
-                tryArgs.insert(0, "(").append(")");
-
-            m_source.append(String.format("""
-                                private MethodHandle m_%s;
-                                public %s %s(%s)
-                                {
-                                    try %s {
-                                        %s
-                                        %s m_%s.invokeExact(%s);
-                                        %s
-                                        %s
-                                    }
-                                    catch(Throwable th)
-                                    {
-                                        throw new Error(th);
-                                    }
-                                }
-                                
-                            """,
-                    method.getName(),
-                    retType.getSimpleName(), method.getName(),args,
-                    tryArgs,
-                    preCall,
-                    strCallReturn, method.getName(), params,
-                    postCall,
-                    strReturn));
-
-            m_initSource.append(String.format("\t\tm_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
         }
+        return subRecords;
+    }
 
-        T build(Map<String, MethodHandle> methods) throws Throwable
-        {
-            m_initSource.append("\t}");
-            m_source.append(m_initSource);
-            m_source.append("\n}");
-
-            Path buildRoot = Utils.getBuildFolder();
-            Path sourceRoot = buildRoot.resolve("jpassport").resolve("called_" + m_ID);
-            if (Files.exists(sourceRoot))
-                Utils.deleteFolder(sourceRoot);
-            Files.createDirectories(sourceRoot);
-            Path sourceFile = sourceRoot.resolve(m_className + ".java");
-            Files.writeString(sourceFile, m_source);
-            Path moduleFile = buildRoot.resolve("module-info.java");
-            Files.writeString(moduleFile, m_moduleSource);
-
-            JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-            compiler.run(null, null, null,
-                    "--module-path", System.getProperty("jdk.module.path"),
-                    moduleFile.toString(), sourceFile.toString());
-
-            URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] {buildRoot.toUri().toURL()});
-            Class<T> foreignImpl = (Class<T>) Class.forName(m_fullClassName, true, classLoader);
-            return foreignImpl.getDeclaredConstructor(methods.getClass()).newInstance(methods);
-        }
-
-        private boolean isRefArg(Annotation[] paramAnnotations)
-        {
-            return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(RefArg.class::equals);
-        }
-
-        private boolean isPtrPtrArg(Annotation[] paramAnnotations)
-        {
-            return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
-        }
+    /**
+     * At the moment the only argument types that are supported are:
+     * Primitive
+     * Primitive[]
+     * Primitive[][]
+     * Record
+     * String
+     * MemoryAddress
+     *
+     * @param c The type to check
+     * @return Is the type something we can work with
+     */
+    private static boolean isValidArgType(Class c)
+    {
+        if (c.isPrimitive())
+            return true;
+        if (c.isRecord())
+            return true;
+        if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()))
+            return true;
+        if (MemoryAddress.class.equals(c) || String.class.equals(c))
+            return true;
+        return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
     }
 
     private static MemoryLayout classToMemory(Class type)

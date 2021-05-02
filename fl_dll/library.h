@@ -49,4 +49,19 @@ extern char* mallocString(const char* origString);
 extern double* mallocDoubles(int count);
 extern void freeMemory(void *memory);
 
+struct PassingData
+{
+    int s_int;
+    long long s_long;
+    float s_float;
+    double s_double;
+};
+
+struct ComplexPassing
+{
+    int s_ID;
+    struct PassingData s_passingData;
+    struct PassingData* s_ptrPassingData;
+    char* s_string;
+};
 #endif //FL_DLL_LIBRARY_H

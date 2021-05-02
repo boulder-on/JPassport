@@ -3,8 +3,8 @@
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
 Similar to JNA, you declare a Java interface that is bound to the external C library using method names.  
-JPassport is not as full featured as JNA at this time (see the Limitations below) but for simple 
-applications it would be a near drop in replacement.
+The goal of this project is to a) start working with the Foreign Linker, b) provide a drop in replacement
+for JNA in simple applications.
 
 As part of the Foreign Linker API a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
 is available. Given a header file JExtract will build the classes needed to access a C library. The
@@ -17,6 +17,7 @@ main differences with JPassport and JExtract are:
 Which tool is right for you will greatly depend on your situation.
 
 The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
+Since the Foreign Linker is in incubator you can think of this project as a proof of concept at this time.
 
 # Getting Started
 
@@ -58,6 +59,7 @@ In order to use this library you will need to provide the VM these arguments:
 
 __-Djava.library.path=[path to lib] -Dforeign.restricted=permit__
 
+JPassport works by writing a class that implements your interface, compiling it and passing it back to you.
 By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
 If you provide the system property __"jpassport.build.home"__ then the classes will be written and
 compiled there.
@@ -104,6 +106,7 @@ char*| byte[] or String
 char[] | byte[] or String
 char** | @PtrPtrArg byte[][]
 char[][] | byte[][]
+structs | Records
 
 Any C argument that is defined with ** must be annotated with @PTrPtrArg in your Java interface.
 
@@ -140,11 +143,76 @@ lib.readD(ref, 10);
 ```
 
 Without the @RefArg, when ref[] is returned it will not have been updated.
+## Structs and Records
+In order to handle C Structs you must make an equivalent Java Record. For example
+```
+struct PassingData
+{
+    int s_int;
+    long long s_long;
+    float s_float;
+    double s_double;
+};
+
+struct ComplexPassing
+{
+    int s_ID;
+    struct PassingData s_passingData;
+    struct PassingData* s_ptrPassingData;
+    char* s_string;
+};
+
+double passSimple(struct PassingData* complex)
+{
+...
+}
+
+double passComplex(struct ComplexPassing* complex)
+{
+...
+}
+```
+
+```java
+import jpassport.annotations.RefArg;
+
+public record PassingData(
+        @StructPadding(bytes = 4) int s_int,
+        long s_long,
+        @StructPadding(bytes = 4) float s_float,
+        double s_double) {
+}
+
+public record ComplexPassing(
+        @StructPadding(bytes = 4) int ID,
+        TestStruct ts,
+        @Ptr TestStruct tsPtr,
+        String string) {
+}
+
+public interface PerfTest extends Passport {
+    double passStruct(PassingData structData);
+    double passComplex(@RefArg ComplexPassing[] complexStruct);
+}
+```
+The most important thing to note here is the @StructPadding annotation. When a C compiler compiles a 
+struct it will insert bytes of padding. It is critical for you to tell JPassport how much padding is either
+before or after a structure member. There is no standard about what padding will be used in any situation
+so JPassport can't figure this out on its own (at least not that I'm aware of!). 
+
+The other important annotation is @Ptr, this lets JPassport know to treat the member of the struct as
+a pointer to another struct.
+
+Arrays of Records can only be 1 element long. Longer arrays of Records are not supported.
+
+Records can contain primitives, Strings, or other Records. Arrays of primitives are not currently supported.
 
 # Limitations
 
-* Struct arguments to C functions do not work.
-* The interface file passed to LinkFactory must be exported by your module.
+* Only arrays of Records of length 1 work.
+* Arrays of primitives are not supported in Records.
+* Only 1D and 2D arrays of primitives are supported, deeper nestings do not work.
+* The interface file passed to PassportFactory and all required Records must be exported by your module.
 
 Pointers as function returns only work in a limited fashion. Based on a C 
 function declaration there isn't a way to tell exactly what a method is returning.
@@ -154,12 +222,12 @@ The work-around is for your interface function return MemoryAddress. From there
 it would be up to you to decipher the return. 
 
 Declaring your interface method to take MemoryAddress objects allow you to
-manage passing your own structs as well.
+manage all of the data yourself (like JExtract).
 
 ```
 double* mallocDoubles(const int count)
 {
-    double* ret = malloc(count *sizeof(double ));
+    double* ret = malloc(count * sizeof(double ));
 
     for (int n = 0; n < count; ++n)
         ret[n] = (double)n;
@@ -187,7 +255,6 @@ double[] testReturnPointer(int count) {
     linked_lib.freeMemory(address);
     return values;
 }
-
 ```
 # Dependencies
 
@@ -202,6 +269,8 @@ The testing classes require:
 # Work To-Do
 Roughly in order of importance
 
-1. Support struct arguments.
-2. Use the Java Micro-benchmarking harness.
-3. Compile classes in memory instead of from disk
+1. Support arrays of primitives in Records
+2. Support arrays of Records 
+3. Support returning a Record
+4. Use the Java Micro-benchmarking harness.
+5. Compile classes in memory instead of from disk

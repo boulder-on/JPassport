@@ -13,10 +13,14 @@ package jpassport.test.performance;
 
 import com.sun.jna.Library;
 import jpassport.Passport;
+import jpassport.annotations.RefArg;
+import jpassport.test.ComplexStruct;
+import jpassport.test.TestStruct;
 
 public interface PerfTest extends Passport, Library {
     double sumD(double d, double d2);
     double sumArrD(double[] d, int len);
     float sumArrF(float[] d, int len);
     int sumArrI(int[] d, int len);
+    double passComplex(@RefArg ComplexStruct[] complexStruct);
 }

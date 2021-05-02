@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mem.h>
-
+#include <stdbool.h>
 
 double sumD(const double d1, const double d2)
 {
@@ -299,4 +299,30 @@ double* mallocDoubles(const int count)
 void freeMemory(void *memory)
 {
     free(memory);
+}
+
+double passStruct(struct PassingData* data)
+{
+    double ret = 0;
+    ret += (double)data->s_long;
+    ret += data->s_float;
+    ret += data->s_int;
+    ret += data->s_double;
+
+    return ret;
+}
+
+double passComplex(struct ComplexPassing* complex)
+{
+    double ret = passStruct(&complex->s_passingData);
+    ret += passStruct(complex->s_ptrPassingData);
+
+    int len = strlen(complex->s_string);
+    for (int n = 0; n < len; ++n)
+        complex->s_string[n] -= 32;
+
+    complex->s_ID += 10;
+    complex->s_passingData.s_int += 10;
+    complex->s_ptrPassingData->s_int +=20;
+    return ret;
 }

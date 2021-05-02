@@ -13,7 +13,11 @@ package jpassport.test;
 
 import com.sun.jna.Native;
 import jdk.incubator.foreign.MemoryAddress;
+import jdk.incubator.foreign.MemoryLayout;
+import jpassport.annotations.RefArg;
 import jpassport.test.performance.PerfTest;
+
+import java.io.File;
 
 public class TestLinkJNADirect
 {
@@ -192,6 +196,18 @@ public class TestLinkJNADirect
         @Override
         public void freeMemory(MemoryAddress address) {
 
+        }
+
+        @Override
+        public double passStruct(TestStruct struct)
+        {
+            return Double.NaN;
+        }
+
+        @Override
+        public double passComplex(ComplexStruct[] complexStruct)
+        {
+            return Double.NaN;
         }
     }
 }

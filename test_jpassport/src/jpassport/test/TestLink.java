@@ -17,6 +17,8 @@ import jpassport.Passport;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 
+import java.io.File;
+
 public interface TestLink extends Passport, Library {
 
     double sumD(double d, double d2);
@@ -58,4 +60,7 @@ public interface TestLink extends Passport, Library {
     String mallocString(String origString);
     MemoryAddress mallocDoubles(int count);
     void freeMemory(MemoryAddress address);
+
+    double passStruct(TestStruct address);
+    double passComplex(@RefArg ComplexStruct[] complexStruct);
 }

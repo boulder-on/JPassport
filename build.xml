@@ -2,7 +2,7 @@
 
 <project name="JPassport" default="jar.JPassport">
     <property name="name" value="jpassport"/>
-    <property name="version" value="v0.1.0-alpha"/>
+    <property name="version" value="v0.2.0-alpha"/>
     <property name="src.home.jpassport" value="src"/>
     <property name="build.home.jpassport" value="out/production/jpassport"/>
     <property name="lib.home" value="lib"/>

@@ -20,8 +20,7 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import jdk.incubator.foreign.MemoryAddress;
-import jdk.incubator.foreign.MemorySegment;
+import jdk.incubator.foreign.*;
 import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
@@ -242,5 +241,27 @@ public class LinkerTest
         assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
 
         testFL.freeMemory(address);
+    }
+
+
+    @Test
+    void testSimpleStruct()
+    {
+        assertEquals(2+3+4+5, testFL.passStruct(new TestStruct(2, 3, 4, 5)));
+    }
+
+    @Test
+    void testComplexStruct()
+    {
+        TestStruct ts = new TestStruct(1, 2, 3, 4);
+        TestStruct tsPtr = new TestStruct(5, 6, 7, 8);
+        ComplexStruct[] complex = new ComplexStruct[] {new ComplexStruct(55, ts, tsPtr, "hello")};
+
+        double d = testFL.passComplex(complex);
+        assertEquals(IntStream.range(1, 9).sum(), d);
+        assertEquals(65, complex[0].ID());
+        assertEquals(11, complex[0].ts().s_int());
+        assertEquals(25, complex[0].tsPtr().s_int());
+        assertEquals("HELLO", complex[0].string());
     }
 }
