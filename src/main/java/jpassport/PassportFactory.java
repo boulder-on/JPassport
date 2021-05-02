@@ -37,7 +37,8 @@ public class PassportFactory
     /**
      * Call this method to generate the library linkage.
      *
-     * @param libraryName The name of the dll or SO file (no extension).
+     * @param libraryName The library name (the file name of the shared library without extension on all platforms,
+     *                    without lib prefix on Linux and Mac).
      * @param interfaceClass The class to wrap.
      * @param <T>
      * @return A class linked to call into a DLL or SO using the Foreign Linker.
