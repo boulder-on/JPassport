@@ -17,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
+import static jpassport.Utils.Platform.Windows;
+
 public class ClassWriter <T extends Passport>
 {
     private final StringBuilder m_source = new StringBuilder();
@@ -137,18 +139,11 @@ public class ClassWriter <T extends Passport>
 
             for (Field f : c.getDeclaredFields())
             {
-                Annotation[] annotations = f.getAnnotationsByType(StructPadding.class);
-                int paddingBytes = 0;
-                boolean postPad = true;
+                int paddingBits = getPaddingBits(f);
 
-                if (annotations.length > 0)
-                {
-                    paddingBytes = f.getAnnotationsByType(StructPadding.class)[0].bytes();
-                    postPad = f.getAnnotationsByType(StructPadding.class)[0].postPadding();
-                }
-
-                if (!postPad && paddingBytes > 0)
-                    sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBytes * 8));
+                // negative indicates pre-padding
+                if (paddingBits < 0)
+                    sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", -paddingBits));
 
                 Class type = f.getType();
                 if (type.isPrimitive())
@@ -174,8 +169,8 @@ public class ClassWriter <T extends Passport>
                 else if (String.class.equals(type))
                     sb.append(String.format("\t\tCLinker.C_POINTER.withName(\"%s\"),\n", f.getName()));
 
-                if (postPad && paddingBytes > 0)
-                    sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBytes * 8));
+                if (paddingBits > 0)
+                    sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBits));
             }
             sb.setLength(sb.length() - 2);
             sb.append(");\n\n");
@@ -200,6 +195,28 @@ public class ClassWriter <T extends Passport>
         }
 
         return allStructs.toString();
+    }
+
+    private int getPaddingBits(Field field)
+    {
+        Annotation[] annotations = field.getAnnotationsByType(StructPadding.class);
+        int paddingBytes = 0;
+
+        if (annotations.length > 0)
+        {
+            StructPadding sp = ((StructPadding) annotations[0]);
+            paddingBytes = sp.bytes();
+
+            Utils.Platform p = Utils.getPlatform();
+            if (Windows.equals(p) && sp.windowsBytes() != StructPadding.NO_VALUE)
+                paddingBytes = sp.windowsBytes();
+            else if (Utils.Platform.Mac.equals(p) && sp.macBytes() != StructPadding.NO_VALUE)
+                paddingBytes = sp.macBytes();
+            else if (Utils.Platform.Linux.equals(p) && sp.linuxBytes() != StructPadding.NO_VALUE)
+                paddingBytes = sp.linuxBytes();
+        }
+
+        return paddingBytes * 8;
     }
 
     /**

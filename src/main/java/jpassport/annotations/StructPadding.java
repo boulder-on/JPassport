@@ -16,12 +16,12 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.RECORD_COMPONENT, ElementType.FIELD})
 public @interface StructPadding {
+
+    int NO_VALUE = Integer.MIN_VALUE;
+
     /** The number of bytes of padding to add. */
     int bytes() default 0;
-//    int windowsPadding() default 0;
-//    int macPadding() default 0;
-//    int linuxPadding() default 0;
-
-    /** Is the padding before or after the value. */
-    boolean postPadding() default  true;
+    int windowsBytes() default NO_VALUE;
+    int macBytes() default NO_VALUE;
+    int linuxBytes() default NO_VALUE;
 }

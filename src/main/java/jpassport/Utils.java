@@ -262,4 +262,20 @@ public class Utils
             return Path.of(System.getProperty("jpassport.build.home"));
         return Path.of(System.getProperty("java.io.tmpdir"), "jpassport");
     }
+
+    public enum Platform {Windows, Mac, Linux, Unknown}
+
+    public static Platform getPlatform()
+    {
+        String os = System.getProperty("os.name").toLowerCase();
+
+        if (os.contains("win"))
+            return Platform.Windows;
+        if (os.contains("mac"))
+            return Platform.Mac;
+        if ((os.contains("nix") || os.contains("nux") || os.contains("aix")))
+            return Platform.Linux;
+
+        return Platform.Unknown;
+    }
 }

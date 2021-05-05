@@ -197,8 +197,9 @@ public interface PerfTest extends Passport {
 ```
 The most important thing to note here is the @StructPadding annotation. When a C compiler compiles a 
 struct it will insert bytes of padding. It is critical for you to tell JPassport how much padding is either
-before or after a structure member. There is no standard about what padding will be used in any situation
-so JPassport can't figure this out on its own (at least not that I'm aware of!). 
+before or after a structure member (negative numbers indicate pre-member padding). There is no standard about what padding will be used in any situation
+so JPassport can't figure this out on its own (at least not that I'm aware of!). There are separate
+annotation values for different platforms (windowsBytes, macBytes, linuxBytes).
 
 The other important annotation is @Ptr, this lets JPassport know to treat the member of the struct as
 a pointer to another struct.
