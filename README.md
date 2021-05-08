@@ -11,8 +11,12 @@ is available. Given a header file JExtract will build the classes needed to acce
 main differences with JPassport and JExtract are:
 
 * JExtract requires a header file, JPassport does not.
-* JExtract requires you to convert Java objects to MemoryAddress objects manually, JPassport will handle some conversions for you.
-* JExtract builds the classes ahead of time, JPassport builds classes at run time.
+* JExtract requires you to convert Java objects to MemoryAddress objects manually
+  * JPassport will handle many conversions for you.
+  * You can define interface methods to work with MemoryAddress objects and then do all of the memory management yourself.
+* JExtract writes .java files for you to include in your codebase
+  * JPassport can build classes at run time (there can be a time penalty of a few seconds, but the code for this is more compact and easy to work with)
+  * JPassport can write .java also for you to include in your codebase
 
 Which tool is right for you will greatly depend on your situation.
 
@@ -41,18 +45,28 @@ double sumArrD(const double *arr, const int count)
 }
 ```
 
-Java:
+Java Interface:
 ```Java
 public interface Linked extends Passport {
    int string_length(String s);
    double sumArrD(double[] arr, int count);
 }
 ```
-Java Usage:
+Java Usage for dynamic class creation:
 ```Java
 Linked L = PassportFactory.link("libforeign", Linked.class);
 int n = L.string_length("hello");
 double sum = L.sumArrD(new double[] {1, 2, 3}, 3);
+```
+
+Java Usage to create a .java file for inclusion in your codebase:
+```java
+PassportWriter pw = new PassportWriter(Linked.class);
+pw.writeModule(Path.of('output_location'));
+```
+Once the class is compiled, to use it:
+```java
+Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
 ```
 
 In order to use this library you will need to provide the VM these arguments:

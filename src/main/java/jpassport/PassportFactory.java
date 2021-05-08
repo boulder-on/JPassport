@@ -12,35 +12,24 @@
 package jpassport;
 
 import jdk.incubator.foreign.*;
-import jpassport.annotations.PtrPtrArg;
-import jpassport.annotations.RefArg;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class PassportFactory
 {
-    private static int Class_ID = 1;
-
     /**
      * Call this method to generate the library linkage.
      *
      * @param libraryName The library name (the file name of the shared library without extension on all platforms,
      *                    without lib prefix on Linux and Mac).
      * @param interfaceClass The class to wrap.
-     * @param <T>
+     * @param <T> Any interface that extends Passport
      * @return A class linked to call into a DLL or SO using the Foreign Linker.
      */
     public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass) throws Throwable
@@ -54,13 +43,27 @@ public class PassportFactory
 
     private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable
     {
-        LibraryLookup libLookup = LibraryLookup.ofLibrary(libName);
-        Method[] methods = interfaceClass.getDeclaredMethods();
+        HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
+        PassportWriter<T> classWriter = new PassportWriter<T>(interfaceClass);
 
-        List<Method> interfaceMethods = Arrays.stream(methods).filter(method -> (method.getModifiers() & Modifier.STATIC) == 0).toList();
-        Set<Class> extraImports = findAllExtraImports(interfaceMethods);
-        ClassWriter classWriter = new ClassWriter(interfaceClass, extraImports);
-        Map<String, MethodHandle> methodMap = new HashMap<>();
+        return classWriter.build(handles);
+    }
+
+    /**
+     * This methods looks up all of the methods in the requested native library that match non-static
+     * methods in the given interface class.
+     *
+     * @param libName Name of the native library to load.
+     * @param interfaceClass The interface class to use as a reference for loading methods.
+     * @return A map of Name to method handle pairs for the methods in the interface class.
+     */
+    public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class interfaceClass)
+    {
+        LibraryLookup libLookup = LibraryLookup.ofLibrary(libName);
+        CLinker linker = CLinker.getInstance();
+
+        List<Method> interfaceMethods = getDeclaredMethods(interfaceClass);
+        HashMap<String, MethodHandle> methodMap = new HashMap<>();
 
         for (Method method : interfaceMethods) {
             LibraryLookup.Symbol symb = libLookup.lookup(method.getName()).orElse(null);
@@ -87,99 +90,22 @@ public class PassportFactory
             else
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
-            MethodHandle methodHandle = CLinker.getInstance().
+            MethodHandle methodHandle = linker.
                     downcallHandle(symb.address(),
                             MethodType.methodType(methRet, parameters),
                             fd);
 
-            classWriter.addMethod(method, retType);
-
             methodMap.put(method.getName(), methodHandle);
         }
 
-        return (T)classWriter.build(methodMap);
+        return methodMap;
     }
 
-    /**
-     * This will search the interface method for return types and arguments that should be imported.
-     * These will all be Records.
-     *
-     * @param interfaceMethods All of the methods in the interfacee
-     * @return The list of Record types that should be imported.
-     */
-    private static Set<Class> findAllExtraImports(List<Method> interfaceMethods) {
-        Set<Class> extraImports = new HashSet<>();
-        for (Method m : interfaceMethods) {
-            Class retType = m.getReturnType();
-            Class[] params = m.getParameterTypes();
-
-            if (!isValidArgType(retType))
-                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
-
-            List<Class> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).collect(Collectors.toList());
-            if (!invalid.isEmpty())
-                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
-
-            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()))
-                extraImports.add(retType);
-            Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
-            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
-        }
-
-        extraImports.remove(String.class);
-        extraImports.remove(MemoryAddress.class);
-        //In case any of the Records are made up of Records then this will pick those up to
-        for (Class c : extraImports)
-        {
-            if (c.isRecord())
-                extraImports.addAll(findSubRecords(c));
-        }
-
-        return extraImports;
+    static List<Method> getDeclaredMethods(Class interfaceClass) {
+        Method[] methods = interfaceClass.getDeclaredMethods();
+        return Arrays.stream(methods).filter(method -> (method.getModifiers() & Modifier.STATIC) == 0).toList();
     }
 
-    /**
-     * Search all Record types recursively to make sure we import and handle all Record types needed.
-     * @param record A record class to search for other records
-     * @return All of the sub-Records.
-     */
-    static Set findSubRecords(Class record)
-    {
-        Set<Class> subRecords = new HashSet<>();
-        for (Field f : record.getDeclaredFields()) {
-            if (f.getType().isRecord())
-            {
-                subRecords.add(f.getType());
-                subRecords.addAll(findSubRecords(f.getType()));
-            }
-        }
-        return subRecords;
-    }
-
-    /**
-     * At the moment the only argument types that are supported are:
-     * Primitive
-     * Primitive[]
-     * Primitive[][]
-     * Record
-     * String
-     * MemoryAddress
-     *
-     * @param c The type to check
-     * @return Is the type something we can work with
-     */
-    private static boolean isValidArgType(Class c)
-    {
-        if (c.isPrimitive())
-            return true;
-        if (c.isRecord())
-            return true;
-        if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()))
-            return true;
-        if (MemoryAddress.class.equals(c) || String.class.equals(c))
-            return true;
-        return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
-    }
 
     private static MemoryLayout classToMemory(Class type)
     {

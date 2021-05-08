@@ -1,5 +1,6 @@
 package jpassport;
 
+import jdk.incubator.foreign.MemoryAddress;
 import jpassport.annotations.Ptr;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
@@ -7,6 +8,7 @@ import jpassport.annotations.StructPadding;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
@@ -16,10 +18,28 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static jpassport.Utils.Platform.Windows;
 
-public class ClassWriter <T extends Passport>
+/***
+ * Given an interface class that extends Passport this class will generate a class that implements the interface
+ * and allows calls through to a native library.
+ *
+ * This class can dynamically create, compile, and hand back the class, or just create the source code so you
+ * can compile later. If you use the PassportFactory then you do not need to use this class at all.
+ *
+ * In order to write out a class you will:
+ *
+ * new PassportWriter(MyInterface.class).writeModule(Path.of("out/testing"));
+ *
+ * At this point your class is written, so you can compile it yourself. The created class still required JPassport to run.
+ *
+ * MyInterface mi = new MyInterface_impl(PassportFactory.loadMethodHandles(libName, MyInterface.class));
+ *
+ * @param <T> A class that extends Passport
+ */
+public class PassportWriter<T extends Passport>
 {
     private final StringBuilder m_source = new StringBuilder();
     private final StringBuilder m_moduleSource = new StringBuilder();
@@ -27,6 +47,8 @@ public class ClassWriter <T extends Passport>
     private final String m_className;
     private final String m_fullClassName;
     private final int m_ID;
+
+    private static int Class_ID = 1; //Used to make unique package names
 
     private static final Map<Class, String> typeToName = new HashMap<>()
     {
@@ -40,10 +62,11 @@ public class ClassWriter <T extends Passport>
         }
     };
 
-    private static int Class_ID = 1;
 
-    ClassWriter(Class<T> interfaceClass, Set<Class> extraImports)
+    PassportWriter(Class<T> interfaceClass)
     {
+        List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
+        Set<Class> extraImports = findAllExtraImports(interfaceMethods);
         m_ID = Class_ID++;
         m_className = interfaceClass.getSimpleName() + "_impl";
         String packageName = "jpassport.called_" + m_ID;
@@ -94,6 +117,9 @@ public class ClassWriter <T extends Passport>
                     }
                     """, interfaceClass.getModule().getName()));
 
+        for (Method method : interfaceMethods) {
+            addMethod(method, method.getReturnType());
+        }
     }
 
     /**
@@ -433,13 +459,12 @@ public class ClassWriter <T extends Passport>
         m_initSource.append(String.format("\t\tm_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
     }
 
-    T build(Map<String, MethodHandle> methods) throws Throwable
+    public List<Path> writeModule(Path buildRoot) throws IOException
     {
         m_initSource.append("\t}");
         m_source.append(m_initSource);
         m_source.append("\n}");
 
-        Path buildRoot = Utils.getBuildFolder();
         Path sourceRoot = buildRoot.resolve("jpassport").resolve("called_" + m_ID);
         if (Files.exists(sourceRoot))
             Utils.deleteFolder(sourceRoot);
@@ -449,10 +474,18 @@ public class ClassWriter <T extends Passport>
         Path moduleFile = buildRoot.resolve("module-info.java");
         Files.writeString(moduleFile, m_moduleSource);
 
+        return List.of(moduleFile, sourceFile);
+    }
+
+    T build(Map<String, MethodHandle> methods) throws Throwable
+    {
+        Path buildRoot = Utils.getBuildFolder();
+        List<Path> paths = writeModule(buildRoot);
+
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         compiler.run(null, null, null,
                 "--module-path", System.getProperty("jdk.module.path"),
-                moduleFile.toString(), sourceFile.toString());
+                paths.get(0).toString(), paths.get(1).toString());
 
         URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] {buildRoot.toUri().toURL()});
         Class<T> foreignImpl = (Class<T>) Class.forName(m_fullClassName, true, classLoader);
@@ -478,4 +511,86 @@ public class ClassWriter <T extends Passport>
     {
         return c.isArray() && c.getComponentType().isArray() && isArrayOfPrimitives(c.getComponentType());
     }
+
+    /**
+     * This will search the interface method for return types and arguments that should be imported.
+     * These will all be Records.
+     *
+     * @param interfaceMethods All of the methods in the interfacee
+     * @return The list of Record types that should be imported.
+     */
+    private static Set<Class> findAllExtraImports(List<Method> interfaceMethods) {
+        Set<Class> extraImports = new HashSet<>();
+        for (Method m : interfaceMethods) {
+            Class retType = m.getReturnType();
+            Class[] params = m.getParameterTypes();
+
+            if (!isValidArgType(retType))
+                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
+
+            List<Class> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).collect(Collectors.toList());
+            if (!invalid.isEmpty())
+                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
+
+            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()))
+                extraImports.add(retType);
+            Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
+        }
+
+        extraImports.remove(String.class);
+        extraImports.remove(MemoryAddress.class);
+        //In case any of the Records are made up of Records then this will pick those up to
+        for (Class c : extraImports)
+        {
+            if (c.isRecord())
+                extraImports.addAll(findSubRecords(c));
+        }
+
+        return extraImports;
+    }
+
+    /**
+     * Search all Record types recursively to make sure we import and handle all Record types needed.
+     * @param record A record class to search for other records
+     * @return All of the sub-Records.
+     */
+    static Set findSubRecords(Class record)
+    {
+        Set<Class> subRecords = new HashSet<>();
+        for (Field f : record.getDeclaredFields()) {
+            if (f.getType().isRecord())
+            {
+                subRecords.add(f.getType());
+                subRecords.addAll(findSubRecords(f.getType()));
+            }
+        }
+        return subRecords;
+    }
+
+    /**
+     * At the moment the only argument types that are supported are:
+     * Primitive
+     * Primitive[]
+     * Primitive[][]
+     * Record
+     * String
+     * MemoryAddress
+     *
+     * @param c The type to check
+     * @return Is the type something we can work with
+     */
+    private static boolean isValidArgType(Class c)
+    {
+        if (c.isPrimitive())
+            return true;
+        if (c.isRecord())
+            return true;
+        if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()))
+            return true;
+        if (MemoryAddress.class.equals(c) || String.class.equals(c))
+            return true;
+        return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
+    }
+
 }

@@ -41,9 +41,10 @@ public class LinkerTest
     public static void startup() throws Throwable
     {
         System.setProperty("jpassport.build.home", "out/testing");
+        System.setProperty("jna.library.path", System.getProperty("java.library.path"));
 
         testFL = PassportFactory.link("libforeign_link", TestLink.class);
-        testJNA =  Native.load("libforeign_link.dll", TestLink.class);
+        testJNA =  Native.load("libforeign_link", TestLink.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJava();
 
