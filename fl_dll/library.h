@@ -64,4 +64,19 @@ struct ComplexPassing
     struct PassingData* s_ptrPassingData;
     char* s_string;
 };
+
+struct PassingArrays
+{
+    double s_double[5];
+    long long s_long[8];
+    long long s_doublePtrCount;
+    double* s_doublePtr;
+    long long s_longPtrCount;
+    long long* s_longPtr;
+};
+
+extern double passStruct(struct PassingData* data);
+extern double passComplex(struct ComplexPassing* complex);
+extern double passStructWithArrays(struct PassingArrays* structWithArrays);
+
 #endif //FL_DLL_LIBRARY_H

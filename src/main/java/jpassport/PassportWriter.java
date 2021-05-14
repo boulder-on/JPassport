@@ -1,10 +1,7 @@
 package jpassport;
 
 import jdk.incubator.foreign.MemoryAddress;
-import jpassport.annotations.Ptr;
-import jpassport.annotations.PtrPtrArg;
-import jpassport.annotations.RefArg;
-import jpassport.annotations.StructPadding;
+import jpassport.annotations.*;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -46,7 +43,6 @@ public class PassportWriter<T extends Passport>
     private final StringBuilder m_initSource = new StringBuilder();
     private final String m_className;
     private final String m_fullClassName;
-    private final int m_ID;
 
     private static int Class_ID = 1; //Used to make unique package names
 
@@ -62,14 +58,34 @@ public class PassportWriter<T extends Passport>
         }
     };
 
+    private static final Map<Class, String> typeToCName = new HashMap<>()
+    {
+        {
+            put(byte.class, "C_CHAR");
+            put(short.class, "C_SHORT");
+            put(int.class, "C_INT");
+            put(long.class, "C_LONG_LONG");
+            put(float.class, "C_FLOAT");
+            put(double.class, "C_DOUBLE");
+        }
+    };
 
-    PassportWriter(Class<T> interfaceClass)
+    public PassportWriter(Class<T> interfaceClass)
+    {
+        this(interfaceClass, "jpassport.called_" + Class_ID++, interfaceClass.getSimpleName() + "_impl");
+    }
+
+    /**
+     * Create a class based on the interface given.
+     * @param interfaceClass The Passport interface
+     * @param packageName The package to make the class for
+     * @param className The class name to build
+     */
+    public PassportWriter(Class<T> interfaceClass, String packageName, String className)
     {
         List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
-        Set<Class> extraImports = findAllExtraImports(interfaceMethods);
-        m_ID = Class_ID++;
-        m_className = interfaceClass.getSimpleName() + "_impl";
-        String packageName = "jpassport.called_" + m_ID;
+        Set<Class<?>> extraImports = findAllExtraImports(interfaceMethods);
+        m_className = className;
         m_fullClassName = packageName + "." + m_className;
         String structLayouts = buildStructLayouts(extraImports);
 
@@ -81,9 +97,11 @@ public class PassportWriter<T extends Passport>
                     import jpassport.Utils;
                     import java.lang.invoke.MethodHandle;
                     import jdk.incubator.foreign.*;
-                    import jdk.incubator.foreign.MemoryLayout.PathElement;
                     import java.util.HashMap;
-                    
+                    import static jdk.incubator.foreign.MemoryAccess.*;
+                    import static jdk.incubator.foreign.MemoryLayout.PathElement.*;
+                    import static jdk.incubator.foreign.CLinker.*;
+                                        
                     public class %s implements %s {
                         HashMap<String, MethodHandle> m_methods;
                         %s
@@ -127,10 +145,10 @@ public class PassportWriter<T extends Passport>
      * @param imports All of the record types.
      * @return The import statements for the records.
      */
-    public String buildExtraImports(Set<Class> imports)
+    public String buildExtraImports(Set<Class<?>> imports)
     {
         StringBuilder strImports = new StringBuilder();
-        for (Class c : imports)
+        for (Class<?> c : imports)
             strImports.append("import ").append(c.getName()).append(";\n");
         return strImports.toString();
     }
@@ -142,15 +160,15 @@ public class PassportWriter<T extends Passport>
      * @param records All of the record types that we need to handle.
      * @return The code to create all of the required MemoryLayouts
      */
-    public String buildStructLayouts(Set<Class> records)
+    public String buildStructLayouts(Set<Class<?>> records)
     {
         //We need to build all of the MemoryLayouts separately and bundle them together later.
         //If any one record requires other records then we need to make sure the code is ordered
         //properly so there are no forward references.
-        HashMap<Class, List<Class>> requiresMap = new HashMap<>();
-        HashMap<Class, StringBuilder> layoutMap = new HashMap<>();
+        HashMap<Class<?>, List<Class<?>>> requiresMap = new HashMap<>();
+        HashMap<Class<?>, StringBuilder> layoutMap = new HashMap<>();
 
-        for (Class c : records)
+        for (Class<?> c : records)
         {
             if (!c.isRecord())
                 continue;
@@ -171,29 +189,39 @@ public class PassportWriter<T extends Passport>
                 if (paddingBits < 0)
                     sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", -paddingBits));
 
-                Class type = f.getType();
+                Class<?> type = f.getType();
                 if (type.isPrimitive())
                 {
-                    if (int.class.equals(type))
-                        sb.append(String.format("\t\tCLinker.C_INT.withName(\"%s\"),\n", f.getName()));
-                    else if (long.class.equals(type))
-                        sb.append(String.format("\t\tCLinker.C_LONG_LONG.withName(\"%s\"),\n", f.getName()));
-                    else if (float.class.equals(type))
-                        sb.append(String.format("\t\tCLinker.C_FLOAT.withName(\"%s\"),\n", f.getName()));
-                    else if (double.class.equals(type))
-                        sb.append(String.format("\t\tCLinker.C_DOUBLE.withName(\"%s\"),\n", f.getName()));
+                    sb.append(String.format("\t\t%s.withName(\"%s\"),\n",typeToCName.get(type), f.getName()));
                 }
                 else if (type.isRecord())
                 {
                     requiresMap.get(c).add(type);
                     boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPtr)
-                        sb.append(String.format("\t\tCLinker.C_POINTER.withName(\"%s\"),\n", f.getName()));
+                        sb.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
                     else
                         sb.append(String.format("\t\t%sLayout.withName(\"%s\"),\n",type.getSimpleName(), f.getName()));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tCLinker.C_POINTER.withName(\"%s\"),\n", f.getName()));
+                    sb.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
+                else if (type.isArray())
+                {
+                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                    boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
+
+                    if (arrays.length > 0)
+                    {
+                        int length = ((Array) arrays[0]).length();
+                        Class<?> arrType = type.getComponentType();
+
+                        sb.append(String.format("\t\tMemoryLayout.ofSequence(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
+                    }
+                    else if (isPointer)
+                        sb.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
+                    else
+                        throw new PassportException("Record arrays must be defined with either an Array or Ptr annotation");
+                }
 
                 if (paddingBits > 0)
                     sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBits));
@@ -207,11 +235,10 @@ public class PassportWriter<T extends Passport>
         //Without this code we could get compile failures because of forward references.
         while (!requiresMap.isEmpty())
         {
-            List<Class> allRecords = new ArrayList<>();
-            allRecords.addAll(requiresMap.keySet());
-            for (Class c : allRecords)
+            List<Class<?>> allRecords = new ArrayList<>(requiresMap.keySet());
+            for (Class<?> c : allRecords)
             {
-                List<Class> required = requiresMap.get(c);
+                List<Class<?>> required = requiresMap.get(c);
                 if (required.stream().anyMatch(layoutMap::containsKey))
                     continue;
 
@@ -252,11 +279,11 @@ public class PassportWriter<T extends Passport>
      * @param records all of the Record types we need to support.
      * @return The code that converts Records into MemorySegments
      */
-    public String buildStructConverter(Set<Class> records)
+    public String buildStructConverter(Set<Class<?>> records)
     {
         StringBuilder sb = new StringBuilder();
 
-        for (Class c : records)
+        for (Class<?> c : records)
         {
             if (!c.isRecord())
                 continue;
@@ -272,19 +299,34 @@ public class PassportWriter<T extends Passport>
 
             for (Field f : c.getDeclaredFields())
             {
-                Class type = f.getType();
+                Class<?> type = f.getType();
                 if (type.isPrimitive())
-                    sb.append(String.format("\t\tMemoryAccess.set%2$sAtOffset(memStruct, layout.byteOffset(PathElement.groupElement(\"%1$s\")), rec.%1$s());\n", f.getName(), typeToName.get(type)));
+                    sb.append(String.format("\t\tset%2$sAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), rec.%1$s());\n", f.getName(), typeToName.get(type)));
                 else if (type.isRecord())
                 {
                     boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPtr)
-                        sb.append(String.format("\t\tMemoryAccess.setAddressAtOffset(memStruct, layout.byteOffset(PathElement.groupElement(\"%1$s\")), store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tsetAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName()));
                     else
-                        sb.append(String.format("\t\tmemStruct.asSlice(layout.byteOffset(MemoryLayout.PathElement.groupElement(\"%1$s\"))).copyFrom(store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tmemStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\"))).copyFrom(store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName()));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tMemoryAccess.setAddressAtOffset(memStruct, layout.byteOffset(PathElement.groupElement(\"%1$s\")), CLinker.toCString(rec.%1$s(), scope).address());\n", f.getName()));
+                    sb.append(String.format("\t\tsetAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), toCString(rec.%1$s(), scope).address());\n", f.getName()));
+                else if (type.isArray())
+                {
+                    Class<?> arrType = type.getComponentType();
+                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                    boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
+
+                    if (arrType.isPrimitive())
+                    {
+                        if (arrays.length > 0)
+                            sb.append(String.format("\t\tmemStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\"))).copyFrom(MemorySegment.ofArray(rec.%1$s()));\n", f.getName()));
+                        else if (isPointer)
+                            sb.append(String.format("\t\tsetAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), Utils.toMS(scope, rec.%1$s()).address());\n", f.getName()));
+                    }
+
+                }
             }
             sb.append("\n\t\treturn memStruct;\n\t}\n\n");
         }
@@ -298,17 +340,17 @@ public class PassportWriter<T extends Passport>
      * @param records All of the record types to make readers for.
      * @return The code to read all of the Record types.
      */
-    private String buildStructReader(Set<Class> records)
+    private String buildStructReader(Set<Class<?>> records)
     {
         StringBuilder sb = new StringBuilder();
 
-        for (Class c : records)
+        for (Class<?> c : records)
         {
             if (!c.isRecord())
                 continue;
 
             sb.append(String.format("""
-                        private %1$s read%1$s(MemorySegment memStruct) {
+                        private %1$s read%1$s(MemorySegment memStruct, %1$s rec) {
                             GroupLayout layout = %1$sLayout;
                     """,
                     c.getSimpleName()));
@@ -316,19 +358,38 @@ public class PassportWriter<T extends Passport>
 
             for (Field f : c.getDeclaredFields())
             {
-                Class type = f.getType();
+                Class<?> type = f.getType();
                 if (type.isPrimitive())
-                    sb.append(String.format("\t\tvar %1$s = MemoryAccess.get%2$sAtOffset(memStruct, layout.byteOffset(PathElement.groupElement(\"%1$s\")));\n", f.getName(), typeToName.get(type)));
+                    sb.append(String.format("\t\tvar %1$s = get%2$sAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")));\n", f.getName(), typeToName.get(type)));
                 else if (type.isRecord())
                 {
                     boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPointer)
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(MemoryAccess.getAddressAtOffset(memStruct, layout.byteOffset(PathElement.groupElement(\"%1$s\"))).asSegmentRestricted(%2$sLayout.byteSize()));\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tvar %1$s = read%2$s(getAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\"))).asSegmentRestricted(%2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName()));
                     else
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(layout.byteOffset(MemoryLayout.PathElement.groupElement(\"%1$s\"))));\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\"))), rec.%1$s());\n", f.getName(), type.getSimpleName()));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tvar %1$s = CLinker.toJavaStringRestricted(MemoryAccess.getAddressAtOffset(memStruct, layout.byteOffset(PathElement.groupElement(\"%1$s\"))));\n", f.getName()));
+                    sb.append(String.format("\t\tvar %1$s = toJavaStringRestricted(getAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\"))));\n", f.getName()));
+                else if (type.isArray())
+                {
+                    Class<?> arrType = type.getComponentType();
+                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                    boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
+
+                    if (arrType.isPrimitive())
+                    {
+                        if (arrays.length > 0) {
+                            int length = ((Array) arrays[0]).length();
+                            sb.append(String.format("\t\tvar %1$s = memStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\")), %2$d * %3$s.BYTES).to%3$sArray();\n", f.getName(), length, typeToName.get(arrType)));
+                        }
+                        else if (isPointer)
+                        {
+                            sb.append(String.format("\t\tlong %1$sSize = rec.%1$s().length;\n", f.getName()));
+                            sb.append(String.format("\t\tvar %1$s = getAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\"))).asSegmentRestricted(%1$sSize * %2$s.BYTES).to%2$sArray();\n", f.getName(), typeToName.get(arrType)));
+                        }
+                    }
+                }
             }
 
             // Building the Record class to return
@@ -348,7 +409,7 @@ public class PassportWriter<T extends Passport>
      * @param method The interface method to implement
      * @param retType The return type of the method.
      */
-    public void addMethod(Method method, Class retType)
+    public void addMethod(Method method, Class<?> retType)
     {
         StringBuilder args = new StringBuilder();
         StringBuilder params = new StringBuilder();
@@ -364,7 +425,7 @@ public class PassportWriter<T extends Passport>
             if (retType.equals(String.class))
             {
                 strCallReturn = "var ret = (MemoryAddress)";
-                strReturn = "return CLinker.toJavaStringRestricted(ret);";
+                strReturn = "return toJavaStringRestricted(ret);";
             }
             else
             {
@@ -377,7 +438,7 @@ public class PassportWriter<T extends Passport>
         int v = 1;
         boolean bHasAllocatedMemory = false;
 
-        for (Class parameter : method.getParameterTypes())
+        for (Class<?> parameter : method.getParameterTypes())
         {
             args.append(String.format("%s v%d,", parameter.getSimpleName(), v));
 
@@ -397,7 +458,7 @@ public class PassportWriter<T extends Passport>
             else if (String.class.equals(parameter))
             {
                 bHasAllocatedMemory = true;
-                tryArgs.append(String.format("var vv%1$d = CLinker.toCString(v%1$d);", v));
+                tryArgs.append(String.format("var vv%1$d = toCString(v%1$d);", v));
                 params.append("vv").append(v).append(".address(),");
             }
             else if (parameter.isRecord())
@@ -409,13 +470,13 @@ public class PassportWriter<T extends Passport>
             else if (parameter.isArray() && parameter.getComponentType().isRecord())
             {
                 bHasAllocatedMemory = true;
-                Class recordType = parameter.getComponentType();
+                Class<?> recordType = parameter.getComponentType();
                 preCall.append(String.format("var vv%1$d = store%2$s(scope, v%1$d[0]);\n", v, recordType.getSimpleName()));
                 params.append("vv").append(v).append(".address(),");
 
                 if (isRefArg(paramAnnotations[v-1]))
                 {
-                    postCall.append(String.format("v%1$d[0] = read%2$s(vv%1d);", v, recordType.getSimpleName()));
+                    postCall.append(String.format("v%1$d[0] = read%2$s(vv%1d, v%1$d[0]);", v, recordType.getSimpleName()));
                 }
             }
             else
@@ -465,7 +526,12 @@ public class PassportWriter<T extends Passport>
         m_source.append(m_initSource);
         m_source.append("\n}");
 
-        Path sourceRoot = buildRoot.resolve("jpassport").resolve("called_" + m_ID);
+        String[] packages = m_fullClassName.split("\\.");
+        Path sourceRoot = buildRoot.resolve(packages[0]);
+
+        for (int n = 1; n < packages.length - 1; ++n)
+            sourceRoot = sourceRoot.resolve(packages[n]);
+
         if (Files.exists(sourceRoot))
             Utils.deleteFolder(sourceRoot);
         Files.createDirectories(sourceRoot);
@@ -488,7 +554,7 @@ public class PassportWriter<T extends Passport>
                 paths.get(0).toString(), paths.get(1).toString());
 
         URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] {buildRoot.toUri().toURL()});
-        Class<T> foreignImpl = (Class<T>) Class.forName(m_fullClassName, true, classLoader);
+        Class<? extends T> foreignImpl = (Class<? extends T>)Class.forName(m_fullClassName, true, classLoader);
         return foreignImpl.getDeclaredConstructor(methods.getClass()).newInstance(methods);
     }
 
@@ -502,12 +568,12 @@ public class PassportWriter<T extends Passport>
         return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
     }
 
-    private boolean isArrayOfPrimitives(Class c)
+    private boolean isArrayOfPrimitives(Class<?> c)
     {
         return c.isArray() && c.getComponentType().isPrimitive();
     }
 
-    private boolean is2DArrayOfPrimitives(Class c)
+    private boolean is2DArrayOfPrimitives(Class<?> c)
     {
         return c.isArray() && c.getComponentType().isArray() && isArrayOfPrimitives(c.getComponentType());
     }
@@ -519,16 +585,16 @@ public class PassportWriter<T extends Passport>
      * @param interfaceMethods All of the methods in the interfacee
      * @return The list of Record types that should be imported.
      */
-    private static Set<Class> findAllExtraImports(List<Method> interfaceMethods) {
-        Set<Class> extraImports = new HashSet<>();
+    private static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
+        Set<Class<?>> extraImports = new HashSet<>();
         for (Method m : interfaceMethods) {
-            Class retType = m.getReturnType();
-            Class[] params = m.getParameterTypes();
+            Class<?> retType = m.getReturnType();
+            Class<?>[] params = m.getParameterTypes();
 
             if (!isValidArgType(retType))
                 throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
 
-            List<Class> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).collect(Collectors.toList());
+            List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).collect(Collectors.toList());
             if (!invalid.isEmpty())
                 throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
 
@@ -541,7 +607,7 @@ public class PassportWriter<T extends Passport>
         extraImports.remove(String.class);
         extraImports.remove(MemoryAddress.class);
         //In case any of the Records are made up of Records then this will pick those up to
-        for (Class c : extraImports)
+        for (Class<?> c : extraImports)
         {
             if (c.isRecord())
                 extraImports.addAll(findSubRecords(c));
@@ -555,9 +621,9 @@ public class PassportWriter<T extends Passport>
      * @param record A record class to search for other records
      * @return All of the sub-Records.
      */
-    static Set findSubRecords(Class record)
+    static Set<Class<?>> findSubRecords(Class<?> record)
     {
-        Set<Class> subRecords = new HashSet<>();
+        Set<Class<?>> subRecords = new HashSet<>();
         for (Field f : record.getDeclaredFields()) {
             if (f.getType().isRecord())
             {
@@ -580,7 +646,7 @@ public class PassportWriter<T extends Passport>
      * @param c The type to check
      * @return Is the type something we can work with
      */
-    private static boolean isValidArgType(Class c)
+    private static boolean isValidArgType(Class<?> c)
     {
         if (c.isPrimitive())
             return true;

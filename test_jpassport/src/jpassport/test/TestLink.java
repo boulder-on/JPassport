@@ -16,8 +16,8 @@ import jdk.incubator.foreign.MemoryAddress;
 import jpassport.Passport;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
-
-import java.io.File;
+import jpassport.test.structs.ComplexStruct;
+import jpassport.test.structs.TestStruct;
 
 public interface TestLink extends Passport, Library {
 
@@ -60,7 +60,4 @@ public interface TestLink extends Passport, Library {
     String mallocString(String origString);
     MemoryAddress mallocDoubles(int count);
     void freeMemory(MemoryAddress address);
-
-    double passStruct(TestStruct address);
-    double passComplex(@RefArg ComplexStruct[] complexStruct);
 }

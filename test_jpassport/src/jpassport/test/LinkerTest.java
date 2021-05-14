@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import jdk.incubator.foreign.*;
 import jpassport.Utils;
+import jpassport.test.structs.ComplexStruct;
+import jpassport.test.structs.TestStruct;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
@@ -43,8 +45,8 @@ public class LinkerTest
         System.setProperty("jpassport.build.home", "out/testing");
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
 
-        testFL = PassportFactory.link("libforeign_link", TestLink.class);
-        testJNA =  Native.load("libforeign_link", TestLink.class);
+        testFL = PassportFactory.link("libpassport_test", TestLink.class);
+        testJNA =  Native.load("passport_test", TestLink.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJava();
 
@@ -245,24 +247,4 @@ public class LinkerTest
     }
 
 
-    @Test
-    void testSimpleStruct()
-    {
-        assertEquals(2+3+4+5, testFL.passStruct(new TestStruct(2, 3, 4, 5)));
-    }
-
-    @Test
-    void testComplexStruct()
-    {
-        TestStruct ts = new TestStruct(1, 2, 3, 4);
-        TestStruct tsPtr = new TestStruct(5, 6, 7, 8);
-        ComplexStruct[] complex = new ComplexStruct[] {new ComplexStruct(55, ts, tsPtr, "hello")};
-
-        double d = testFL.passComplex(complex);
-        assertEquals(IntStream.range(1, 9).sum(), d);
-        assertEquals(65, complex[0].ID());
-        assertEquals(11, complex[0].ts().s_int());
-        assertEquals(25, complex[0].tsPtr().s_int());
-        assertEquals("HELLO", complex[0].string());
-    }
 }

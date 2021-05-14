@@ -14,4 +14,5 @@ module test.passport {
 
     exports jpassport.test;
     exports jpassport.test.performance;
+    exports jpassport.test.structs;
 }

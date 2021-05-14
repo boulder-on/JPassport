@@ -12,8 +12,8 @@
 package jpassport.test;
 
 import jdk.incubator.foreign.MemoryAddress;
-
-import java.io.File;
+import jpassport.test.structs.ComplexStruct;
+import jpassport.test.structs.TestStruct;
 
 public class PureJava implements TestLink
 {
@@ -237,20 +237,5 @@ public class PureJava implements TestLink
 
     @Override
     public void freeMemory(MemoryAddress address) {
-    }
-
-    @Override
-    public double passStruct(TestStruct simpleStruct) {
-        return simpleStruct.s_int() + simpleStruct.s_long() + simpleStruct.s_float() + simpleStruct.s_double();
-    }
-
-    @Override
-    public double passComplex(ComplexStruct[] complexStruct)
-    {
-        double ret = passStruct(complexStruct[0].ts()) + passStruct(complexStruct[0].tsPtr());
-        TestStruct ts = new TestStruct(complexStruct[0].ts().s_int() + 10, complexStruct[0].ts().s_long(), complexStruct[0].ts().s_float(), complexStruct[0].ts().s_double());
-        TestStruct tsPtr = new TestStruct(complexStruct[0].tsPtr().s_int() + 20, complexStruct[0].tsPtr().s_long(), complexStruct[0].tsPtr().s_float(), complexStruct[0].tsPtr().s_double());
-        complexStruct[0] = new ComplexStruct(complexStruct[0].ID() + 10, ts, tsPtr, complexStruct[0].string().toUpperCase());
-        return ret;
     }
 }

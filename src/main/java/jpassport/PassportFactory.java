@@ -15,11 +15,9 @@ import jdk.incubator.foreign.*;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class PassportFactory
 {
@@ -44,7 +42,7 @@ public class PassportFactory
     private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable
     {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
-        PassportWriter<T> classWriter = new PassportWriter<T>(interfaceClass);
+        PassportWriter<T> classWriter = new PassportWriter<>(interfaceClass);
 
         return classWriter.build(handles);
     }
@@ -57,7 +55,7 @@ public class PassportFactory
      * @param interfaceClass The interface class to use as a reference for loading methods.
      * @return A map of Name to method handle pairs for the methods in the interface class.
      */
-    public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class interfaceClass)
+    public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class<? extends Passport> interfaceClass)
     {
         LibraryLookup libLookup = LibraryLookup.ofLibrary(libName);
         CLinker linker = CLinker.getInstance();
@@ -70,9 +68,9 @@ public class PassportFactory
             if (symb == null)
                 throw new IllegalArgumentException("Method not found in library: " + method.getName());
 
-            Class retType = method.getReturnType();
-            Class[] parameters = method.getParameterTypes();
-            Class methRet = retType;
+            Class<?> retType = method.getReturnType();
+            Class<?>[] parameters = method.getParameterTypes();
+            Class<?> methRet = retType;
 
             if (!methRet.isPrimitive())
                 methRet= MemoryAddress.class;
@@ -101,13 +99,13 @@ public class PassportFactory
         return methodMap;
     }
 
-    static List<Method> getDeclaredMethods(Class interfaceClass) {
+    static List<Method> getDeclaredMethods(Class<?> interfaceClass) {
         Method[] methods = interfaceClass.getDeclaredMethods();
         return Arrays.stream(methods).filter(method -> (method.getModifiers() & Modifier.STATIC) == 0).toList();
     }
 
 
-    private static MemoryLayout classToMemory(Class type)
+    private static MemoryLayout classToMemory(Class<?> type)
     {
         if (double.class.equals(type))
             return CLinker.C_DOUBLE;

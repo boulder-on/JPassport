@@ -1,4 +1,4 @@
-package jpassport.test;
+package jpassport.test.structs;
 
 import jpassport.annotations.StructPadding;
 
