@@ -5,11 +5,16 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>JPassport</groupId>
-    <artifactId>JPassport</artifactId>
+    <artifactId>JPassport-parent</artifactId>
     <version>0.2.0</version>
 
+    <modules>
+        <module>jpassport</module>
+        <module>test_jpassport</module>
+    </modules>
+
     <name>JPassport</name>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
     <description>A Java library for interfacing with the foreign linker API. Designed as a replacement for JNA. </description>
     <url>https://github.com/boulder-on/JPassport#readme</url>
 
@@ -17,33 +22,6 @@
         <maven.compiler.source>16</maven.compiler.source>
         <maven.compiler.target>16</maven.compiler.target>
     </properties>
-
-<!--    <dependencies>-->
-<!--        <dependency>-->
-<!--            <groupId>org.junit.jupiter</groupId>-->
-<!--            <artifactId>junit-jupiter-api</artifactId>-->
-<!--            <version>5.7.1</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>org.junit.jupiter</groupId>-->
-<!--            <artifactId>junit-jupiter-engine</artifactId>-->
-<!--            <version>5.7.1</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>net.java.dev.jna</groupId>-->
-<!--            <artifactId>jna-platform</artifactId>-->
-<!--            <version>5.8.0</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>net.java.dev.jna</groupId>-->
-<!--            <artifactId>jna</artifactId>-->
-<!--            <version>5.8.0</version>-->
-<!--            <scope>test</scope>-->
-<!--        </dependency>-->
-<!--    </dependencies>-->
 
     <build>
         <pluginManagement>
