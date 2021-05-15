@@ -13,9 +13,7 @@ package jpassport.test.performance;
 
 import com.sun.jna.Native;
 import jpassport.PassportFactory;
-import jpassport.test.structs.ComplexStruct;
 import jpassport.test.TestLinkJNADirect;
-import jpassport.test.structs.TestStruct;
 import jpassport.test.util.CSVOutput;
 
 import java.io.IOException;

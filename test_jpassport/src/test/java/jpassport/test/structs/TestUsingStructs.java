@@ -31,8 +31,6 @@ public class TestUsingStructs {
     public static void startup() throws Throwable
     {
         System.setProperty("jpassport.build.home", "out/testing");
-        System.setProperty("jna.library.path", System.getProperty("java.library.path"));
-
         PassingStructs = PassportFactory.link("libpassport_test", TestStructCalls.class);
     }
 

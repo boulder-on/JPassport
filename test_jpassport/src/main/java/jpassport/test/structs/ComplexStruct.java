@@ -2,7 +2,6 @@ package jpassport.test.structs;
 
 import jpassport.annotations.Ptr;
 import jpassport.annotations.StructPadding;
-import jpassport.test.structs.TestStruct;
 
 /**
  * This record is meant to match the ComplexPassing struct in the C code.

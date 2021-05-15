@@ -13,11 +13,13 @@ package jpassport.test;
 
 import com.sun.jna.Library;
 import jdk.incubator.foreign.MemoryAddress;
+import jdk.incubator.foreign.MemorySegment;
 import jpassport.Passport;
+import jpassport.Utils;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
-import jpassport.test.structs.ComplexStruct;
-import jpassport.test.structs.TestStruct;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 public interface TestLink extends Passport, Library {
 
@@ -60,4 +62,16 @@ public interface TestLink extends Passport, Library {
     String mallocString(String origString);
     MemoryAddress mallocDoubles(int count);
     void freeMemory(MemoryAddress address);
+
+    static void calling(TestLink tl)
+    {
+        double[] values = new double[5];
+        MemoryAddress address = tl.mallocDoubles(values.length);
+        MemorySegment segment = address.asSegmentRestricted(values.length * Double.BYTES);
+        Utils.toArr(values, segment);
+
+        assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
+
+        tl.freeMemory(address);
+    }
 }

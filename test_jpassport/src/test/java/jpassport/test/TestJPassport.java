@@ -20,16 +20,14 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import jdk.incubator.foreign.*;
 import jpassport.Utils;
-import jpassport.test.structs.ComplexStruct;
-import jpassport.test.structs.TestStruct;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
 import org.junit.jupiter.api.Test;
 
-public class LinkerTest
+
+public class TestJPassport
 {
     static TestLink testFL;
     static TestLink testJNA;
@@ -236,14 +234,7 @@ public class LinkerTest
     @Test
     void testReturnPointer()
     {
-        double[] values = new double[5];
-        MemoryAddress address = testFL.mallocDoubles(values.length);
-        MemorySegment segment = address.asSegmentRestricted(values.length * Double.BYTES);
-        Utils.toArr(values, segment);
-
-        assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
-
-        testFL.freeMemory(address);
+        TestLink.calling(testFL);
     }
 
 

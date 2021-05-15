@@ -11,7 +11,6 @@
  */
 package jpassport.test.performance;
 
-import jpassport.test.structs.ComplexStruct;
 import jpassport.test.structs.TestStruct;
 
 public class PureJavaPerf implements PerfTest{

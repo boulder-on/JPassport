@@ -12,8 +12,6 @@
 package jpassport.test;
 
 import jdk.incubator.foreign.MemoryAddress;
-import jpassport.test.structs.ComplexStruct;
-import jpassport.test.structs.TestStruct;
 
 public class PureJava implements TestLink
 {
