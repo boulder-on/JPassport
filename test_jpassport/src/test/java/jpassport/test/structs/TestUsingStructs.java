@@ -35,13 +35,13 @@ public class TestUsingStructs {
     }
 
     @Test
-    void testSimpleStruct()
+    public void testSimpleStruct()
     {
         assertEquals(2+3+4+5, PassingStructs.passStruct(new TestStruct(2, 3, 4, 5)));
     }
 
     @Test
-    void testComplexStruct()
+    public void testComplexStruct()
     {
         TestStruct ts = new TestStruct(1, 2, 3, 4);
         TestStruct tsPtr = new TestStruct(5, 6, 7, 8);
@@ -56,7 +56,7 @@ public class TestUsingStructs {
     }
 
     @Test
-    void testStructsWithArrays()
+    public void testStructsWithArrays()
     {
         int expected = IntStream.range(1, 21).sum();
 

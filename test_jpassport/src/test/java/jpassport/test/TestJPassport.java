@@ -20,7 +20,6 @@ import java.util.stream.IntStream;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
@@ -53,7 +52,7 @@ public class TestJPassport
     }
 
     @Test
-    void testAllocString()
+    public void testAllocString()
     {
         for (TestLink test : allLinksPtrPtr)
         {
@@ -64,7 +63,7 @@ public class TestJPassport
     }
 
     @Test
-    void testD()
+    public void testD()
     {
         for (TestLink test : allLinks)
         {
@@ -79,7 +78,7 @@ public class TestJPassport
     }
 
     @Test
-    void testF()
+    public void testF()
     {
         for (TestLink test : allLinks)
         {
@@ -93,7 +92,7 @@ public class TestJPassport
 
 
     @Test
-    void testL()
+    public void testL()
     {
         for (TestLink test : allLinks)
         {
@@ -107,7 +106,7 @@ public class TestJPassport
 
 
     @Test
-    void testI()
+    public void testI()
     {
         int[] testRange = IntStream.range(1, 5).toArray();
         int correct = IntStream.range(1, 5).sum();
@@ -124,7 +123,7 @@ public class TestJPassport
 
 
     @Test
-    void testS()
+    public void testS()
     {
         for (TestLink test : allLinks)
         {
@@ -138,7 +137,7 @@ public class TestJPassport
 
 
     @Test
-    void testB()
+    public void testB()
     {
         for (TestLink test : allLinks)
         {
@@ -151,7 +150,7 @@ public class TestJPassport
     }
 
     @Test
-    void testSumMatD()
+    public void testSumMatD()
     {
         double[][] mat = new double[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
@@ -163,7 +162,7 @@ public class TestJPassport
     }
 
     @Test
-    void testSumMatF()
+    public void testSumMatF()
     {
         float[][] mat = new float[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
@@ -175,7 +174,7 @@ public class TestJPassport
     }
 
     @Test
-    void testSumMatL()
+    public void testSumMatL()
     {
         long[][] mat = new long[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
@@ -187,7 +186,7 @@ public class TestJPassport
     }
 
     @Test
-    void testSumMatI()
+    public void testSumMatI()
     {
         int[][] mat = new int[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
@@ -199,7 +198,7 @@ public class TestJPassport
     }
 
     @Test
-    void testSumMatS()
+    public void testSumMatS()
     {
         short[][] mat = new short[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
@@ -211,7 +210,7 @@ public class TestJPassport
     }
 
     @Test
-    void testSumMatB()
+    public void testSumMatB()
     {
         byte[][] mat = new byte[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
@@ -223,7 +222,7 @@ public class TestJPassport
     }
 
     @Test
-    void testStrLen()
+    public void testStrLen()
     {
         for (TestLink test : allLinksPtrPtr)
         {
@@ -232,7 +231,7 @@ public class TestJPassport
     }
 
     @Test
-    void testReturnPointer()
+    public void testReturnPointer()
     {
         TestLink.calling(testFL);
     }
