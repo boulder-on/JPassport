@@ -8,7 +8,6 @@ module test.passport {
     requires org.junit.platform.engine;
     requires jmh.core;
     requires jmh.generator.annprocess;
-    requires jdk.unsupported;
 
     requires commons.csv;
 
