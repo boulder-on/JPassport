@@ -89,7 +89,7 @@ public class PassportFactory
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
             MethodHandle methodHandle = linker.
-                    downcallHandle(symb.address(),
+                    downcallHandle(symb,
                             MethodType.methodType(methRet, parameters),
                             fd);
 
@@ -121,5 +121,9 @@ public class PassportFactory
             return CLinker.C_LONG_LONG;
 
         return CLinker.C_POINTER;
+    }
+
+    public record LibraryDetails (LibraryLookup lookup, HashMap<String, MethodHandle> methodMap)
+    {
     }
 }
