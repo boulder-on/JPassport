@@ -176,35 +176,41 @@ public class PassportWriter<T extends Passport>
             if (!requiresMap.containsKey(c))
                 requiresMap.put(c, new ArrayList<>());
 
-            StringBuilder sb = new StringBuilder();
-            layoutMap.put(c, sb);
+            StringBuilder sbLayout = new StringBuilder();
+            StringBuilder sbOffsets = new StringBuilder();
+            layoutMap.put(c, sbLayout);
 
-            sb.append(String.format("private static final GroupLayout %sLayout = MemoryLayout.ofStruct(\n", c.getSimpleName()));
+            sbLayout.append(String.format("private static final GroupLayout %sLayout = MemoryLayout.ofStruct(\n", c.getSimpleName()));
+
+            //Build an array cached with the required byte offsets. This reduces the overhead on calls using structs ~60%-75%
+            sbOffsets.append(String.format("\tprivate static final long[] %sLayoutOffsets = new long[] {\n", c.getSimpleName()));
 
             for (Field f : c.getDeclaredFields())
             {
                 int paddingBits = getPaddingBits(f);
 
+                sbOffsets.append(String.format("\t\t%1$sLayout.byteOffset(groupElement(\"%2$s\")),\n", c.getSimpleName(), f.getName()));
+
                 // negative indicates pre-padding
                 if (paddingBits < 0)
-                    sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", -paddingBits));
+                    sbLayout.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", -paddingBits));
 
                 Class<?> type = f.getType();
                 if (type.isPrimitive())
                 {
-                    sb.append(String.format("\t\t%s.withName(\"%s\"),\n",typeToCName.get(type), f.getName()));
+                    sbLayout.append(String.format("\t\t%s.withName(\"%s\"),\n",typeToCName.get(type), f.getName()));
                 }
                 else if (type.isRecord())
                 {
                     requiresMap.get(c).add(type);
                     boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPtr)
-                        sb.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
+                        sbLayout.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
                     else
-                        sb.append(String.format("\t\t%sLayout.withName(\"%s\"),\n",type.getSimpleName(), f.getName()));
+                        sbLayout.append(String.format("\t\t%sLayout.withName(\"%s\"),\n",type.getSimpleName(), f.getName()));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
+                    sbLayout.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
                 else if (type.isArray())
                 {
                     Annotation[] arrays = f.getAnnotationsByType(Array.class);
@@ -215,19 +221,22 @@ public class PassportWriter<T extends Passport>
                         int length = ((Array) arrays[0]).length();
                         Class<?> arrType = type.getComponentType();
 
-                        sb.append(String.format("\t\tMemoryLayout.ofSequence(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
+                        sbLayout.append(String.format("\t\tMemoryLayout.ofSequence(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
                     }
                     else if (isPointer)
-                        sb.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
+                        sbLayout.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
                     else
                         throw new PassportException("Record arrays must be defined with either an Array or Ptr annotation");
                 }
 
                 if (paddingBits > 0)
-                    sb.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBits));
+                    sbLayout.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBits));
             }
-            sb.setLength(sb.length() - 2);
-            sb.append(");\n\n");
+            sbLayout.setLength(sbLayout.length() - 2);
+            sbLayout.append(");\n\n");
+            sbOffsets.append("\t};\n\n");
+
+            sbLayout.append(sbOffsets);
         }
 
         StringBuilder allStructs = new StringBuilder();
@@ -296,22 +305,24 @@ public class PassportWriter<T extends Passport>
                     """,
                     c.getSimpleName()));
 
-
+            int Element = 0;
             for (Field f : c.getDeclaredFields())
             {
                 Class<?> type = f.getType();
+                String offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
+
                 if (type.isPrimitive())
-                    sb.append(String.format("\t\tset%2$sAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), rec.%1$s());\n", f.getName(), typeToName.get(type)));
+                    sb.append(String.format("\t\tset%2$sAtOffset(memStruct, %3$s, rec.%1$s());\n", f.getName(), typeToName.get(type), offset));
                 else if (type.isRecord())
                 {
                     boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPtr)
-                        sb.append(String.format("\t\tsetAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tsetAddressAtOffset(memStruct, %3$s, store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName(), offset));
                     else
-                        sb.append(String.format("\t\tmemStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\"))).copyFrom(store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tmemStruct.asSlice(%3$s).copyFrom(store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName(), offset));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tsetAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), toCString(rec.%1$s(), scope).address());\n", f.getName()));
+                    sb.append(String.format("\t\tsetAddressAtOffset(memStruct, %2$s, toCString(rec.%1$s(), scope).address());\n", f.getName(), offset));
                 else if (type.isArray())
                 {
                     Class<?> arrType = type.getComponentType();
@@ -321,9 +332,9 @@ public class PassportWriter<T extends Passport>
                     if (arrType.isPrimitive())
                     {
                         if (arrays.length > 0)
-                            sb.append(String.format("\t\tmemStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\"))).copyFrom(MemorySegment.ofArray(rec.%1$s()));\n", f.getName()));
+                            sb.append(String.format("\t\tmemStruct.asSlice(%2$s).copyFrom(MemorySegment.ofArray(rec.%1$s()));\n", f.getName(), offset));
                         else if (isPointer)
-                            sb.append(String.format("\t\tsetAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")), Utils.toMS(scope, rec.%1$s()).address());\n", f.getName()));
+                            sb.append(String.format("\t\tsetAddressAtOffset(memStruct, %2$s, Utils.toMS(scope, rec.%1$s()).address());\n", f.getName(), offset));
                     }
 
                 }
@@ -355,22 +366,25 @@ public class PassportWriter<T extends Passport>
                     """,
                     c.getSimpleName()));
 
+            int Element = 0;
 
             for (Field f : c.getDeclaredFields())
             {
+                String offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
+
                 Class<?> type = f.getType();
                 if (type.isPrimitive())
-                    sb.append(String.format("\t\tvar %1$s = get%2$sAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\")));\n", f.getName(), typeToName.get(type)));
+                    sb.append(String.format("\t\tvar %1$s = get%2$sAtOffset(memStruct, %3$s);\n", f.getName(), typeToName.get(type), offset));
                 else if (type.isRecord())
                 {
                     boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPointer)
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(getAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\"))).asSegmentRestricted(%2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tvar %1$s = read%2$s(getAddressAtOffset(memStruct, %3$s).asSegmentRestricted(%2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
                     else
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\"))), rec.%1$s());\n", f.getName(), type.getSimpleName()));
+                        sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(%3$s), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tvar %1$s = toJavaStringRestricted(getAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\"))));\n", f.getName()));
+                    sb.append(String.format("\t\tvar %1$s = toJavaStringRestricted(getAddressAtOffset(memStruct, %2$s));\n", f.getName(), offset));
                 else if (type.isArray())
                 {
                     Class<?> arrType = type.getComponentType();
@@ -381,12 +395,12 @@ public class PassportWriter<T extends Passport>
                     {
                         if (arrays.length > 0) {
                             int length = ((Array) arrays[0]).length();
-                            sb.append(String.format("\t\tvar %1$s = memStruct.asSlice(layout.byteOffset(groupElement(\"%1$s\")), %2$d * %3$s.BYTES).to%3$sArray();\n", f.getName(), length, typeToName.get(arrType)));
+                            sb.append(String.format("\t\tvar %1$s = memStruct.asSlice(%4$s, %2$d * %3$s.BYTES).to%3$sArray();\n", f.getName(), length, typeToName.get(arrType), offset));
                         }
                         else if (isPointer)
                         {
                             sb.append(String.format("\t\tlong %1$sSize = rec.%1$s().length;\n", f.getName()));
-                            sb.append(String.format("\t\tvar %1$s = getAddressAtOffset(memStruct, layout.byteOffset(groupElement(\"%1$s\"))).asSegmentRestricted(%1$sSize * %2$s.BYTES).to%2$sArray();\n", f.getName(), typeToName.get(arrType)));
+                            sb.append(String.format("\t\tvar %1$s = getAddressAtOffset(memStruct, %3$s).asSegmentRestricted(%1$sSize * %2$s.BYTES).to%2$sArray();\n", f.getName(), typeToName.get(arrType), offset));
                         }
                     }
                 }
