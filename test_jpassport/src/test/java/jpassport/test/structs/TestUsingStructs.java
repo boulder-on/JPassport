@@ -4,6 +4,7 @@ import jpassport.PassportFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -32,12 +33,30 @@ public class TestUsingStructs {
     {
         System.setProperty("jpassport.build.home", "out/testing");
         PassingStructs = PassportFactory.link("libpassport_test", TestStructCalls.class);
+//        PassingStructs = new TestStructCalls_impl(PassportFactory.loadMethodHandles("libpassport_test", TestStructCalls.class));
     }
 
     @Test
     public void testSimpleStruct()
     {
         assertEquals(2+3+4+5, PassingStructs.passStruct(new TestStruct(2, 3, 4, 5)));
+//        long[] times = new long[1000];
+//
+//        for (int n = 0; n < times.length; n++)
+//        {
+//            long t = System.currentTimeMillis();
+//
+//            for (int m = 0; m < 10000; ++m)
+//            {
+//                PassingStructs.passStruct(new TestStruct(m, m+1, m+2, m+3));
+//            }
+//
+//            times[n] = System.currentTimeMillis() - t;
+//            System.out.printf("%d = %d ms\n", n, times[n]);
+//        }
+//
+//        times = Arrays.copyOfRange(times, 5, times.length);
+//        System.out.println("Mean = " + Arrays.stream(times).average().getAsDouble());
     }
 
     @Test
@@ -53,6 +72,25 @@ public class TestUsingStructs {
         assertEquals(11, complex[0].ts().s_int());
         assertEquals(25, complex[0].tsPtr().s_int());
         assertEquals("HELLO", complex[0].string());
+//
+//        long[] times = new long[500];
+//
+//        for (int n = 0; n < times.length; n++)
+//        {
+//            long t = System.currentTimeMillis();
+//
+//            for (int m = 0; m < 10000; ++m)
+//            {
+//                complex = new ComplexStruct[] {new ComplexStruct(55, ts, tsPtr, "hello")};
+//                PassingStructs.passComplex(complex);
+//            }
+//
+//            times[n] = System.currentTimeMillis() - t;
+//            System.out.printf("%d = %d ms\n", n, times[n]);
+//        }
+//
+//        times = Arrays.copyOfRange(times, 5, times.length);
+//        System.out.println("Mean = " + Arrays.stream(times).average().getAsDouble());
     }
 
     @Test

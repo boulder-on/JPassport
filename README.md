@@ -25,7 +25,7 @@ Since the Foreign Linker is in incubator you can think of this project as a proo
 
 # Getting Started
 
-Download the source and run the maven build, or run the ant build.
+Download the source and run the maven build.
 
 # Example
 
@@ -135,7 +135,8 @@ Return types can be:
 8. char* (maps to a Java String)
 9. any pointer (see limitations)
 
-If an argument is changed by the C library call then the @RefArg annotation is required for that argument. Ex.
+If an argument is changed by the C library call then the @RefArg annotation is required for that argument. 
+The argument also needs to be passed as an array of length one. Ex.
 
 C:
 ```
@@ -220,12 +221,12 @@ a pointer to another struct.
 
 Arrays of Records can only be 1 element long. Longer arrays of Records are not supported.
 
-Records can contain primitives, Strings, or other Records. Arrays of primitives are not currently supported.
+Records can contain primitives, arrays of primitives, pointers to arrays of primitives, Strings, or pointers
+to other Records.
 
 # Limitations
 
 * Only arrays of Records of length 1 work.
-* Arrays of primitives are not supported in Records.
 * Only 1D and 2D arrays of primitives are supported, deeper nestings do not work.
 * The interface file passed to PassportFactory and all required Records must be exported by your module.
 
@@ -284,8 +285,7 @@ The testing classes require:
 # Work To-Do
 Roughly in order of importance
 
-1. Support arrays of primitives in Records
-2. Support arrays of Records 
-3. Support returning a Record
-4. Use the Java Micro-benchmarking harness.
-5. Compile classes in memory instead of from disk
+1. Support arrays of Records 
+2. Support returning a Record
+3. Use the Java Micro-benchmarking harness.
+4. Compile classes in memory instead of from disk

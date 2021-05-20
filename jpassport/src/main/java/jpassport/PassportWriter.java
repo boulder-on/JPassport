@@ -46,7 +46,7 @@ public class PassportWriter<T extends Passport>
 
     private static int Class_ID = 1; //Used to make unique package names
 
-    private static final Map<Class, String> typeToName = new HashMap<>()
+    private static final Map<Class<?>, String> typeToName = new HashMap<>()
     {
         {
             put(byte.class, "Byte");
@@ -58,7 +58,7 @@ public class PassportWriter<T extends Passport>
         }
     };
 
-    private static final Map<Class, String> typeToCName = new HashMap<>()
+    private static final Map<Class<?>, String> typeToCName = new HashMap<>()
     {
         {
             put(byte.class, "C_CHAR");
@@ -120,8 +120,8 @@ public class PassportWriter<T extends Passport>
                 structLayouts,
                 m_className));
 
-        m_source.append(buildStructConverter(extraImports));
-        m_source.append(buildStructReader(extraImports));
+        m_source.append(buildStoreStructFunction(extraImports));
+        m_source.append(buildReadStructFunction(extraImports));
 
         m_initSource.append("""
                                     private void init(){
@@ -288,7 +288,7 @@ public class PassportWriter<T extends Passport>
      * @param records all of the Record types we need to support.
      * @return The code that converts Records into MemorySegments
      */
-    public String buildStructConverter(Set<Class<?>> records)
+    public String buildStoreStructFunction(Set<Class<?>> records)
     {
         StringBuilder sb = new StringBuilder();
 
@@ -299,9 +299,15 @@ public class PassportWriter<T extends Passport>
 
             sb.append(String.format("""
                         private MemorySegment store%1$s(NativeScope scope, %1$s rec) {
-                            GroupLayout layout = %1$sLayout;
-                            MemorySegment memStruct = scope.allocate(layout.byteSize());
+                            return store%1$s(scope, new %1$s[] {rec});
+                        };
                             
+                        private MemorySegment store%1$s(NativeScope scope, %1$s[] recs) {
+                            long size = %1$sLayout.byteSize();
+                            MemorySegment memStruct = scope.allocate(size);
+                            
+                            long offset = 0;
+                            for (%1$s rec : recs) {
                     """,
                     c.getSimpleName()));
 
@@ -309,7 +315,7 @@ public class PassportWriter<T extends Passport>
             for (Field f : c.getDeclaredFields())
             {
                 Class<?> type = f.getType();
-                String offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
+                String offset = String.format("%sLayoutOffsets[%d] + offset", c.getSimpleName(), Element++);
 
                 if (type.isPrimitive())
                     sb.append(String.format("\t\tset%2$sAtOffset(memStruct, %3$s, rec.%1$s());\n", f.getName(), typeToName.get(type), offset));
@@ -339,6 +345,7 @@ public class PassportWriter<T extends Passport>
 
                 }
             }
+            sb.append("\t\toffset += size;\n\t}\n");
             sb.append("\n\t\treturn memStruct;\n\t}\n\n");
         }
 
@@ -351,7 +358,7 @@ public class PassportWriter<T extends Passport>
      * @param records All of the record types to make readers for.
      * @return The code to read all of the Record types.
      */
-    private String buildStructReader(Set<Class<?>> records)
+    private String buildReadStructFunction(Set<Class<?>> records)
     {
         StringBuilder sb = new StringBuilder();
 
@@ -485,7 +492,7 @@ public class PassportWriter<T extends Passport>
             {
                 bHasAllocatedMemory = true;
                 Class<?> recordType = parameter.getComponentType();
-                preCall.append(String.format("var vv%1$d = store%2$s(scope, v%1$d[0]);\n", v, recordType.getSimpleName()));
+                preCall.append(String.format("var vv%1$d = store%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
                 params.append("vv").append(v).append(".address(),");
 
                 if (isRefArg(paramAnnotations[v-1]))
