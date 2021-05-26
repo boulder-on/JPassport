@@ -7,21 +7,13 @@ The goal of this project is to a) start working with the Foreign Linker, b) prov
 for JNA in simple applications.
 
 As part of the Foreign Linker API a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
-is available. Given a header file JExtract will build the classes needed to access a C library. The
-main differences with JPassport and JExtract are:
+is available. Given a header file JExtract will build the classes needed to access a C library. If you have
+a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
+defined for JNA.
 
-* JExtract requires a header file, JPassport does not.
-* JExtract requires you to convert Java objects to MemoryAddress objects manually
-  * JPassport will handle many conversions for you.
-  * You can define interface methods to work with MemoryAddress objects and then do all of the memory management yourself.
-* JExtract writes .java files for you to include in your codebase
-  * JPassport can build classes at run time (there can be a time penalty of a few seconds, but the code for this is more compact and easy to work with)
-  * JPassport can write .java also for you to include in your codebase
+At least [Java Panama EA-17](https://jdk.java.net/panama/) is required to use this library.
 
-Which tool is right for you will greatly depend on your situation.
-
-The Foreign Linker API is still an incubator at this time and Java 16 at least is required to use this library.
-Since the Foreign Linker is in incubator you can think of this project as a proof of concept at this time.
+The Foreign Linker API is still an incubator, so you can think of this project as a proof of concept at this time.
 
 # Getting Started
 
@@ -71,7 +63,7 @@ Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linke
 
 In order to use this library you will need to provide the VM these arguments:
 
-__-Djava.library.path=[path to lib] -Dforeign.restricted=permit__
+__-Djava.library.path=[path to lib] --enable-native-access jpassport__
 
 JPassport works by writing a class that implements your interface, compiling it and passing it back to you.
 By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
@@ -152,8 +144,8 @@ public interface Test extends Passport {
   void readD(@RefArg int[] d, int set);
 }
 
-Linked lib = PassportFactory.link("libforeign_link", Test.class);
-int ref[] = new int[1];
+Linked lib = PassportFactory.link("foreign_link", Test.class);
+int[] ref = new int[1];
 lib.readD(ref, 10);
 ```
 
@@ -200,7 +192,7 @@ public record PassingData(
 
 public record ComplexPassing(
         @StructPadding(bytes = 4) int ID,
-        TestStruct ts,
+        PassingData ts,
         @Ptr TestStruct tsPtr,
         String string) {
 }
@@ -234,7 +226,7 @@ Pointers as function returns only work in a limited fashion. Based on a C
 function declaration there isn't a way to tell exactly what a method is returning.
 For example, returning int* could return any number of ints. There is
 little a library like JPassport can do to handle returned pointers automatically. 
-The work-around is for your interface function return MemoryAddress. From there
+The work-around is for your interface function to return MemoryAddress. From there
 it would be up to you to decipher the return. 
 
 Declaring your interface method to take MemoryAddress objects allow you to
@@ -265,16 +257,14 @@ public interface TestLink extends Passport {
 
 double[] testReturnPointer(int count) {
     MemoryAddress address = linked_lib.mallocDoubles(count);
-    double[] values = new double[count];
-    // Use the provided Util function to copy data out of the MemorySegment
-    Utils.toArr(values, address.asSegmentRestricted(count * Double.BYTES));
+    double[] values = Utils.toArrDouble(address, count);
     linked_lib.freeMemory(address);
     return values;
 }
 ```
 # Dependencies
 
-JPassport itself only requires at least Java 16 to build and run.
+JPassport itself only requires at least [Java Panama EA-17](https://jdk.java.net/panama/) to build and run.
 
 The testing classes require:
 

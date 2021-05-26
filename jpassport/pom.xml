@@ -10,7 +10,7 @@
         <version>0.3.0</version>
     </parent>
 
-    <artifactId>JPassport</artifactId>
+    <artifactId>JPassport-main</artifactId>
     <version>0.3.0</version>
 
 <!--    <name>JPassport</name>-->
@@ -19,8 +19,8 @@
     <url>https://github.com/boulder-on/JPassport#readme</url>
 
     <properties>
-        <maven.compiler.source>16</maven.compiler.source>
-        <maven.compiler.target>16</maven.compiler.target>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
     </properties>
 
     <build>

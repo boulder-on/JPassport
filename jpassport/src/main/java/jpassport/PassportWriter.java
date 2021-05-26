@@ -180,7 +180,7 @@ public class PassportWriter<T extends Passport>
             StringBuilder sbOffsets = new StringBuilder();
             layoutMap.put(c, sbLayout);
 
-            sbLayout.append(String.format("private static final GroupLayout %sLayout = MemoryLayout.ofStruct(\n", c.getSimpleName()));
+            sbLayout.append(String.format("private static final GroupLayout %sLayout = MemoryLayout.structLayout(\n", c.getSimpleName()));
 
             //Build an array cached with the required byte offsets. This reduces the overhead on calls using structs ~60%-75%
             sbOffsets.append(String.format("\tprivate static final long[] %sLayoutOffsets = new long[] {\n", c.getSimpleName()));
@@ -193,7 +193,7 @@ public class PassportWriter<T extends Passport>
 
                 // negative indicates pre-padding
                 if (paddingBits < 0)
-                    sbLayout.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", -paddingBits));
+                    sbLayout.append(String.format("\t\tMemoryLayout.paddingLayout(%d),\n", -paddingBits));
 
                 Class<?> type = f.getType();
                 if (type.isPrimitive())
@@ -221,7 +221,7 @@ public class PassportWriter<T extends Passport>
                         int length = ((Array) arrays[0]).length();
                         Class<?> arrType = type.getComponentType();
 
-                        sbLayout.append(String.format("\t\tMemoryLayout.ofSequence(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
+                        sbLayout.append(String.format("\t\tMemoryLayout.sequenceLayout(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
                     }
                     else if (isPointer)
                         sbLayout.append(String.format("\t\tC_POINTER.withName(\"%s\"),\n", f.getName()));
@@ -230,7 +230,7 @@ public class PassportWriter<T extends Passport>
                 }
 
                 if (paddingBits > 0)
-                    sbLayout.append(String.format("\t\tMemoryLayout.ofPaddingBits(%d),\n", paddingBits));
+                    sbLayout.append(String.format("\t\tMemoryLayout.paddingLayout(%d),\n", paddingBits));
             }
             sbLayout.setLength(sbLayout.length() - 2);
             sbLayout.append(");\n\n");
@@ -298,11 +298,11 @@ public class PassportWriter<T extends Passport>
                 continue;
 
             sb.append(String.format("""
-                        private MemorySegment store%1$s(NativeScope scope, %1$s rec) {
+                        private MemorySegment store%1$s(SegmentAllocator scope, %1$s rec) {
                             return store%1$s(scope, new %1$s[] {rec});
                         };
                             
-                        private MemorySegment store%1$s(NativeScope scope, %1$s[] recs) {
+                        private MemorySegment store%1$s(SegmentAllocator scope, %1$s[] recs) {
                             long size = %1$sLayout.byteSize();
                             MemorySegment memStruct = scope.allocate(size);
                             
@@ -386,12 +386,13 @@ public class PassportWriter<T extends Passport>
                 {
                     boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
                     if (isPointer)
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(getAddressAtOffset(memStruct, %3$s).asSegmentRestricted(%2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = read%2$s(Utils.slice(memStruct.scope(), getAddressAtOffset(memStruct, %3$s), %2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
+//                        sb.append(String.format("\t\tvar %1$s = read%2$s(getAddressAtOffset(memStruct, %3$s).asSegment(%2$sLayout.byteSize(), memStruct.scope()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
                     else
                         sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(%3$s), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
                 }
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tvar %1$s = toJavaStringRestricted(getAddressAtOffset(memStruct, %2$s));\n", f.getName(), offset));
+                    sb.append(String.format("\t\tvar %1$s = Utils.readString(getAddressAtOffset(memStruct, %2$s));\n", f.getName(), offset));
                 else if (type.isArray())
                 {
                     Class<?> arrType = type.getComponentType();
@@ -406,8 +407,8 @@ public class PassportWriter<T extends Passport>
                         }
                         else if (isPointer)
                         {
-                            sb.append(String.format("\t\tlong %1$sSize = rec.%1$s().length;\n", f.getName()));
-                            sb.append(String.format("\t\tvar %1$s = getAddressAtOffset(memStruct, %3$s).asSegmentRestricted(%1$sSize * %2$s.BYTES).to%2$sArray();\n", f.getName(), typeToName.get(arrType), offset));
+                            sb.append(String.format("\t\tint %1$sSize = rec.%1$s().length;\n", f.getName()));
+                            sb.append(String.format("\t\tvar %1$s = Utils.toArr%2$s(getAddressAtOffset(memStruct, %3$s), %1$sSize);\n", f.getName(), typeToName.get(arrType), offset));
                         }
                     }
                 }
@@ -446,7 +447,7 @@ public class PassportWriter<T extends Passport>
             if (retType.equals(String.class))
             {
                 strCallReturn = "var ret = (MemoryAddress)";
-                strReturn = "return toJavaStringRestricted(ret);";
+                strReturn = "return Utils.readString(ret);";
             }
             else
             {
@@ -467,9 +468,9 @@ public class PassportWriter<T extends Passport>
             {
                 bHasAllocatedMemory = true;
                 if (isPtrPtrArg(paramAnnotations[v-1]))
-                    preCall.append(String.format("var vv%1$d = Utils.toPtrPTrMS(scope, v%1$d);", v));
+                    preCall.append(String.format("var vv%1$d = Utils.toPtrPTrMS(allocator, v%1$d);", v));
                 else
-                    preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d);\n", v));
+                    preCall.append(String.format("var vv%1$d = Utils.toMS(allocator, v%1$d);\n", v));
 
                 params.append("vv").append(v).append(".address(),");
 
@@ -479,20 +480,20 @@ public class PassportWriter<T extends Passport>
             else if (String.class.equals(parameter))
             {
                 bHasAllocatedMemory = true;
-                tryArgs.append(String.format("var vv%1$d = toCString(v%1$d);", v));
+                preCall.append(String.format("var vv%1$d = toCString(v%1$d, allocator);\n", v));
                 params.append("vv").append(v).append(".address(),");
             }
             else if (parameter.isRecord())
             {
                 bHasAllocatedMemory = true;
-                preCall.append(String.format("var vv%1$d = store%2$s(scope, v%1$d).address();\n", v, parameter.getSimpleName()));
+                preCall.append(String.format("var vv%1$d = store%2$s(allocator, v%1$d).address();\n", v, parameter.getSimpleName()));
                 params.append("vv").append(v).append(",");
             }
             else if (parameter.isArray() && parameter.getComponentType().isRecord())
             {
                 bHasAllocatedMemory = true;
                 Class<?> recordType = parameter.getComponentType();
-                preCall.append(String.format("var vv%1$d = store%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
+                preCall.append(String.format("var vv%1$d = store%2$s(allocator, v%1$d);\n", v, recordType.getSimpleName()));
                 params.append("vv").append(v).append(".address(),");
 
                 if (isRefArg(paramAnnotations[v-1]))
@@ -509,7 +510,11 @@ public class PassportWriter<T extends Passport>
         if (params.length() > 0)
             params.setLength(params.length() - 1);
         if (bHasAllocatedMemory)
-            tryArgs.append("var scope = NativeScope.unboundedScope();");
+        {
+            tryArgs.append("var scope = ResourceScope.newConfinedScope();");
+            preCall.insert(0, "var allocator = SegmentAllocator.ofScope(scope);\n\t\t");
+        }
+
         if (tryArgs.length() > 0)
             tryArgs.insert(0, "(").append(")");
 

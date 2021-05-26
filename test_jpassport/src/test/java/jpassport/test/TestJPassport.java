@@ -43,6 +43,7 @@ public class TestJPassport
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
 
         testFL = PassportFactory.link("libpassport_test", TestLink.class);
+//        testFL = new TestLink_impl(PassportFactory.loadMethodHandles("C:\\code\\github\\JFA\\test_jpassport\\libpassport_test.dll", TestLink.class));
         testJNA =  Native.load("passport_test", TestLink.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJava();
@@ -230,11 +231,11 @@ public class TestJPassport
         }
     }
 
-    @Test
-    public void testReturnPointer()
-    {
-        TestLink.calling(testFL);
-    }
+//    @Test
+//    public void testReturnPointer()
+//    {
+//        TestLink.calling(testFL);
+//    }
 
 
 }

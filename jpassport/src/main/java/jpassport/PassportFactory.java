@@ -13,6 +13,7 @@ package jpassport;
 
 import jdk.incubator.foreign.*;
 
+import java.io.File;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
@@ -57,16 +58,24 @@ public class PassportFactory
      */
     public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class<? extends Passport> interfaceClass)
     {
-        LibraryLookup libLookup = LibraryLookup.ofLibrary(libName);
-        CLinker linker = CLinker.getInstance();
+        if (Utils.getPlatform().equals(Utils.Platform.Windows) && !libName.endsWith(".dll"))
+            libName = libName + ".dll";
+
+        File libPath = new File(libName);
+        System.load(libPath.getAbsolutePath());
+        CLinker cLinker = CLinker.getInstance();
 
         List<Method> interfaceMethods = getDeclaredMethods(interfaceClass);
         HashMap<String, MethodHandle> methodMap = new HashMap<>();
 
+        SymbolLookup lookup = SymbolLookup.loaderLookup();
+
         for (Method method : interfaceMethods) {
-            LibraryLookup.Symbol symb = libLookup.lookup(method.getName()).orElse(null);
-            if (symb == null)
-                throw new IllegalArgumentException("Method not found in library: " + method.getName());
+//            ;
+//
+//            LibraryLookup.Symbol symb = libLookup.lookup(method.getName()).orElse(null);
+//            if (symb == null)
+//                throw new IllegalArgumentException("Method not found in library: " + method.getName());
 
             Class<?> retType = method.getReturnType();
             Class<?>[] parameters = method.getParameterTypes();
@@ -88,8 +97,8 @@ public class PassportFactory
             else
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
-            MethodHandle methodHandle = linker.
-                    downcallHandle(symb,
+            MethodHandle methodHandle = cLinker.
+                    downcallHandle(lookup.lookup(method.getName()).get(),
                             MethodType.methodType(methRet, parameters),
                             fd);
 
@@ -123,7 +132,4 @@ public class PassportFactory
         return CLinker.C_POINTER;
     }
 
-    public record LibraryDetails (LibraryLookup lookup, HashMap<String, MethodHandle> methodMap)
-    {
-    }
 }

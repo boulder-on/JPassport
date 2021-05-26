@@ -31,11 +31,11 @@ import static jdk.incubator.foreign.CLinker.TypeKind.DOUBLE;
 public class Utils
 {
 /* Double ///////////////////////////////////////////////////////////////// */
-    public static MemorySegment toMS(NativeScope scope, double[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, double[] arr) {
         return scope.allocateArray(C_DOUBLE, arr);
     }
 
-    public static MemorySegment toMS(NativeScope scope, double[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, double[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * arr[0].length * Double.BYTES);
         int n = 0;
         for (double[] row : arr) {
@@ -46,7 +46,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toPtrPTrMS(NativeScope scope, double[][] arr) {
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, double[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (double[] a : arr)
@@ -62,14 +62,18 @@ public class Utils
             arr[n] = MemoryAccess.getDoubleAtIndex(segment, n);
     }
 
+    public static double[] toArrDouble(MemoryAddress addr, int count)
+    {
+        return addr.asSegment((long)count * Double.BYTES, MemorySegment.globalNativeSegment().scope()).toDoubleArray();
+    }
 
     /* Float ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(NativeScope scope, float[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, float[] arr) {
         return scope.allocateArray(C_FLOAT, arr);
     }
 
-    public static MemorySegment toMS(NativeScope scope, float[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, float[][] arr) {
         MemorySegment segment = scope.allocate((long) arr.length * arr[0].length * Float.BYTES);
         int n = 0;
         for (float[] row : arr) {
@@ -80,7 +84,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toPtrPTrMS(NativeScope scope, float[][] arr) {
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, float[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (float[] a : arr)
@@ -96,13 +100,18 @@ public class Utils
             arr[n] = MemoryAccess.getFloatAtIndex(segment, n);
     }
 
-/* Long ///////////////////////////////////////////////////////////////// */
+    public static float[] toArrFloat(MemoryAddress addr, int count)
+    {
+        return addr.asSegment((long)count * Float.BYTES, MemorySegment.globalNativeSegment().scope()).toFloatArray();
+    }
 
-    public static MemorySegment toMS(NativeScope scope, long[] arr) {
+    /* Long ///////////////////////////////////////////////////////////////// */
+
+    public static MemorySegment toMS(SegmentAllocator scope, long[] arr) {
         return scope.allocateArray(C_LONG_LONG, arr);
     }
 
-    public static MemorySegment toPtrPTrMS(NativeScope scope, long[][] arr) {
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, long[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (long[] a : arr)
@@ -113,7 +122,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(NativeScope scope, long[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, long[][] arr) {
         MemorySegment segment = scope.allocate((long) arr.length * arr[0].length * Long.BYTES);
         int n = 0;
         for (long[] row : arr) {
@@ -129,13 +138,18 @@ public class Utils
             arr[n] = MemoryAccess.getLongAtIndex(segment, n);
     }
 
-/* Int ///////////////////////////////////////////////////////////////// */
+    public static long[] toArrLong(MemoryAddress addr, int count)
+    {
+        return addr.asSegment((long)count * Long.BYTES, MemorySegment.globalNativeSegment().scope()).toLongArray();
+    }
 
-    public static MemorySegment toMS(NativeScope scope, int[] arr) {
+    /* Int ///////////////////////////////////////////////////////////////// */
+
+    public static MemorySegment toMS(SegmentAllocator scope, int[] arr) {
         return scope.allocateArray(C_INT, arr);
     }
 
-    public static MemorySegment toPtrPTrMS(NativeScope scope, int[][] arr) {
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, int[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (int[] a : arr)
@@ -143,7 +157,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(NativeScope scope, int[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, int[][] arr) {
         MemorySegment segment = scope.allocate((long) arr.length * arr[0].length * Integer.BYTES);
         int n = 0;
         for (int[] row : arr) {
@@ -159,13 +173,18 @@ public class Utils
             arr[n] = MemoryAccess.getIntAtIndex(segment, n);
     }
 
+    public static int[] toArrInt(MemoryAddress addr, int count)
+    {
+        return addr.asSegment((long)count * Integer.BYTES, MemorySegment.globalNativeSegment().scope()).toIntArray();
+    }
+
 /* Short ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(NativeScope scope, short[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, short[] arr) {
         return scope.allocateArray(C_SHORT, arr);
     }
 
-    public static MemorySegment toPtrPTrMS(NativeScope scope, short[][] arr) {
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, short[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (short[] a : arr)
@@ -173,7 +192,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(NativeScope scope, short[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, short[][] arr) {
         MemorySegment segment = scope.allocate((long) arr.length * arr[0].length * Short.BYTES);
         int n = 0;
         for (short[] row : arr) {
@@ -189,13 +208,18 @@ public class Utils
             arr[n] = MemoryAccess.getShortAtIndex(segment, n);
     }
 
+    public static short[] toArrShort(MemoryAddress addr, int count)
+    {
+        return addr.asSegment((long)count * Short.BYTES, MemorySegment.globalNativeSegment().scope()).toShortArray();
+    }
+
 /* Byte ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(NativeScope scope, byte[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, byte[] arr) {
         return scope.allocateArray(C_CHAR, arr);
     }
 
-    public static MemorySegment toPtrPTrMS(NativeScope scope, byte[][] arr) {
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, byte[][] arr) {
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (byte[] a : arr)
@@ -203,7 +227,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(NativeScope scope, byte[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, byte[][] arr) {
         MemorySegment segment = scope.allocate((long) arr.length * arr[0].length * Byte.BYTES);
         int n = 0;
         for (byte[] row : arr) {
@@ -219,9 +243,22 @@ public class Utils
             arr[n] = MemoryAccess.getByteAtOffset(segment, n);
     }
 
+    public static byte[] toArrByte(MemoryAddress addr, int count)
+    {
+        return addr.asSegment((long)count * Byte.BYTES, MemorySegment.globalNativeSegment().scope()).toByteArray();
+    }
+
 /*///////////////////////////////////////////////////////////////// */
 
+    public static MemorySegment slice(ResourceScope scope, MemoryAddress addr, long bytes)
+    {
+        return addr.asSegment(bytes, scope);
+    }
 
+    public static String readString(MemoryAddress addr)
+    {
+        return toJavaString(addr);
+    }
     /**
      * Given a folder or file this will recursively delete it.
      *

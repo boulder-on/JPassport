@@ -12,20 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestUsingStructs {
 
-//    public static void main(String[] str) throws Throwable {
-//        System.setProperty("jpassport.build.home", "out/testing");
-//        System.setProperty("jna.library.path", System.getProperty("java.library.path"));
-//
-////        PassStructWithArray pswa = PassportFactory.link("libforeign_link", PassStructWithArray.class);
-//
-//        int expected = IntStream.range(1, 21).sum();
-//        PassingArrays pa = new PassingArrays(new double[] {1, 2, 3, 4, 5}, new long[] {6, 7, 8, 9, 10, 11, 12, 13}, 3, new double[] {14, 15, 16}, 4, new long[] {17,18,19,20});
-//        PassingArrays[] regArg = new PassingArrays[] {pa};
-//        double r = pswa.passStructWithArrays(regArg);
-//        System.out.println(r);
-//
-//    }
-
     static TestStructCalls PassingStructs;
 
     @BeforeAll
@@ -33,7 +19,7 @@ public class TestUsingStructs {
     {
         System.setProperty("jpassport.build.home", "out/testing");
         PassingStructs = PassportFactory.link("libpassport_test", TestStructCalls.class);
-//        PassingStructs = new TestStructCalls_impl(PassportFactory.loadMethodHandles("libpassport_test", TestStructCalls.class));
+//        PassingStructs = new TestStructCalls_impl(PassportFactory.loadMethodHandles("C:\\code\\github\\JFA\\test_jpassport\\libpassport_test.dll", TestStructCalls.class));
     }
 
     @Test

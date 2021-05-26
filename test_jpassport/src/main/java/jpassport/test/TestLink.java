@@ -63,15 +63,15 @@ public interface TestLink extends Passport, Library {
     MemoryAddress mallocDoubles(int count);
     void freeMemory(MemoryAddress address);
 
-    static void calling(TestLink tl)
-    {
-        double[] values = new double[5];
-        MemoryAddress address = tl.mallocDoubles(values.length);
-        MemorySegment segment = address.asSegmentRestricted(values.length * Double.BYTES);
-        Utils.toArr(values, segment);
-
-        assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
-
-        tl.freeMemory(address);
-    }
+//    static void calling(TestLink tl)
+//    {
+//        double[] values = new double[5];
+//        MemoryAddress address = tl.mallocDoubles(values.length);
+//        MemorySegment segment = address.asSegmentRestricted(values.length * Double.BYTES);
+//        Utils.toArr(values, segment);
+//
+//        assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
+//
+//        tl.freeMemory(address);
+//    }
 }
