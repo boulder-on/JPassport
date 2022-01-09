@@ -506,7 +506,8 @@ public class PassportWriter<T extends Passport>
             ++v;
         }
 
-        args.setLength(args.length() - 1);
+        if (args.length() > 0)
+            args.setLength(args.length() - 1);
         if (params.length() > 0)
             params.setLength(params.length() - 1);
         if (bHasAllocatedMemory)

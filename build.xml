@@ -2,19 +2,23 @@
 
 <project name="JPassport" default="jar.JPassport">
     <property name="name" value="jpassport"/>
-    <property name="version" value="v0.4.0-alpha"/>
-    <property name="src.home.jpassport" value="jpassport/src/main/java"/>
-    <property name="build.home.jpassport" value="out/production/jpassport"/>
-    <property name="lib.home" value="lib"/>
+    <property name="version" value="v0.4.1-alpha"/>
+    <property name="home" value="jpassport"/>
+    <property name="src.home.jpassport" value="${home}/src/main/java"/>
+    <property name="build.home.jpassport" value="${home}/target/classes/jpassport"/>
+
+    <target name="clean">
+        <deltree dir="${home}/target"/>
+    </target>
 
     <target name="compile">
         <mkdir dir="${build.home.jpassport}"/>
-        <javac srcdir="${src.home.jpassport}" destdir="${build.home.jpassport}">
+        <javac srcdir="${src.home.jpassport}" destdir="${build.home.jpassport}" debug="true">
         </javac>
     </target>
 
     <target name="jar.JPassport" depends="compile">
-        <jar file="${name}-${version}.jar">
+        <jar file="${home}/target/${name}-${version}.jar">
             <fileset dir="${build.home.jpassport}"/>
         </jar>
     </target>
