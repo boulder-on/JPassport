@@ -472,7 +472,7 @@ public class PassportWriter<T extends Passport>
                 else
                     preCall.append(String.format("var vv%1$d = Utils.toMS(allocator, v%1$d);\n", v));
 
-                params.append("vv").append(v).append(".address(),");
+                params.append("Utils.toAddr(vv").append(v).append("),");
 
                 if (isRefArg(paramAnnotations[v-1]))
                     postCall.append(String.format("Utils.toArr(v%1$d, vv%1$d);\n", v));
@@ -480,8 +480,8 @@ public class PassportWriter<T extends Passport>
             else if (String.class.equals(parameter))
             {
                 bHasAllocatedMemory = true;
-                preCall.append(String.format("var vv%1$d = toCString(v%1$d, allocator);\n", v));
-                params.append("vv").append(v).append(".address(),");
+                preCall.append(String.format("var vv%1$d = v%1$d == null ? MemoryAddress.NULL : toCString(v%1$d, allocator).address();\n", v));
+                params.append("vv").append(v).append(',');
             }
             else if (parameter.isRecord())
             {
@@ -508,7 +508,7 @@ public class PassportWriter<T extends Passport>
 
         if (args.length() > 0)
             args.setLength(args.length() - 1);
-        if (params.length() > 0)
+        if (params.length() > 0 && params.charAt(params.length() - 1) == ',')
             params.setLength(params.length() - 1);
         if (bHasAllocatedMemory)
         {

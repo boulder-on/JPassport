@@ -97,8 +97,12 @@ public class PassportFactory
             else
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
+            var addr = lookup.lookup(method.getName()).orElse(null);
+            if (addr == null)
+                throw new PassportException("Could not find method in library: " + method.getName());
+
             MethodHandle methodHandle = cLinker.
-                    downcallHandle(lookup.lookup(method.getName()).get(),
+                    downcallHandle(addr,
                             MethodType.methodType(methRet, parameters),
                             fd);
 

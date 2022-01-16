@@ -17,13 +17,12 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestJPassport
@@ -61,6 +60,14 @@ public class TestJPassport
             String ret = test.mallocString(orig);
             assertEquals(orig, ret);
         }
+    }
+
+    @Test
+    public void testNulls()
+    {
+        assertNull(testFL.mallocString(null));
+        assertEquals(0, testFL.sumArrD(null, 10));
+        assertTrue(TestLinkHelp.testMallocDouble(testFL));
     }
 
     @Test

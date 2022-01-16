@@ -23,6 +23,9 @@ double sumD(const double d1, const double d2)
 
 double sumArrD(const double *arr, const int count)
 {
+    if (arr == NULL)
+        return 0;
+
     double r = 0;
 
     for (int n = 0; n < count; ++n)
@@ -33,6 +36,9 @@ double sumArrD(const double *arr, const int count)
 
 double sumArrDD(const double *arr,const double *arr2, const int count)
 {
+    if (arr == NULL || arr2 == NULL)
+        return 0;
+
     double r = 0;
 
     for (int n = 0; n < count; ++n)
@@ -48,6 +54,9 @@ void readD(double *val, int set)
 
 float sumArrF(const float *arr, const int count)
 {
+    if (arr == NULL)
+        return 0;
+
     float r = 0;
 
     for (int n = 0; n < count; ++n)
@@ -63,6 +72,9 @@ void readF(float *val, float set)
 
 long long sumArrL(const long long *arr, const long long count)
 {
+    if (arr == NULL)
+        return 0;
+
     long long r = 0;
 
     for (int n = 0; n < count; ++n)
@@ -78,6 +90,9 @@ void readL(long long *val, long long set)
 
 int sumArrI(const int *arr, const int count)
 {
+    if (arr == NULL)
+        return 0;
+
     int r = 0;
 
     for (int n = 0; n < count; ++n)
@@ -281,6 +296,9 @@ int cstringLength(const char* string)
 
 char* mallocString(const char* origString)
 {
+    if (origString == NULL)
+        return NULL;
+
     char* ret = malloc(strlen(origString) * sizeof(char));
     strcpy(ret, origString);
     return ret;
@@ -288,6 +306,9 @@ char* mallocString(const char* origString)
 
 double* mallocDoubles(const int count)
 {
+    if (count <= 0)
+        return NULL;
+
     double* ret = malloc(count *sizeof(double ));
 
     for (int n = 0; n < count; ++n)
