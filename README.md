@@ -11,7 +11,7 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-At least [Java Panama EA-17](https://jdk.java.net/panama/) is required to use this library.
+At least **Java 17** is required to use this library.
 
 The Foreign Linker API is still an incubator, so you can think of this project as a proof of concept at this time.
 
@@ -279,3 +279,11 @@ Roughly in order of importance
 2. Support returning a Record
 3. Use the Java Micro-benchmarking harness.
 4. Compile classes in memory instead of from disk
+
+# Release Notes
+
+- 0.5
+  - Fixed and issue where zero argument methods would not compile
+  - Fixed issues where passing and receiving null values caused their own NullPointerExceptions
+- 0.4
+  - Original release
