@@ -15,10 +15,12 @@ import jdk.incubator.foreign.*;
 
 import java.io.File;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class PassportFactory
 {
@@ -110,6 +112,61 @@ public class PassportFactory
         }
 
         return methodMap;
+    }
+
+    /**
+     * Given an object and method name this will return a memory address that
+     * corresponds to a method pointer that can be passed to native code.
+     * The method cannot be static.
+     *
+     * @param ob The object that the method belongs to.
+     * @param methodName The name of the method.
+     * @return A pointer to a method handle that can be passed to native code.
+     * @throws IllegalArgumentException if there is no method with the given name, or there is more
+     * than 1 method with the given name.
+     */
+    public static MemoryAddress createCallback(Object ob, String methodName)
+    {
+        var methods = getDeclaredMethods(ob.getClass());
+
+        methods = methods.stream().filter(m -> m.getName().equals(methodName)).collect(Collectors.toList());
+        if (methods.size() == 0)
+            throw new IllegalArgumentException("Could not find method " + methodName + " in class " + ob.getClass().getName());
+        else if (methods.size() > 1)
+            throw new IllegalArgumentException("Multiple overloads of method " + methodName + " in class " + ob.getClass().getName());
+
+        Method callbackMethod = methods.get(0);
+
+        Class<?> retType = callbackMethod.getReturnType();
+        Class<?>[] parameters = callbackMethod.getParameterTypes();
+
+        if (!retType.isPrimitive() && retType != MemoryAddress.class)
+            throw new IllegalArgumentException("Callback method must return void, primitives, or MemoryAddress, not " + retType.getName());
+
+
+        for (Class<?> parameter : parameters) {
+            if (!parameter.isPrimitive() && parameter != MemoryAddress.class)
+                throw new IllegalArgumentException("Callback parameters must be primitives or MemoryAddress, not " + parameter.getName());
+        }
+
+        MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
+        FunctionDescriptor fd;
+        if (void.class.equals(retType))
+            fd = FunctionDescriptor.ofVoid(memoryLayout);
+        else
+            fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
+
+        try {
+            var handle = MethodHandles.lookup().findVirtual(ob.getClass(), methodName, MethodType.methodType(retType, parameters));
+            var handleToCall = handle.bindTo(ob);
+
+            ResourceScope scope = ResourceScope.newImplicitScope();
+            return CLinker.getInstance().upcallStub(handleToCall, fd, scope);
+        }
+        catch (NoSuchMethodException | IllegalAccessException ex)
+        {
+            throw new Error("Failed to create callback method", ex);
+        }
     }
 
     static List<Method> getDeclaredMethods(Class<?> interfaceClass) {

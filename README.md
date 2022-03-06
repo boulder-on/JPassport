@@ -11,7 +11,7 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-At least **Java 17** is required to use this library.
+**Java 17** is required to use this library.
 
 The Foreign Linker API is still an incubator, so you can think of this project as a proof of concept at this time.
 
@@ -19,7 +19,9 @@ The Foreign Linker API is still an incubator, so you can think of this project a
 
 Download the source and run the maven build.
 
-# Example
+# Calling a native library example
+
+The native api refers to these a "down calls".
 
 C:
 ```
@@ -69,6 +71,34 @@ JPassport works by writing a class that implements your interface, compiling it 
 By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
 If you provide the system property __"jpassport.build.home"__ then the classes will be written and
 compiled there.
+
+# Passing function pointers to native code example
+
+The native API refers to these as "up calls". It's common in native programming to pass a function
+as a pointer into another function. This technique is used to create call-backs. 
+
+```java
+public interface CallbackNative extends Passport
+{
+    void passMethod(MemoryAddress functionPtr);
+}
+
+public class MyCallback
+{
+    public void callbackMethod(int value, String name)
+    {
+        System.out.println(value + ". " + name);
+    }
+}
+
+MyCallback cb = new MyCallback();
+MemoryAddress functionPtr = PassportFactory.createCallback(cb, "callbackMethod");
+
+CallbackNative cbn = PassportFactory.link("libforeign", CallbackNative.class);
+cbn.passMethod(functionPtr);
+```
+
+At the moment this does not work for static method - that will be an easy enhancement.
 
 # Performance
 Performance was tested vs JNA, JNA Direct, and pure Java.

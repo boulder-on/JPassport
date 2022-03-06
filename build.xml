@@ -2,7 +2,7 @@
 
 <project name="JPassport" default="jar.JPassport">
     <property name="name" value="jpassport"/>
-    <property name="version" value="v0.5.0-alpha"/>
+    <property name="version" value="v0.5.1-alpha"/>
     <property name="home" value="jpassport"/>
     <property name="src.home.jpassport" value="${home}/src/main/java"/>
     <property name="build.home.jpassport" value="${home}/target/classes/jpassport"/>

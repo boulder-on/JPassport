@@ -8,11 +8,11 @@
         <relativePath>../pom.xml</relativePath>
         <groupId>JPassport</groupId>
         <artifactId>JPassport-parent</artifactId>
-        <version>0.5.0</version>
+        <version>0.5.1</version>
     </parent>
 
     <artifactId>JPassport-tests</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
 
     <!--    <name>JPassport</name>-->
     <packaging>jar</packaging>
@@ -59,7 +59,7 @@
             <dependency>
                 <groupId>JPassport</groupId>
                 <artifactId>JPassport-main</artifactId>
-                <version>0.5.0</version>
+                <version>0.5.1</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
