@@ -2,10 +2,11 @@
 
 <project name="JPassport" default="jar.JPassport">
     <property name="name" value="jpassport"/>
-    <property name="version" value="v0.5.1-alpha"/>
+    <property name="version" value="0.5.2"/>
     <property name="home" value="jpassport"/>
     <property name="src.home.jpassport" value="${home}/src/main/java"/>
-    <property name="build.home.jpassport" value="${home}/target/classes/jpassport"/>
+    <property name="resource.home.jpassport" value="${home}/src/main/resources"/>
+    <property name="build.home.jpassport" value="${home}/target/classes"/>
 
     <target name="clean">
         <deltree dir="${home}/target"/>
@@ -13,8 +14,16 @@
 
     <target name="compile">
         <mkdir dir="${build.home.jpassport}"/>
-        <javac srcdir="${src.home.jpassport}" destdir="${build.home.jpassport}" debug="true">
+        <javac srcdir="${src.home.jpassport}" destdir="${build.home.jpassport}" debug="true" target="17">
         </javac>
+
+        <propertyfile file="${resource.home.jpassport}\jpassport\version.properties">
+            <entry key="version" value="${version}"/>
+        </propertyfile>
+
+        <copy todir="${build.home.jpassport}">
+            <fileset dir="${resource.home.jpassport}"/>
+        </copy>
     </target>
 
     <target name="jar.JPassport" depends="compile">

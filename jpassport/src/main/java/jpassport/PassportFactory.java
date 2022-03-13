@@ -73,12 +73,6 @@ public class PassportFactory
         SymbolLookup lookup = SymbolLookup.loaderLookup();
 
         for (Method method : interfaceMethods) {
-//            ;
-//
-//            LibraryLookup.Symbol symb = libLookup.lookup(method.getName()).orElse(null);
-//            if (symb == null)
-//                throw new IllegalArgumentException("Method not found in library: " + method.getName());
-
             Class<?> retType = method.getReturnType();
             Class<?>[] parameters = method.getParameterTypes();
             Class<?> methRet = retType;
