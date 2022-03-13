@@ -151,7 +151,7 @@ public class PassportFactory
             fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
         try {
-            var handle = MethodHandles.lookup().findVirtual(ob.getClass(), methodName, MethodType.methodType(retType, parameters));
+            var handle = MethodHandles.publicLookup().findVirtual(ob.getClass(), methodName, MethodType.methodType(retType, parameters));
             var handleToCall = handle.bindTo(ob);
 
             ResourceScope scope = ResourceScope.newImplicitScope();
