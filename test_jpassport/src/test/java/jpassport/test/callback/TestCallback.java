@@ -3,6 +3,8 @@ package jpassport.test.callback;
 import jpassport.PassportFactory;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestCallback {
@@ -16,5 +18,9 @@ public class TestCallback {
         int ret = callBack.call_CB(myCB.getAsFunctionPtr(), 5, 1);
         assertEquals(5, myCB.calls);
         assertEquals(30, ret);
+
+        int[] test = {1, 2, 3 ,4 ,5};
+        callBack.call_CBArr(myCB.getAsFunctionArrPtr(), test, test.length);
+        assertEquals(Arrays.stream(test).sum(), myCB.sum);
     }
 }

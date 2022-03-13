@@ -387,3 +387,17 @@ double passStructWithArrays(struct PassingArrays* structWithArrays)
 
     return ret;
 }
+
+int call_CB(callbackFN fn, int v, double v2)
+{
+    int sum = 0;
+    for (int n = 0; n < v; n++)
+        sum += fn(v, v2);
+    return sum;
+}
+
+
+void call_CBArr(callbackFNArr fn,  int* vals, int count)
+{
+    fn(vals, count);
+}

@@ -79,4 +79,10 @@ extern double passStruct(struct PassingData* data);
 extern double passComplex(struct ComplexPassing* complex);
 extern double passStructWithArrays(struct PassingArrays* structWithArrays);
 
+typedef int (*callbackFN) (int, double);
+extern int call_CB(callbackFN fn, int, double);
+
+typedef int (*callbackFNArr) (int*, int);
+extern void call_CBArr(callbackFNArr fn, int*, int);
+
 #endif //FL_DLL_LIBRARY_H
