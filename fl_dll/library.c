@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <mem.h>
+#include <strings.h>
 #include <stdbool.h>
 
 double sumD(const double d1, const double d2)
@@ -351,25 +351,25 @@ double passComplex(struct ComplexPassing* complex)
 double passStructWithArrays(struct PassingArrays* structWithArrays)
 {
     double ret = 0;
-    printf("Size = %lld\n", sizeof(struct PassingArrays));
+//    printf("Size = %lld\n", sizeof(struct PassingArrays));
     int count = sizeof(structWithArrays->s_double)/sizeof(double);
     for (int n = 0; n < count; ++n)
     {
         ret += structWithArrays->s_double[n];
-        printf("double [%d] = %f (%f)\n", n, structWithArrays->s_double[n], ret);
+//        printf("double [%d] = %f (%f)\n", n, structWithArrays->s_double[n], ret);
     }
 
     count = sizeof(structWithArrays->s_long)/sizeof(long long);
     for (int n = 0; n < count; ++n)
     {
         ret += structWithArrays->s_long[n];
-        printf("long [%d] = %lld (%f)\n", n, structWithArrays->s_long[n], ret);
+//        printf("long [%d] = %lld (%f)\n", n, structWithArrays->s_long[n], ret);
     }
 
     for (int n = 0; n < structWithArrays->s_doublePtrCount; ++n)
     {
         ret += structWithArrays->s_doublePtr[n];
-        printf("double Ptr[%d] = %f (%f)\n", n, structWithArrays->s_doublePtr[n], ret);
+//        printf("double Ptr[%d] = %f (%f)\n", n, structWithArrays->s_doublePtr[n], ret);
 
         if (n < count)
             structWithArrays->s_double[n] = structWithArrays->s_doublePtr[n];
@@ -379,7 +379,7 @@ double passStructWithArrays(struct PassingArrays* structWithArrays)
     for (int n = 0; n < structWithArrays->s_longPtrCount; ++n)
     {
         ret += structWithArrays->s_longPtr[n];
-        printf("long Ptr[%d] = %lld (%f)\n", n, structWithArrays->s_longPtr[n], ret);
+//        printf("long Ptr[%d] = %lld (%f)\n", n, structWithArrays->s_longPtr[n], ret);
 
         if (n < count)
             structWithArrays->s_longPtr[n] = structWithArrays->s_long[n];
