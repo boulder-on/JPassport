@@ -5,13 +5,14 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
+import static jpassport.test.TestLinkHelp.getLibName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestCallback {
 
     @Test
     public void testCallback() throws Throwable {
-        var callBack = PassportFactory.link("libpassport_test", CallbackNative.class);
+        var callBack = PassportFactory.link(getLibName(), CallbackNative.class);
 
         var myCB = new CallbackObj();
 

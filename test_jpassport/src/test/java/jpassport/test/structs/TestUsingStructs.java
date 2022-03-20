@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import static jpassport.test.TestLinkHelp.getLibName;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -18,7 +19,7 @@ public class TestUsingStructs {
     public static void startup() throws Throwable
     {
         System.setProperty("jpassport.build.home", "out/testing");
-        PassingStructs = PassportFactory.link("libpassport_test", TestStructCalls.class);
+        PassingStructs = PassportFactory.link(getLibName(), TestStructCalls.class);
 //        PassingStructs = new TestStructCalls_impl(PassportFactory.loadMethodHandles("C:\\code\\github\\JFA\\test_jpassport\\libpassport_test.dll", TestStructCalls.class));
     }
 

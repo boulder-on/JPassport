@@ -11,55 +11,34 @@
  */
 package jpassport.test;
 
-import com.sun.jna.Native;
-
-import java.util.List;
 import java.util.stream.IntStream;
-
-
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
 import org.junit.jupiter.api.Test;
 
+import static jpassport.test.TestLinkHelp.getLibName;
 import static org.junit.jupiter.api.Assertions.*;
 
 
 public class TestJPassport
 {
     static TestLink testFL;
-    static TestLink testJNA;
-    static TestLink testJNADirect;
-    static TestLink testJava;
-
-    static List<TestLink> allLinks;
-    static List<TestLink> allLinksPtrPtr;
 
     @BeforeAll
     public static void startup() throws Throwable
     {
         System.setProperty("jpassport.build.home", "out/testing");
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
-
-        testFL = PassportFactory.link("libpassport_test", TestLink.class);
-//        testFL = new TestLink_impl(PassportFactory.loadMethodHandles("C:\\code\\github\\JFA\\test_jpassport\\libpassport_test.dll", TestLink.class));
-        testJNA =  Native.load("passport_test", TestLink.class);
-        testJNADirect =  new TestLinkJNADirect.JNADirect();
-        testJava = new PureJava();
-
-        allLinks = List.of(testJava,  testFL, testJNA, testJNADirect);
-        allLinksPtrPtr = List.of(testJava,  testFL);
+        testFL = PassportFactory.link(getLibName(), TestLink.class);
     }
 
     @Test
     public void testAllocString()
     {
-        for (TestLink test : allLinksPtrPtr)
-        {
-            String orig = "hello";
-            String ret = test.mallocString(orig);
-            assertEquals(orig, ret);
-        }
+        String orig = "hello";
+        String ret = testFL.mallocString(orig);
+        assertEquals(orig, ret);
     }
 
     @Test
@@ -73,43 +52,34 @@ public class TestJPassport
     @Test
     public void testD()
     {
-        for (TestLink test : allLinks)
-        {
-            assertEquals(4 + 5, test.sumD(4, 5));
-            assertEquals(1+2+3, test.sumArrD(new double[] {1, 2, 3}, 3));
-            assertEquals(1+2+3+4+5+6, test.sumArrDD(new double[] {1, 2, 3}, new double[] {4, 5, 6}, 3));
+        assertEquals(4 + 5, testFL.sumD(4, 5));
+        assertEquals(1+2+3, testFL.sumArrD(new double[] {1, 2, 3}, 3));
+        assertEquals(1+2+3+4+5+6, testFL.sumArrDD(new double[] {1, 2, 3}, new double[] {4, 5, 6}, 3));
 
-            double[] v = new double[1];
-            test.readD(v, 5);
-            assertEquals(5, v[0]);
-        }
+        double[] v = new double[1];
+        testFL.readD(v, 5);
+        assertEquals(5, v[0]);
     }
 
     @Test
     public void testF()
     {
-        for (TestLink test : allLinks)
-        {
-            assertEquals(1+2+3, test.sumArrF(new float[] {1, 2, 3}, 3));
+        assertEquals(1+2+3, testFL.sumArrF(new float[] {1, 2, 3}, 3));
 
-            float[] v = new float[1];
-            test.readF(v, 5);
-            assertEquals(5, v[0]);
-        }
+        float[] v = new float[1];
+        testFL.readF(v, 5);
+        assertEquals(5, v[0]);
     }
 
 
     @Test
     public void testL()
     {
-        for (TestLink test : allLinks)
-        {
-            assertEquals(1+2+3, test.sumArrL(new long[] {1, 2, 3}, 3));
+        assertEquals(1+2+3, testFL.sumArrL(new long[] {1, 2, 3}, 3));
 
-            long[] v = new long[1];
-            test.readL(v, 5);
-            assertEquals(5, v[0]);
-        }
+        long[] v = new long[1];
+        testFL.readL(v, 5);
+        assertEquals(5, v[0]);
     }
 
 
@@ -119,42 +89,33 @@ public class TestJPassport
         int[] testRange = IntStream.range(1, 5).toArray();
         int correct = IntStream.range(1, 5).sum();
 
-        for (TestLink test : allLinks)
-        {
-            assertEquals(correct, test.sumArrI(testRange, testRange.length));
+        assertEquals(correct, testFL.sumArrI(testRange, testRange.length));
 
-            int[] v = new int[1];
-            test.readI(v, 5);
-            assertEquals(5, v[0]);
-        }
+        int[] v = new int[1];
+        testFL.readI(v, 5);
+        assertEquals(5, v[0]);
     }
 
 
     @Test
     public void testS()
     {
-        for (TestLink test : allLinks)
-        {
-            assertEquals(1+2+3, test.sumArrS(new short[] {1, 2, 3}, (short)3));
+        assertEquals(1+2+3, testFL.sumArrS(new short[] {1, 2, 3}, (short)3));
 
-            short[] v = new short[1];
-            test.readS(v, (short)5);
-            assertEquals(5, v[0]);
-        }
+        short[] v = new short[1];
+        testFL.readS(v, (short)5);
+        assertEquals(5, v[0]);
     }
 
 
     @Test
     public void testB()
     {
-        for (TestLink test : allLinks)
-        {
-            assertEquals(1+2+3, test.sumArrB(new byte[] {1, 2, 3}, (byte)3));
+        assertEquals(1+2+3, testFL.sumArrB(new byte[] {1, 2, 3}, (byte)3));
 
-            byte[] v = new byte[1];
-            test.readB(v, (byte)5);
-            assertEquals(5, v[0]);
-        }
+        byte[] v = new byte[1];
+        testFL.readB(v, (byte)5);
+        assertEquals(5, v[0]);
     }
 
     @Test
@@ -162,11 +123,8 @@ public class TestJPassport
     {
         double[][] mat = new double[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(correct, test.sumMatD(mat.length, mat[0].length, mat));
-            assertEquals(correct, test.sumMatDPtrPtr(mat.length, mat[0].length, mat));
-        }
+        assertEquals(correct, testFL.sumMatD(mat.length, mat[0].length, mat));
+        assertEquals(correct, testFL.sumMatDPtrPtr(mat.length, mat[0].length, mat));
     }
 
     @Test
@@ -174,11 +132,8 @@ public class TestJPassport
     {
         float[][] mat = new float[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(correct, test.sumMatF(mat.length, mat[0].length, mat));
-            assertEquals(correct, test.sumMatFPtrPtr(mat.length, mat[0].length, mat));
-        }
+        assertEquals(correct, testFL.sumMatF(mat.length, mat[0].length, mat));
+        assertEquals(correct, testFL.sumMatFPtrPtr(mat.length, mat[0].length, mat));
     }
 
     @Test
@@ -186,11 +141,8 @@ public class TestJPassport
     {
         long[][] mat = new long[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(correct, test.sumMatL(mat.length, mat[0].length, mat));
-            assertEquals(correct, test.sumMatLPtrPtr(mat.length, mat[0].length, mat));
-        }
+        assertEquals(correct, testFL.sumMatL(mat.length, mat[0].length, mat));
+        assertEquals(correct, testFL.sumMatLPtrPtr(mat.length, mat[0].length, mat));
     }
 
     @Test
@@ -198,11 +150,8 @@ public class TestJPassport
     {
         int[][] mat = new int[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(correct, test.sumMatI(mat.length, mat[0].length, mat));
-            assertEquals(correct, test.sumMatIPtrPtr(mat.length, mat[0].length, mat));
-        }
+        assertEquals(correct, testFL.sumMatI(mat.length, mat[0].length, mat));
+        assertEquals(correct, testFL.sumMatIPtrPtr(mat.length, mat[0].length, mat));
     }
 
     @Test
@@ -210,11 +159,8 @@ public class TestJPassport
     {
         short[][] mat = new short[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(correct, test.sumMatS(mat.length, mat[0].length, mat));
-            assertEquals(correct, test.sumMatSPtrPtr(mat.length, mat[0].length, mat));
-        }
+        assertEquals(correct, testFL.sumMatS(mat.length, mat[0].length, mat));
+        assertEquals(correct, testFL.sumMatSPtrPtr(mat.length, mat[0].length, mat));
     }
 
     @Test
@@ -222,20 +168,14 @@ public class TestJPassport
     {
         byte[][] mat = new byte[][] {{1,2,3}, {4,5,6}, {7,8,9}, {10,11,12}};
         int correct = IntStream.range(1,13).sum();
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(correct, test.sumMatB(mat.length, mat[0].length, mat));
-            assertEquals(correct, test.sumMatBPtrPtr(mat.length, mat[0].length, mat));
-        }
+        assertEquals(correct, testFL.sumMatB(mat.length, mat[0].length, mat));
+        assertEquals(correct, testFL.sumMatBPtrPtr(mat.length, mat[0].length, mat));
     }
 
     @Test
     public void testStrLen()
     {
-        for (TestLink test : allLinksPtrPtr)
-        {
-            assertEquals(5, test.cstringLength("12345"));
-        }
+        assertEquals(5, testFL.cstringLength("12345"));
     }
 
 //    @Test
