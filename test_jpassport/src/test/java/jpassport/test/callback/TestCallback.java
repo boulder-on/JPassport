@@ -1,5 +1,6 @@
 package jpassport.test.callback;
 
+import jdk.incubator.foreign.Addressable;
 import jpassport.PassportFactory;
 import org.junit.jupiter.api.Test;
 

@@ -1,4 +1,4 @@
-# JPassport
+# JPassport - Java 18 branch
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
@@ -11,7 +11,7 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 17** is required to use this library.
+**Java 18** is required to use this library.
 
 The Foreign Linker API is still an incubator, so you can think of this project as a proof of concept at this time.
 
@@ -294,7 +294,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires at least [Java Panama EA-17](https://jdk.java.net/panama/) to build and run.
+JPassport itself only requires Java 18 (there is a separate Java 17 branch) to build and run.
 
 The testing classes require:
 
