@@ -11,7 +11,7 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 17** is required to use this library.
+**Java 17** is required to use this library. There is a separate branch for JAva 18 support.
 
 The Foreign Linker API is still an incubator, so you can think of this project as a proof of concept at this time.
 
@@ -294,7 +294,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires at least [Java Panama EA-17](https://jdk.java.net/panama/) to build and run.
+JPassport itself only requires **Java 17** to build and run. There is a separate Java 18 branch. 
 
 The testing classes require:
 
