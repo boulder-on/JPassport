@@ -19,8 +19,8 @@
     <url>https://github.com/boulder-on/JPassport#readme</url>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>19</maven.compiler.source>
+        <maven.compiler.target>19</maven.compiler.target>
     </properties>
 
     <build>
@@ -30,6 +30,10 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.8.1</version>
+                    <configuration>
+                        <release>19</release> <!-- <release>13/14/15</release> -->
+                        <compilerArgs>--enable-preview</compilerArgs>
+                    </configuration>
                 </plugin>
 
             </plugins>

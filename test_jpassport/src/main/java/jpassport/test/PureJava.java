@@ -11,7 +11,9 @@
  */
 package jpassport.test;
 
-import jdk.incubator.foreign.MemoryAddress;
+
+import java.lang.foreign.Addressable;
+import java.lang.foreign.MemoryAddress;
 
 public class PureJava implements TestLink
 {
@@ -234,6 +236,6 @@ public class PureJava implements TestLink
     }
 
     @Override
-    public void freeMemory(MemoryAddress address) {
+    public void freeMemory(Addressable address) {
     }
 }

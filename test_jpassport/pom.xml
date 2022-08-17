@@ -22,7 +22,7 @@
     <properties>
 <!--        <maven.compiler.source>16</maven.compiler.source>-->
 <!--        <maven.compiler.target>16</maven.compiler.target>-->
-        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.release>19</maven.compiler.release>
     </properties>
 
         <dependencies>
@@ -77,7 +77,7 @@
                     <version>3.0.0-M5</version>
                     <configuration>
                         <argLine>
-                            --enable-native-access jpassport
+                            --enable-native-access jpassport --enable-preview
                         </argLine>
                     </configuration>
                 </plugin>

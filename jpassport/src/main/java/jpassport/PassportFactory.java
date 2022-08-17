@@ -11,9 +11,9 @@
  */
 package jpassport;
 
-import jdk.incubator.foreign.*;
 
 import java.io.File;
+import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -65,7 +65,7 @@ public class PassportFactory
 
         File libPath = new File(libName);
         System.load(libPath.getAbsolutePath());
-        CLinker cLinker = CLinker.getInstance();
+        Linker cLinker = Linker.nativeLinker();
 
         List<Method> interfaceMethods = getDeclaredMethods(interfaceClass);
         HashMap<String, MethodHandle> methodMap = new HashMap<>();
@@ -78,11 +78,11 @@ public class PassportFactory
             Class<?> methRet = retType;
 
             if (!methRet.isPrimitive())
-                methRet= MemoryAddress.class;
+                methRet= Addressable.class;
 
             for (int n = 0; n < parameters.length; ++n) {
                 if (!parameters[n].isPrimitive())
-                    parameters[n] = MemoryAddress.class;
+                    parameters[n] = Addressable.class;
             }
 
             MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
@@ -97,10 +97,7 @@ public class PassportFactory
             if (addr == null)
                 throw new PassportException("Could not find method in library: " + method.getName());
 
-            MethodHandle methodHandle = cLinker.
-                    downcallHandle(addr,
-                            MethodType.methodType(methRet, parameters),
-                            fd);
+            MethodHandle methodHandle = cLinker.downcallHandle(addr, fd);
 
             methodMap.put(method.getName(), methodHandle);
         }
@@ -119,7 +116,7 @@ public class PassportFactory
      * @throws IllegalArgumentException if there is no method with the given name, or there is more
      * than 1 method with the given name.
      */
-    public static MemoryAddress createCallback(Object ob, String methodName)
+    public static Addressable createCallback(Object ob, String methodName)
     {
         var methods = getDeclaredMethods(ob.getClass());
 
@@ -154,8 +151,8 @@ public class PassportFactory
             var handle = MethodHandles.publicLookup().findVirtual(ob.getClass(), methodName, MethodType.methodType(retType, parameters));
             var handleToCall = handle.bindTo(ob);
 
-            ResourceScope scope = ResourceScope.newImplicitScope();
-            return CLinker.getInstance().upcallStub(handleToCall, fd, scope);
+            MemorySession scope = MemorySession.openImplicit();
+            return Linker.nativeLinker().upcallStub(handleToCall, fd, scope);
         }
         catch (NoSuchMethodException | IllegalAccessException ex)
         {
@@ -172,19 +169,19 @@ public class PassportFactory
     private static MemoryLayout classToMemory(Class<?> type)
     {
         if (double.class.equals(type))
-            return CLinker.C_DOUBLE;
+            return ValueLayout.JAVA_DOUBLE;
         if (int.class.equals(type))
-            return CLinker.C_INT;
+            return ValueLayout.JAVA_INT;
         if (float.class.equals(type))
-            return CLinker.C_FLOAT;
+            return ValueLayout.JAVA_FLOAT;
         if (short.class.equals(type))
-            return CLinker.C_SHORT;
+            return ValueLayout.JAVA_SHORT;
         if (byte.class.equals(type))
-            return CLinker.C_CHAR;
+            return ValueLayout.JAVA_BYTE;
         if (long.class.equals(type))
-            return CLinker.C_LONG_LONG;
+            return ValueLayout.JAVA_LONG;
 
-        return CLinker.C_POINTER;
+        return ValueLayout.ADDRESS;
     }
 
 }

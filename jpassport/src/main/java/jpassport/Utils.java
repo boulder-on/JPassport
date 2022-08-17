@@ -11,9 +11,9 @@
  */
 package jpassport;
 
-import jdk.incubator.foreign.*;
 
 import java.io.IOException;
+import java.lang.foreign.*;
 import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.file.FileVisitResult;
@@ -24,14 +24,13 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Spliterator;
+import java.util.stream.IntStream;
 
-import static jdk.incubator.foreign.CLinker.*;
-import static jdk.incubator.foreign.CLinker.TypeKind.DOUBLE;
 
 public class Utils
 {
 
-    public static MemoryAddress toAddr(MemorySegment seg)
+    public static Addressable toAddr(MemorySegment seg)
     {
         if (seg == null)
             return MemoryAddress.NULL;
@@ -42,7 +41,7 @@ public class Utils
     public static MemorySegment toMS(SegmentAllocator scope, double[] arr) {
         if (arr == null)
             return null;
-        return scope.allocateArray(C_DOUBLE, arr);
+        return scope.allocateArray(ValueLayout.JAVA_DOUBLE, arr);
     }
 
     public static MemorySegment toMS(SegmentAllocator scope, double[][] arr) {
@@ -67,8 +66,8 @@ public class Utils
         int n = 0;
         for (double[] a : arr)
         {
-            MemorySegment subSeg = scope.allocateArray(C_DOUBLE, a);
-            MemoryAccess.setLongAtIndex(segment, n++, subSeg.address().toRawLongValue());
+            MemorySegment subSeg = scope.allocateArray(ValueLayout.JAVA_DOUBLE, a);
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, subSeg.address());
         }
         return segment;
     }
@@ -77,16 +76,26 @@ public class Utils
         if (arr == null)
             return;
 
-        for (int n = 0; n < arr.length; ++n)
-            arr[n] = MemoryAccess.getDoubleAtIndex(segment, n);
+        MemorySegment.copy(segment, ValueLayout.JAVA_DOUBLE, 0, arr, 0, arr.length);
     }
 
-    public static double[] toArrDouble(MemoryAddress addr, int count)
+    public static double[] toArr(ValueLayout.OfDouble layout, MemorySegment seg, MemoryAddress addr, int count)
     {
-        if (addr == MemoryAddress.NULL)
+        if (MemoryAddress.NULL.equals(addr.address()))
             return null;
 
-        return addr.asSegment((long)count * Double.BYTES, MemorySegment.globalNativeSegment().scope()).toDoubleArray();
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
+    }
+
+    public static double[] toArr(ValueLayout.OfDouble layout, MemoryAddress addr, int count)
+    {
+        if (MemoryAddress.NULL.equals(addr.address()))
+            return null;
+
+        double[] ret= new double[count];
+        for (int n = 0; n < count; ++n)
+            ret[n] = addr.getAtIndex(layout, n);
+        return ret;
     }
 
     /* Float ///////////////////////////////////////////////////////////////// */
@@ -95,7 +104,7 @@ public class Utils
         if (arr == null)
             return null;
 
-        return scope.allocateArray(C_FLOAT, arr);
+        return scope.allocateArray(ValueLayout.JAVA_FLOAT, arr);
     }
 
     public static MemorySegment toMS(SegmentAllocator scope, float[][] arr) {
@@ -120,8 +129,8 @@ public class Utils
         int n = 0;
         for (float[] a : arr)
         {
-            MemorySegment subSeg = scope.allocateArray(C_FLOAT, a);
-            MemoryAccess.setLongAtIndex(segment, n++, subSeg.address().toRawLongValue());
+            MemorySegment subSeg = scope.allocateArray(ValueLayout.JAVA_FLOAT, a);
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, subSeg.address());
         }
         return segment;
     }
@@ -130,16 +139,26 @@ public class Utils
         if (arr == null)
             return;
 
-        for (int n = 0; n < arr.length; ++n)
-            arr[n] = MemoryAccess.getFloatAtIndex(segment, n);
+        MemorySegment.copy(segment, ValueLayout.JAVA_FLOAT, 0, arr, 0, arr.length);
     }
 
-    public static float[] toArrFloat(MemoryAddress addr, int count)
+    public static float[] toArr(ValueLayout.OfFloat layout, MemorySegment seg, MemoryAddress addr, int count)
     {
-        if (addr == MemoryAddress.NULL)
+        if (MemoryAddress.NULL.equals(addr.address()))
             return null;
 
-        return addr.asSegment((long)count * Float.BYTES, MemorySegment.globalNativeSegment().scope()).toFloatArray();
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
+    }
+
+    public static float[] toArr(ValueLayout.OfFloat layout, MemoryAddress addr, int count)
+    {
+        if (MemoryAddress.NULL.equals(addr.address()))
+            return null;
+
+        float[] ret= new float[count];
+        for (int n = 0; n < count; ++n)
+            ret[n] = addr.getAtIndex(layout, n);
+        return ret;
     }
 
     /* Long ///////////////////////////////////////////////////////////////// */
@@ -147,7 +166,7 @@ public class Utils
     public static MemorySegment toMS(SegmentAllocator scope, long[] arr) {
         if (arr == null)
             return null;
-        return scope.allocateArray(C_LONG_LONG, arr);
+        return scope.allocateArray(ValueLayout.JAVA_LONG, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, long[][] arr) {
@@ -158,8 +177,8 @@ public class Utils
         int n = 0;
         for (long[] a : arr)
         {
-            MemorySegment subSeg = scope.allocateArray(C_LONG_LONG, a);
-            MemoryAccess.setLongAtIndex(segment, n++, subSeg.address().toRawLongValue());
+            MemorySegment subSeg = scope.allocateArray(ValueLayout.JAVA_LONG, a);
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, subSeg.address());
         }
         return segment;
     }
@@ -182,16 +201,26 @@ public class Utils
         if (arr == null)
             return;
 
-        for (int n = 0; n < arr.length; ++n)
-            arr[n] = MemoryAccess.getLongAtIndex(segment, n);
+        MemorySegment.copy(segment, ValueLayout.JAVA_LONG, 0, arr, 0, arr.length);
     }
 
-    public static long[] toArrLong(MemoryAddress addr, int count)
+    public static long[] toArr(ValueLayout.OfLong layout, MemorySegment seg, MemoryAddress addr, int count)
     {
-        if (addr == MemoryAddress.NULL)
+        if (MemoryAddress.NULL.equals(addr.address()))
             return null;
 
-        return addr.asSegment((long)count * Long.BYTES, MemorySegment.globalNativeSegment().scope()).toLongArray();
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
+    }
+
+    public static long[] toArr(ValueLayout.OfLong layout, MemoryAddress addr, int count)
+    {
+        if (MemoryAddress.NULL.equals(addr.address()))
+            return null;
+
+        long[] ret= new long[count];
+        for (int n = 0; n < count; ++n)
+            ret[n] = addr.getAtIndex(layout, n);
+        return ret;
     }
 
     /* Int ///////////////////////////////////////////////////////////////// */
@@ -200,7 +229,7 @@ public class Utils
         if (arr == null)
             return null;
 
-        return scope.allocateArray(C_INT, arr);
+        return scope.allocateArray(ValueLayout.JAVA_INT, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, int[][] arr) {
@@ -210,7 +239,9 @@ public class Utils
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (int[] a : arr)
-            MemoryAccess.setLongAtIndex(segment, n++, scope.allocateArray(C_INT, a).address().toRawLongValue());
+        {
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateArray(ValueLayout.JAVA_INT, a).address());
+        }
         return segment;
     }
 
@@ -232,25 +263,36 @@ public class Utils
         if (arr == null)
             return;
 
-        for (int n = 0; n < arr.length; ++n)
-            arr[n] = MemoryAccess.getIntAtIndex(segment, n);
+        MemorySegment.copy(segment, ValueLayout.JAVA_INT, 0, arr, 0, arr.length);
     }
 
-    public static int[] toArrInt(MemoryAddress addr, int count)
+    public static int[] toArr(ValueLayout.OfInt layout, MemorySegment seg, MemoryAddress addr, int count)
     {
-        if (addr == MemoryAddress.NULL)
+        if (MemoryAddress.NULL.equals(addr.address()))
             return null;
 
-        return addr.asSegment((long)count * Integer.BYTES, MemorySegment.globalNativeSegment().scope()).toIntArray();
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
     }
 
-/* Short ///////////////////////////////////////////////////////////////// */
+    public static int[] toArr(ValueLayout.OfInt layout, MemoryAddress addr, int count)
+    {
+        if (MemoryAddress.NULL.equals(addr.address()))
+            return null;
+
+        int[] ret= new int[count];
+        for (int n = 0; n < count; ++n)
+            ret[n] = addr.getAtIndex(layout, n);
+        return ret;
+    }
+
+
+    /* Short ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(SegmentAllocator scope, short[] arr) {
         if (arr == null)
             return null;
 
-        return scope.allocateArray(C_SHORT, arr);
+        return scope.allocateArray(ValueLayout.JAVA_SHORT, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, short[][] arr) {
@@ -260,7 +302,9 @@ public class Utils
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (short[] a : arr)
-            MemoryAccess.setLongAtIndex(segment, n++, scope.allocateArray(C_SHORT, a).address().toRawLongValue());
+        {
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateArray(ValueLayout.JAVA_SHORT, a).address());
+        }
         return segment;
     }
 
@@ -281,25 +325,35 @@ public class Utils
     public static void toArr(short[] arr, MemorySegment segment) {
         if (arr == null)
             return;
-        for (int n = 0; n < arr.length; ++n)
-            arr[n] = MemoryAccess.getShortAtIndex(segment, n);
+        MemorySegment.copy(segment, ValueLayout.JAVA_SHORT, 0, arr, 0, arr.length);
     }
 
-    public static short[] toArrShort(MemoryAddress addr, int count)
+    public static short[] toArr(ValueLayout.OfShort layout, MemorySegment seg, MemoryAddress addr, int count)
     {
-        if (addr == MemoryAddress.NULL)
+        if (MemoryAddress.NULL.equals(addr.address()))
             return null;
 
-        return addr.asSegment((long)count * Short.BYTES, MemorySegment.globalNativeSegment().scope()).toShortArray();
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
     }
 
-/* Byte ///////////////////////////////////////////////////////////////// */
+    public static short[] toArr(ValueLayout.OfShort layout, MemoryAddress addr, int count)
+    {
+        if (MemoryAddress.NULL.equals(addr.address()))
+            return null;
+
+        short[] ret= new short[count];
+        for (int n = 0; n < count; ++n)
+            ret[n] = addr.getAtIndex(layout, n);
+        return ret;
+    }
+
+    /* Byte ///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment toMS(SegmentAllocator scope, byte[] arr) {
         if (arr == null)
             return null;
 
-        return scope.allocateArray(C_CHAR, arr);
+        return scope.allocateArray(ValueLayout.JAVA_BYTE, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, byte[][] arr) {
@@ -309,7 +363,7 @@ public class Utils
         MemorySegment segment =  scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (byte[] a : arr)
-            MemoryAccess.setLongAtIndex(segment, n++, scope.allocateArray(C_CHAR, a).address().toRawLongValue());
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateArray(ValueLayout.JAVA_BYTE, a).address());
         return segment;
     }
 
@@ -330,31 +384,52 @@ public class Utils
     public static void toArr(byte[] arr, MemorySegment segment) {
         if (arr == null)
             return;
-        for (int n = 0; n < arr.length; ++n)
-            arr[n] = MemoryAccess.getByteAtOffset(segment, n);
+        MemorySegment.copy(segment, ValueLayout.JAVA_BYTE, 0, arr, 0, arr.length);
     }
 
-    public static byte[] toArrByte(MemoryAddress addr, int count)
+    public static byte[] toArr(ValueLayout.OfByte layout, MemorySegment seg, MemoryAddress addr, int count)
     {
-        if (addr == MemoryAddress.NULL)
+        if (MemoryAddress.NULL.equals(addr.address()))
             return null;
 
-        return addr.asSegment((long)count * Byte.BYTES, MemorySegment.globalNativeSegment().scope()).toByteArray();
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
+    }
+
+    public static byte[] toArr(ValueLayout.OfByte layout, MemoryAddress addr, int count)
+    {
+        if (MemoryAddress.NULL.equals(addr.address()))
+            return null;
+
+        byte[] ret= new byte[count];
+        for (int n = 0; n < count; ++n)
+            ret[n] = addr.get(layout, n);
+        return ret;
     }
 
 /*///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment slice(ResourceScope scope, MemoryAddress addr, long bytes)
+    public static MemorySegment slice(MemorySegment scope, MemoryAddress addr, long bytes)
     {
-        return addr.asSegment(bytes, scope);
+        return MemorySegment.ofAddress(addr, bytes, scope.session());
     }
 
-    public static String readString(MemoryAddress addr)
+    public static String readString(Addressable addr)
     {
         if (addr == MemoryAddress.NULL)
             return null;
-        return toJavaString(addr);
+        return addr.address().getUtf8String(0);
     }
+
+    public static Addressable toCString(String s, MemorySession scope)
+    {
+        return scope.allocateUtf8String(s);
+    }
+
+    public static Addressable toCString(String s, SegmentAllocator scope)
+    {
+        return scope.allocateUtf8String(s);
+    }
+
     /**
      * Given a folder or file this will recursively delete it.
      *

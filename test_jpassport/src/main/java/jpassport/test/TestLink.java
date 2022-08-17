@@ -12,14 +12,11 @@
 package jpassport.test;
 
 import com.sun.jna.Library;
-import jdk.incubator.foreign.MemoryAddress;
-import jdk.incubator.foreign.MemorySegment;
 import jpassport.Passport;
-import jpassport.Utils;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import java.lang.foreign.Addressable;
 
 public interface TestLink extends Passport, Library {
 
@@ -60,8 +57,8 @@ public interface TestLink extends Passport, Library {
     int cstringLength(String s);
 
     String mallocString(String origString);
-    MemoryAddress mallocDoubles(int count);
-    void freeMemory(MemoryAddress address);
+    Addressable mallocDoubles(int count);
+    void freeMemory(Addressable address);
 
 //    static void calling(TestLink tl)
 //    {

@@ -12,8 +12,10 @@
 package jpassport.test;
 
 import com.sun.jna.Native;
-import jdk.incubator.foreign.MemoryAddress;
 import jpassport.test.performance.PerfTest;
+
+import java.lang.foreign.Addressable;
+import java.lang.foreign.MemoryAddress;
 
 public class TestLinkJNADirect
 {
@@ -190,7 +192,7 @@ public class TestLinkJNADirect
         }
 
         @Override
-        public void freeMemory(MemoryAddress address) {
+        public void freeMemory(Addressable address) {
 
         }
     }

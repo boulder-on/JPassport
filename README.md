@@ -1,4 +1,4 @@
-# JPassport
+# JPassport - Java 19 Early Access
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
@@ -11,9 +11,9 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 17** is required to use this library. There is a separate branch for JAva 18 support.
+**Java 19** is required to use this library. There are separate branches for Java 17 and 18 support.
 
-The Foreign Linker API is still an incubator, so you can think of this project as a proof of concept at this time.
+The Foreign Linker API is in preview in Java 19, so you need to use --enable-preview to use this library.
 
 # Getting Started
 
@@ -65,7 +65,7 @@ Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linke
 
 In order to use this library you will need to provide the VM these arguments:
 
-__-Djava.library.path=[path to lib] --enable-native-access jpassport__
+__-Djava.library.path=[path to lib] --enable-native-access jpassport --enable-preview__
 
 JPassport works by writing a class that implements your interface, compiling it and passing it back to you.
 By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
@@ -294,7 +294,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires **Java 17** to build and run. There is a separate Java 18 branch. 
+JPassport itself only requires **Java 19** to build and run. There are separate Java 17 and 18 branches. 
 
 The testing classes require:
 
