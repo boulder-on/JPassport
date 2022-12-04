@@ -11,6 +11,7 @@ import java.lang.foreign.MemoryAddress;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -353,7 +354,7 @@ public class PassportWriter<T extends Passport>
                         if (arrays.length > 0)
                             sb.append(String.format("\t\tmemStruct.asSlice(%2$s).copyFrom(MemorySegment.ofArray(rec.%1$s()));\n", f.getName(), offset));
                         else if (isPointer)
-                            sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toMS(scope, rec.%1$s()).address());\n", f.getName(), offset));
+                            sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toMS(scope, rec.%1$s(), false).address());\n", f.getName(), offset));
                     }
 
                 }
@@ -464,7 +465,13 @@ public class PassportWriter<T extends Passport>
             } else if (retType.equals(MemoryAddress.class) || retType.equals(Addressable.class)) {
                 strCallReturn = "var ret = (MemoryAddress)";
                 strReturn = "return ret;";
-            } else
+            }
+            else if (isGenericPtr(retType))
+            {
+                strCallReturn = "var ret = (MemoryAddress)";
+                strReturn = "return new " + retType.getName() + "(ret);";
+            }
+            else
             {
                 strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
                 strReturn = "return ret;";
@@ -472,6 +479,7 @@ public class PassportWriter<T extends Passport>
         }
 
         Annotation[][] paramAnnotations = method.getParameterAnnotations();
+        var methodArgs = method.getParameters();
         int v = 1;
         boolean bHasAllocatedMemory = false;
 
@@ -485,7 +493,10 @@ public class PassportWriter<T extends Passport>
                 if (isPtrPtrArg(paramAnnotations[v-1]))
                     preCall.append(String.format("var vv%1$d = Utils.toPtrPTrMS(scope, v%1$d);", v));
                 else
-                    preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d);\n", v));
+                {
+                    preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d, %2$s);\n", v,
+                            isRefArgReadBackOnly(methodArgs[v - 1])));
+                }
 
                 params.append("Utils.toAddr(vv").append(v).append("),");
 
@@ -516,6 +527,8 @@ public class PassportWriter<T extends Passport>
                     postCall.append(String.format("v%1$d[0] = read%2$s(vv%1d, v%1$d[0]);", v, recordType.getSimpleName()));
                 }
             }
+            else if (isGenericPtr(parameter))
+                params.append("v").append(v).append(".getPtr(),");
             else
                 params.append("v").append(v).append(",");
             ++v;
@@ -597,7 +610,7 @@ public class PassportWriter<T extends Passport>
 
         var dothis = compiler.getTask(null, null, null,
                 List.of("--enable-preview", "--release", "19", "--module-path", System.getProperty("jdk.module.path")),
-                        null, compileThis);
+                null, compileThis);
 //        compiler.run(null, null, null,
 //                 "--module-path", System.getProperty("jdk.module.path"),
 //                paths.get(0).toString(), paths.get(1).toString());
@@ -611,6 +624,14 @@ public class PassportWriter<T extends Passport>
     private boolean isRefArg(Annotation[] paramAnnotations)
     {
         return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(RefArg.class::equals);
+    }
+
+    private boolean isRefArgReadBackOnly(Parameter methodArg)
+    {
+        var ref = methodArg.getAnnotationsByType(RefArg.class);
+        if (ref.length > 0)
+            return ref[0].read_back_only();
+        return false;
     }
 
     private boolean isPtrPtrArg(Annotation[] paramAnnotations)
@@ -644,14 +665,15 @@ public class PassportWriter<T extends Passport>
             if (!isValidArgType(retType))
                 throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
 
-            List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).collect(Collectors.toList());
+            List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).toList();
             if (!invalid.isEmpty())
                 throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
 
-            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()))
+            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
                 extraImports.add(retType);
             Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
             Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(PassportWriter::isGenericPtr).forEach(extraImports::add);
         }
 
         extraImports.remove(String.class);
@@ -704,9 +726,16 @@ public class PassportWriter<T extends Passport>
             return true;
         if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()))
             return true;
-        if (Addressable.class.equals(c) || String.class.equals(c))
+        if (Addressable.class.equals(c) || String.class.equals(c) || isGenericPtr(c))
             return true;
         return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
+    }
+
+    private static boolean isGenericPtr(Class<?> c)
+    {
+        while (!c.equals(GenericPointer.class) && c.getSuperclass() != null)
+            c = c.getSuperclass();
+        return c.equals(GenericPointer.class);
     }
 
 }

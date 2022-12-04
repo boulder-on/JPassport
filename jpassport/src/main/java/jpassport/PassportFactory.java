@@ -60,11 +60,13 @@ public class PassportFactory
      */
     public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class<? extends Passport> interfaceClass)
     {
-        if (Utils.getPlatform().equals(Utils.Platform.Windows) && !libName.endsWith(".dll"))
-            libName = libName + ".dll";
+        if (libName != null) {
+            if (Utils.getPlatform().equals(Utils.Platform.Windows) && !libName.endsWith(".dll"))
+                libName = libName + ".dll";
 
-        File libPath = new File(libName);
-        System.load(libPath.getAbsolutePath());
+            File libPath = new File(libName);
+            System.load(libPath.getAbsolutePath());
+        }
         Linker cLinker = Linker.nativeLinker();
 
         List<Method> interfaceMethods = getDeclaredMethods(interfaceClass);
@@ -180,6 +182,8 @@ public class PassportFactory
             return ValueLayout.JAVA_BYTE;
         if (long.class.equals(type))
             return ValueLayout.JAVA_LONG;
+        if (boolean.class.equals(type))
+            return ValueLayout.JAVA_BOOLEAN;
 
         return ValueLayout.ADDRESS;
     }

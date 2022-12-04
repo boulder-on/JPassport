@@ -21,8 +21,15 @@ import java.lang.annotation.Target;
  * therefore should be read back in after the library call.
  *
  * This annotation is only observed for array arguments.
+ *
+ * If the read_back_only parameter is false then the value in the java array is copied
+ * into the native memory that is passed to the function call. If read_back_only is true
+ * then blank memory is allocated and passed to the function call. For large
+ * blocks of memory where you will only ever receive data back (eg. a read call)
+ * read_back_only = true can save quite a bit of time.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
 public @interface RefArg {
+    boolean read_back_only() default false;
 }

@@ -38,13 +38,14 @@ public class Utils
         return seg.address();
     }
 /* Double ///////////////////////////////////////////////////////////////// */
-    public static MemorySegment toMS(SegmentAllocator scope, double[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, double[] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
-        return scope.allocateArray(ValueLayout.JAVA_DOUBLE, arr);
+        return isReadBackOnly ? scope.allocate(arr.length * Double.BYTES) :
+                scope.allocateArray(ValueLayout.JAVA_DOUBLE, arr);
     }
 
-    public static MemorySegment toMS(SegmentAllocator scope, double[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, double[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
@@ -100,14 +101,15 @@ public class Utils
 
     /* Float ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(SegmentAllocator scope, float[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, float[] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
-        return scope.allocateArray(ValueLayout.JAVA_FLOAT, arr);
+        return isReadBackOnly ? scope.allocate(arr.length * Float.BYTES) :
+                scope.allocateArray(ValueLayout.JAVA_FLOAT, arr);
     }
 
-    public static MemorySegment toMS(SegmentAllocator scope, float[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, float[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
@@ -163,10 +165,11 @@ public class Utils
 
     /* Long ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(SegmentAllocator scope, long[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, long[] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
-        return scope.allocateArray(ValueLayout.JAVA_LONG, arr);
+        return isReadBackOnly ? scope.allocate(arr.length * Long.BYTES) :
+                scope.allocateArray(ValueLayout.JAVA_LONG, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, long[][] arr) {
@@ -183,7 +186,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(SegmentAllocator scope, long[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, long[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
@@ -225,11 +228,12 @@ public class Utils
 
     /* Int ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(SegmentAllocator scope, int[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, int[] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
-        return scope.allocateArray(ValueLayout.JAVA_INT, arr);
+        return isReadBackOnly ? scope.allocate(arr.length * Integer.BYTES) :
+                scope.allocateArray(ValueLayout.JAVA_INT, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, int[][] arr) {
@@ -245,7 +249,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(SegmentAllocator scope, int[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, int[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
@@ -288,11 +292,12 @@ public class Utils
 
     /* Short ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(SegmentAllocator scope, short[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, short[] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
-        return scope.allocateArray(ValueLayout.JAVA_SHORT, arr);
+        return isReadBackOnly ? scope.allocate((int)(arr.length * Short.BYTES)) :
+                scope.allocateArray(ValueLayout.JAVA_SHORT, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, short[][] arr) {
@@ -308,7 +313,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(SegmentAllocator scope, short[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, short[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
@@ -349,11 +354,11 @@ public class Utils
 
     /* Byte ///////////////////////////////////////////////////////////////// */
 
-    public static MemorySegment toMS(SegmentAllocator scope, byte[] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, byte[] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
-        return scope.allocateArray(ValueLayout.JAVA_BYTE, arr);
+        return isReadBackOnly ? scope.allocate(arr.length) : scope.allocateArray(ValueLayout.JAVA_BYTE, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, byte[][] arr) {
@@ -367,7 +372,7 @@ public class Utils
         return segment;
     }
 
-    public static MemorySegment toMS(SegmentAllocator scope, byte[][] arr) {
+    public static MemorySegment toMS(SegmentAllocator scope, byte[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
 
