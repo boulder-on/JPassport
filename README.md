@@ -249,14 +249,15 @@ to other Records.
 # Annotations
 JPassport uses annotations as code generation hints. The available annotations are:
 
-| Annotation | Usage          | Meaning                                                                                                                                                                |
-|------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Array      | Record members | If a C Struct takes a pointer to a primative array, this allows you to say what the size of the primative array is for RefArgs.                                        |
-| Ptr   | Record members | If a C Struct takes a pointer to a primative or another struct then use this annotation.                                                                               |
-| PtrPtrArg | Function argument| Any C function that takes a **<arg> must be annotated with this.                                                                                                       |
-| RefArg | Function argument | Any C function that changes the contents of a pointer must be annotated with this to force the read back of the parameter                                              |
+| Annotation                   | Usage          | Meaning                                                                                                                                                                |
+|------------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Array                        | Record members | If a C Struct takes a pointer to a primative array, this allows you to say what the size of the primative array is for RefArgs.                                        |
+| NotRequired                  | Functions | If a function could not be found in the native library then no exception will be thrown. Use hasMethod("") to determine if the function was found. |                    |
+| Ptr                          | Record members | If a C Struct takes a pointer to a primative or another struct then use this annotation.                                                                               |
+| PtrPtrArg                    | Function argument| Any C function that takes a **<arg> must be annotated with this.                                                                                                       |
+| RefArg                       | Function argument | Any C function that changes the contents of a pointer must be annotated with this to force the read back of the parameter                                              |
 | RefArg (read_back_only=true) | Function argument | If you only need to pass a blank memory space for a method to fill, use this optimization, otherwise the values in the array are copied to memory that is passed to C. |
-| StructPadding | Record members | See the Javadoc or the above section on structs and records. |
+| StructPadding                | Record members | See the Javadoc or the above section on structs and records.                                                                                                           |
 
 # Limitations
 
@@ -323,6 +324,11 @@ Roughly in order of importance
 4. Compile classes in memory instead of from disk
 
 # Release Notes
+- 0.6 
+  - Added the version of Java the library uses to the version (0.6.0-[java version])
+  - Added GenericPointer returns and method arguments.
+  - Added @NotRequired annotation for methods that may not exist.
+  - Default functions in the interface are now ignored.
 - 0.5
   - Added the GenericPointer class to help with returning things like win32 HANDLEs
   - Added RefArg(read_back_only = true) to optimize the returning of reference arguments.

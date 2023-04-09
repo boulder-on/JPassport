@@ -12,11 +12,14 @@
 package jpassport;
 
 
+import jpassport.annotations.NotRequired;
+
 import java.io.File;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.*;
@@ -96,15 +99,41 @@ public class PassportFactory
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
             var addr = lookup.lookup(method.getName()).orElse(null);
-            if (addr == null)
+            if (addr == null && method.getAnnotation(NotRequired.class) == null)
                 throw new PassportException("Could not find method in library: " + method.getName());
 
-            MethodHandle methodHandle = cLinker.downcallHandle(addr, fd);
-
-            methodMap.put(method.getName(), methodHandle);
+            if (addr != null) {
+                MethodHandle methodHandle = cLinker.downcallHandle(addr, fd);
+                methodMap.put(method.getName(), methodHandle);
+            }
         }
-
+        loadNames(interfaceClass);
         return methodMap;
+    }
+
+    /**
+     * This methods looks up all of the methods in the requested native library that match non-static
+     * methods in the given interface class.
+     *
+     * @param interfaceClass The interface class to use as a reference for loading methods.
+     */
+    private static void loadNames(Class<? extends Passport> interfaceClass)
+    {
+        List<Field> names = getDeclaredNames(interfaceClass);
+
+        SymbolLookup lookup = SymbolLookup.loaderLookup();
+
+        for (Field field : names) {
+            try {
+                var named = ((NamedLookup)field.get(interfaceClass));
+                var addr = lookup.lookup(named.name());
+                if (addr.isEmpty() && field.getAnnotation(NotRequired.class) == null)
+                    throw new PassportException("Could not find field in library: " + named.name());
+                addr.ifPresent(named::setAddress);
+            } catch (IllegalAccessException e) {
+                throw new PassportException("Could not find field in library: " + field.getName());
+            }
+        }
     }
 
     /**
@@ -164,7 +193,15 @@ public class PassportFactory
 
     static List<Method> getDeclaredMethods(Class<?> interfaceClass) {
         Method[] methods = interfaceClass.getDeclaredMethods();
-        return Arrays.stream(methods).filter(method -> (method.getModifiers() & Modifier.STATIC) == 0).toList();
+        return Arrays.stream(methods).
+                filter(method -> !Modifier.isStatic(method.getModifiers())).
+                filter(method -> !method.isDefault()).toList();
+    }
+
+    static List<Field> getDeclaredNames(Class<?> interfaceClass) {
+        Field[] fields = interfaceClass.getDeclaredFields();
+        return Arrays.stream(fields).
+                filter(field -> field.getType().equals(NamedLookup.class)).toList();
     }
 
 

@@ -14,9 +14,16 @@ package jpassport.test;
 
 import java.lang.foreign.Addressable;
 import java.lang.foreign.MemoryAddress;
+import java.lang.foreign.MemorySegment;
 
 public class PureJava implements TestLink
 {
+
+    @Override
+    public void functionDoesNotExist(double v) {
+
+    }
+
     @Override
     public double sumD(double d, double d2) {
         return d + d2;
@@ -237,5 +244,10 @@ public class PureJava implements TestLink
 
     @Override
     public void freeMemory(Addressable address) {
+    }
+
+    @Override
+    public boolean hasMethod(String name) {
+        return true;
     }
 }

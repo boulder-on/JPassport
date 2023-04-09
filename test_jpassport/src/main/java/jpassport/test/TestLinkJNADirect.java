@@ -16,6 +16,7 @@ import jpassport.test.performance.PerfTest;
 
 import java.lang.foreign.Addressable;
 import java.lang.foreign.MemoryAddress;
+import java.lang.foreign.MemorySegment;
 
 public class TestLinkJNADirect
 {
@@ -46,6 +47,13 @@ public class TestLinkJNADirect
     }
 
     public static class JNADirect implements TestLink, PerfTest {
+        @Override
+        public void functionDoesNotExist(double v) {
+
+        }
+
+
+
         @Override
         public double sumD(double d, double d2) {
             return TestLinkJNADirect.sumD(d, d2);
@@ -194,6 +202,16 @@ public class TestLinkJNADirect
         @Override
         public void freeMemory(Addressable address) {
 
+        }
+
+        @Override
+        public boolean hasMethod(String name) {
+            return true;
+        }
+
+        @Override
+        public Object readStruct(MemorySegment segment, Object rec) {
+            return null;
         }
     }
 }

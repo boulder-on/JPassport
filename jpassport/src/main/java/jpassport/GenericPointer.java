@@ -45,5 +45,7 @@ public class GenericPointer {
     /**
      * A convenience method for a NULL value.
      */
-    public static GenericPointer NULL = new GenericPointer(MemoryAddress.NULL);
+    public static GenericPointer NULL() {
+        return new GenericPointer(MemoryAddress.NULL);
+    }
 }

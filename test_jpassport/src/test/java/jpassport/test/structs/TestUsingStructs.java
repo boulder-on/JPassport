@@ -1,9 +1,11 @@
 package jpassport.test.structs;
 
 import jpassport.PassportFactory;
+import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.ValueLayout;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
@@ -26,6 +28,11 @@ public class TestUsingStructs {
     @Test
     public void testSimpleStruct()
     {
+        assertEquals(4 * ValueLayout.JAVA_LONG.byteSize(), Utils.size_of(TestStruct.class));
+        assertEquals(ValueLayout.JAVA_LONG.byteSize() + Utils.size_of(TestStruct.class) +
+                ValueLayout.ADDRESS.byteSize() * 2, Utils.size_of(ComplexStruct.class));
+
+
         assertEquals(2+3+4+5, PassingStructs.passStruct(new TestStruct(2, 3, 4, 5)));
 //        long[] times = new long[1000];
 //

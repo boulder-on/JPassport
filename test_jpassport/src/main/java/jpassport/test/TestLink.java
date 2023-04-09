@@ -12,13 +12,23 @@
 package jpassport.test;
 
 import com.sun.jna.Library;
+import jpassport.NamedLookup;
 import jpassport.Passport;
+import jpassport.annotations.NotRequired;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 
 import java.lang.foreign.Addressable;
 
 public interface TestLink extends Passport, Library {
+
+    default double SUMD(double d, double d2)
+    {
+        return this.sumD(d, d2);
+    }
+
+    @NotRequired
+    void functionDoesNotExist(double v);
 
     double sumD(double d, double d2);
     double sumArrD(double[] d, int len);

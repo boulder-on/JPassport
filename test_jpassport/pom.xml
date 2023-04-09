@@ -8,11 +8,11 @@
         <relativePath>../pom.xml</relativePath>
         <groupId>JPassport</groupId>
         <artifactId>JPassport-parent</artifactId>
-        <version>0.6.0</version>
+        <version>0.6.0-19</version>
     </parent>
 
     <artifactId>JPassport-tests</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.0-19</version>
 
     <!--    <name>JPassport</name>-->
     <packaging>jar</packaging>
@@ -59,7 +59,7 @@
             <dependency>
                 <groupId>JPassport</groupId>
                 <artifactId>JPassport-main</artifactId>
-                <version>0.6.0</version>
+                <version>0.6.0-19</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
@@ -83,6 +83,17 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>19</source>
+                    <target>19</target>
+                    <compilerArgs>--enable-preview</compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
 </project>

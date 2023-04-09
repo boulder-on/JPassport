@@ -6,7 +6,7 @@
 
     <groupId>JPassport</groupId>
     <artifactId>JPassport-parent</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.0-19</version>
 
     <modules>
         <module>jpassport</module>

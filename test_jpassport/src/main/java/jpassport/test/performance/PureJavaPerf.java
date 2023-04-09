@@ -13,6 +13,8 @@ package jpassport.test.performance;
 
 import jpassport.test.structs.TestStruct;
 
+import java.lang.foreign.MemorySegment;
+
 public class PureJavaPerf implements PerfTest{
     @Override
     public double sumD(double d, double d2) {
@@ -48,6 +50,11 @@ public class PureJavaPerf implements PerfTest{
 
     public double passStruct(TestStruct simpleStruct) {
         return simpleStruct.s_int() + simpleStruct.s_long() + simpleStruct.s_float() + simpleStruct.s_double();
+    }
+
+    @Override
+    public boolean hasMethod(String name) {
+        return true;
     }
 
 }

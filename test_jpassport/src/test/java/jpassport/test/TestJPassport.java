@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import static jpassport.test.TestLinkHelp.getLibName;
 import static org.junit.jupiter.api.Assertions.*;
@@ -33,6 +34,12 @@ public class TestJPassport
         testFL = PassportFactory.link(getLibName(), TestLink.class);
     }
 
+    @Test
+    public void testNoPresent()
+    {
+        assertFalse(testFL.hasMethod("functionDoesNotExist"));
+        assertThrows(Error.class, () -> testFL.functionDoesNotExist(1));
+    }
     @Test
     public void testAllocString()
     {

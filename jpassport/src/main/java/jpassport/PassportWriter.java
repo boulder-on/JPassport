@@ -112,7 +112,6 @@ public class PassportWriter<T extends Passport>
                     https://github.com/boulder-on/JPassport
                     **/                                       
                     public class %s implements %s {
-                        HashMap<String, MethodHandle> m_methods;
                         %s
                         
                         public static final int[] GENERATED_BY = {%d, %d, %d};
@@ -120,7 +119,7 @@ public class PassportWriter<T extends Passport>
                         
                         public %s(HashMap<String, MethodHandle> methods)
                         {
-                            m_methods = methods;
+                            m_methods.putAll(methods);
                             init();
                         }
 
@@ -136,6 +135,7 @@ public class PassportWriter<T extends Passport>
 
         m_source.append(buildStoreStructFunction(extraImports));
         m_source.append(buildReadStructFunction(extraImports));
+        m_source.append(buildReadAnyStructFunction(extraImports));
 
         m_initSource.append("""
                                     private void init(){
@@ -222,7 +222,7 @@ public class PassportWriter<T extends Passport>
                     else
                         sbLayout.append(String.format("\t\t%sLayout.withName(\"%s\"),\n",type.getSimpleName(), f.getName()));
                 }
-                else if (String.class.equals(type))
+                else if (String.class.equals(type) || Addressable.class.equals(type))
                     sbLayout.append(String.format("\t\tADDRESS.withName(\"%s\"),\n", f.getName()));
                 else if (type.isArray())
                 {
@@ -272,7 +272,7 @@ public class PassportWriter<T extends Passport>
         return allStructs.toString();
     }
 
-    private int getPaddingBits(Field field)
+    public static int getPaddingBits(Field field)
     {
         Annotation[] annotations = field.getAnnotationsByType(StructPadding.class);
         int paddingBytes = 0;
@@ -341,6 +341,8 @@ public class PassportWriter<T extends Passport>
                     else
                         sb.append(String.format("\t\tmemStruct.asSlice(%3$s).copyFrom(store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName(), offset));
                 }
+                else if (Addressable.class.equals(type))
+                    sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s().address());\n", f.getName(), offset));
                 else if (String.class.equals(type))
                     sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toCString(rec.%1$s(), scope).address());\n", f.getName(), offset));
                 else if (type.isArray())
@@ -405,6 +407,10 @@ public class PassportWriter<T extends Passport>
                     else
                         sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(%3$s), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
                 }
+                else if (Addressable.class.equals(type))
+                {
+                    sb.append(String.format("\t\tvar %1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
+                }
                 else if (String.class.equals(type))
                     sb.append(String.format("\t\tvar %1$s = Utils.readString(memStruct.get(ADDRESS, %2$s));\n", f.getName(), offset));
                 else if (type.isArray())
@@ -437,6 +443,32 @@ public class PassportWriter<T extends Passport>
             sb.append(");\n\t}\n\n");
         }
 
+        return sb.toString();
+    }
+
+    /**
+     * If there is a Record class that needs to be read in then this method writes the code to convert the MemorySegment
+     * back into a Record
+     * @param records All of the record types to make readers for.
+     * @return The code to read all of the Record types.
+     */
+    private String buildReadAnyStructFunction(Set<Class<?>> records)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("\tpublic Object readStruct(MemorySegment segment, Object rec) {\n");
+
+        for (Class<?> c : records)
+        {
+            if (!c.isRecord())
+                continue;
+
+            sb.append(String.format("\t\tif (rec instanceof %s vv) \n", c.getSimpleName()));
+            sb.append(String.format("\t\t\treturn read%s(segment, vv);\n", c.getSimpleName()));
+        }
+
+        sb.append("\t\tthrow new IllegalArgumentException(\"Unknown type\");\n");
+        sb.append("\t}\n\n");
         return sb.toString();
     }
 
@@ -567,9 +599,9 @@ public class PassportWriter<T extends Passport>
                 method.getName(),
                 retType.getSimpleName(), method.getName(),args,
                 tryArgs,
-                preCall,
+                preCall.toString().replace("\n", "\n\t\t\t"),
                 strCallReturn, method.getName(), params,
-                postCall,
+                postCall.toString().replace("\n", "\n\t\t\t"),
                 strReturn));
 
         m_initSource.append(String.format("\t\tm_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
