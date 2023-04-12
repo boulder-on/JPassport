@@ -80,7 +80,7 @@ as a pointer into another function. This technique is used to create call-backs.
 ```java
 public interface CallbackNative extends Passport
 {
-    void passMethod(MemoryAddress functionPtr);
+    void passMethod(MemorySegment functionPtr);
 }
 
 public class MyCallback
@@ -92,7 +92,7 @@ public class MyCallback
 }
 
 MyCallback cb = new MyCallback();
-MemoryAddress functionPtr = PassportFactory.createCallback(cb, "callbackMethod");
+MemorySegment functionPtr = PassportFactory.createCallback(cb, "callbackMethod");
 
 CallbackNative cbn = PassportFactory.link("libforeign", CallbackNative.class);
 cbn.passMethod(functionPtr);
@@ -269,11 +269,11 @@ Pointers as function returns only work in a limited fashion. Based on a C
 function declaration there isn't a way to tell exactly what a method is returning.
 For example, returning int* could return any number of ints. There is
 little a library like JPassport can do to handle returned pointers automatically. 
-The work-around is for your interface function to return MemoryAddress. From there
+The work-around is for your interface function to return MemorySegment. From there
 it would be up to you to decipher the return. 
 
-Declaring your interface method to take MemoryAddress objects allow you to
-manage all of the data yourself (like JExtract).
+Declaring your interface method to take MemorySegment objects allow you to
+manage all the data yourself (like JExtract).
 
 ```
 double* mallocDoubles(const int count)
@@ -294,12 +294,12 @@ void freeMemory(void *memory)
 
 ```Java
 public interface TestLink extends Passport {
-    MemoryAddress mallocDoubles(int count);
-    void freeMemory(MemoryAddress addr);
+    MemorySegment mallocDoubles(int count);
+    void freeMemory(MemorySegment addr);
 }
 
 double[] testReturnPointer(int count) {
-    MemoryAddress address = linked_lib.mallocDoubles(count);
+    MemorySegment address = linked_lib.mallocDoubles(count);
     double[] values = Utils.toArrDouble(address, count);
     linked_lib.freeMemory(address);
     return values;
@@ -307,7 +307,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires **Java 19** to build and run. There are separate Java 17 and 18 branches. 
+JPassport itself only requires **Java 20** to build and run. There are separate Java 17-19 branches. 
 
 The testing classes require:
 
