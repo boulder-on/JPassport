@@ -12,8 +12,6 @@
 package jpassport.test;
 
 
-import java.lang.foreign.Addressable;
-import java.lang.foreign.MemoryAddress;
 import java.lang.foreign.MemorySegment;
 
 public class PureJava implements TestLink
@@ -238,12 +236,12 @@ public class PureJava implements TestLink
     }
 
     @Override
-    public MemoryAddress mallocDoubles(int count) {
+    public MemorySegment mallocDoubles(int count) {
         return null;
     }
 
     @Override
-    public void freeMemory(Addressable address) {
+    public void freeMemory(MemorySegment address) {
     }
 
     @Override

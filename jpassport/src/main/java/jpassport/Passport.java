@@ -11,7 +11,6 @@
  */
 package jpassport;
 
-import java.lang.foreign.MemoryAddress;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
@@ -21,7 +20,7 @@ import java.util.HashMap;
  */
 public interface Passport {
     HashMap<String, MethodHandle> m_methods = new HashMap<>();
-    HashMap<String, MemoryAddress> m_loadedNames = new HashMap<>();
+    HashMap<String, MemorySegment> m_loadedNames = new HashMap<>();
 
     /**
      * Lets you know if a specific method was found or not. Generally, all methods must be found

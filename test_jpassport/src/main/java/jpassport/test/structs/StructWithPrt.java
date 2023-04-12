@@ -1,6 +1,6 @@
 package jpassport.test.structs;
 
-import java.lang.foreign.Addressable;
+import java.lang.foreign.MemorySegment;
 
-public record StructWithPrt(int n, Addressable addr, float f) {
+public record StructWithPrt(int n, MemorySegment addr, float f) {
 }

@@ -18,7 +18,8 @@ import jpassport.annotations.NotRequired;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 
-import java.lang.foreign.Addressable;
+import java.lang.foreign.MemorySegment;
+
 
 public interface TestLink extends Passport, Library {
 
@@ -67,8 +68,8 @@ public interface TestLink extends Passport, Library {
     int cstringLength(String s);
 
     String mallocString(String origString);
-    Addressable mallocDoubles(int count);
-    void freeMemory(Addressable address);
+    MemorySegment mallocDoubles(int count);
+    void freeMemory(MemorySegment address);
 
 //    static void calling(TestLink tl)
 //    {

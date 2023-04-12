@@ -1,14 +1,14 @@
 package jpassport.test;
 
 
-import java.lang.foreign.MemoryAddress;
+import java.lang.foreign.MemorySegment;
 import java.util.Locale;
 
 public class TestLinkHelp {
 
     public static boolean testMallocDouble(TestLink link)
     {
-        return MemoryAddress.NULL.equals(link.mallocDoubles(0));
+        return MemorySegment.NULL.equals(link.mallocDoubles(0));
     }
 
 

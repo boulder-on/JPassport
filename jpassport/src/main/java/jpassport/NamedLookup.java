@@ -1,6 +1,6 @@
 package jpassport;
 
-import java.lang.foreign.Addressable;
+import java.lang.foreign.MemorySegment;
 
 /**
  * Variables of this type declared in your interface will be loaded by the SymbolLookup.
@@ -16,19 +16,19 @@ import java.lang.foreign.Addressable;
  */
 public class NamedLookup {
     final private String name;
-    private Addressable addr;
+    private MemorySegment addr;
 
     public NamedLookup(String name)
     {
         this.name = name;
     }
 
-    protected void setAddress(Addressable addr)
+    protected void setAddress(MemorySegment addr)
     {
         this.addr = addr;
     }
 
-    public Addressable addr()
+    public MemorySegment addr()
     {
         return addr;
     }

@@ -3,8 +3,6 @@ package jpassport.test.callback;
 import jpassport.PassportFactory;
 import jpassport.Utils;
 
-import java.lang.foreign.Addressable;
-import java.lang.foreign.MemoryAddress;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.util.Arrays;
@@ -17,7 +15,7 @@ public class CallbackObj {
         return (int) (n + m);
     }
 
-    public Addressable getAsFunctionPtr()
+    public MemorySegment getAsFunctionPtr()
     {
         return PassportFactory.createCallback(this, "callback");
     }
@@ -29,12 +27,12 @@ public class CallbackObj {
 //        sum = Arrays.stream(vals).sum();
 //    }
 
-    public void callbackArr(MemoryAddress ptr, int count) {
+    public void callbackArr(MemorySegment ptr, int count) {
         var vals = Utils.toArr(ValueLayout.JAVA_INT, ptr, count);
         sum = Arrays.stream(vals).sum();
     }
 
-    public Addressable getAsFunctionArrPtr()
+    public MemorySegment getAsFunctionArrPtr()
     {
         return PassportFactory.createCallback(this, "callbackArr");
     }

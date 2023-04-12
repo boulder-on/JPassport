@@ -1,7 +1,7 @@
 package jpassport;
 
-import java.lang.foreign.Addressable;
-import java.lang.foreign.MemoryAddress;
+
+import java.lang.foreign.MemorySegment;
 
 /**
  * This class should be extended if you have a method that works with an opaque pointer
@@ -25,27 +25,27 @@ import java.lang.foreign.MemoryAddress;
  * </pre>
  */
 public class GenericPointer {
-    protected MemoryAddress ptr;
+    protected MemorySegment ptr;
 
-    public GenericPointer(MemoryAddress addr)
+    public GenericPointer(MemorySegment addr)
     {
         ptr = addr;
     }
 
-    public Addressable getPtr()
+    public MemorySegment getPtr()
     {
         return ptr;
     }
 
     public boolean isNull()
     {
-        return ptr.equals(MemoryAddress.NULL);
+        return ptr.equals(MemorySegment.NULL);
     }
 
     /**
      * A convenience method for a NULL value.
      */
     public static GenericPointer NULL() {
-        return new GenericPointer(MemoryAddress.NULL);
+        return new GenericPointer(MemorySegment.NULL);
     }
 }

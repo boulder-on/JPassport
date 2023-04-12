@@ -83,11 +83,11 @@ public class PassportFactory
             Class<?> methRet = retType;
 
             if (!methRet.isPrimitive())
-                methRet= Addressable.class;
+                methRet= MemorySegment.class;
 
             for (int n = 0; n < parameters.length; ++n) {
                 if (!parameters[n].isPrimitive())
-                    parameters[n] = Addressable.class;
+                    parameters[n] = MemorySegment.class;
             }
 
             MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
@@ -98,7 +98,7 @@ public class PassportFactory
             else
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
-            var addr = lookup.lookup(method.getName()).orElse(null);
+            var addr = lookup.find(method.getName()).orElse(null);
             if (addr == null && method.getAnnotation(NotRequired.class) == null)
                 throw new PassportException("Could not find method in library: " + method.getName());
 
@@ -126,7 +126,7 @@ public class PassportFactory
         for (Field field : names) {
             try {
                 var named = ((NamedLookup)field.get(interfaceClass));
-                var addr = lookup.lookup(named.name());
+                var addr = lookup.find(named.name());
                 if (addr.isEmpty() && field.getAnnotation(NotRequired.class) == null)
                     throw new PassportException("Could not find field in library: " + named.name());
                 addr.ifPresent(named::setAddress);
@@ -147,7 +147,7 @@ public class PassportFactory
      * @throws IllegalArgumentException if there is no method with the given name, or there is more
      * than 1 method with the given name.
      */
-    public static Addressable createCallback(Object ob, String methodName)
+    public static MemorySegment createCallback(Object ob, String methodName)
     {
         var methods = getDeclaredMethods(ob.getClass());
 
@@ -162,12 +162,12 @@ public class PassportFactory
         Class<?> retType = callbackMethod.getReturnType();
         Class<?>[] parameters = callbackMethod.getParameterTypes();
 
-        if (!retType.isPrimitive() && retType != MemoryAddress.class)
+        if (!retType.isPrimitive() && retType != MemorySegment.class)
             throw new IllegalArgumentException("Callback method must return void, primitives, or MemoryAddress, not " + retType.getName());
 
 
         for (Class<?> parameter : parameters) {
-            if (!parameter.isPrimitive() && parameter != MemoryAddress.class)
+            if (!parameter.isPrimitive() && parameter != MemorySegment.class)
                 throw new IllegalArgumentException("Callback parameters must be primitives or MemoryAddress, not " + parameter.getName());
         }
 
@@ -182,7 +182,7 @@ public class PassportFactory
             var handle = MethodHandles.publicLookup().findVirtual(ob.getClass(), methodName, MethodType.methodType(retType, parameters));
             var handleToCall = handle.bindTo(ob);
 
-            MemorySession scope = MemorySession.openImplicit();
+            var scope = SegmentScope.auto();
             return Linker.nativeLinker().upcallStub(handleToCall, fd, scope);
         }
         catch (NoSuchMethodException | IllegalAccessException ex)

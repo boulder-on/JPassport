@@ -6,8 +6,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
-import java.lang.foreign.Addressable;
-import java.lang.foreign.MemoryAddress;
+import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -17,9 +16,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.stream.Collectors;
 
-import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import static jpassport.Utils.Platform.Windows;
 
 /***
@@ -222,7 +219,7 @@ public class PassportWriter<T extends Passport>
                     else
                         sbLayout.append(String.format("\t\t%sLayout.withName(\"%s\"),\n",type.getSimpleName(), f.getName()));
                 }
-                else if (String.class.equals(type) || Addressable.class.equals(type))
+                else if (String.class.equals(type) || MemorySegment.class.equals(type))
                     sbLayout.append(String.format("\t\tADDRESS.withName(\"%s\"),\n", f.getName()));
                 else if (type.isArray())
                 {
@@ -341,10 +338,10 @@ public class PassportWriter<T extends Passport>
                     else
                         sb.append(String.format("\t\tmemStruct.asSlice(%3$s).copyFrom(store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName(), offset));
                 }
-                else if (Addressable.class.equals(type))
-                    sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s().address());\n", f.getName(), offset));
+                else if (MemorySegment.class.equals(type))
+                    sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s());\n", f.getName(), offset));
                 else if (String.class.equals(type))
-                    sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toCString(rec.%1$s(), scope).address());\n", f.getName(), offset));
+                    sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toCString(rec.%1$s(), scope));\n", f.getName(), offset));
                 else if (type.isArray())
                 {
                     Class<?> arrType = type.getComponentType();
@@ -356,7 +353,7 @@ public class PassportWriter<T extends Passport>
                         if (arrays.length > 0)
                             sb.append(String.format("\t\tmemStruct.asSlice(%2$s).copyFrom(MemorySegment.ofArray(rec.%1$s()));\n", f.getName(), offset));
                         else if (isPointer)
-                            sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toMS(scope, rec.%1$s(), false).address());\n", f.getName(), offset));
+                            sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, Utils.toMS(scope, rec.%1$s(), false));\n", f.getName(), offset));
                     }
 
                 }
@@ -407,7 +404,7 @@ public class PassportWriter<T extends Passport>
                     else
                         sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(%3$s), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
                 }
-                else if (Addressable.class.equals(type))
+                else if (MemorySegment.class.equals(type))
                 {
                     sb.append(String.format("\t\tvar %1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
                 }
@@ -492,15 +489,15 @@ public class PassportWriter<T extends Passport>
         {
             if (retType.equals(String.class))
             {
-                strCallReturn = "var ret = (MemoryAddress)";
+                strCallReturn = "var ret = (MemorySegment)";
                 strReturn = "return Utils.readString(ret);";
-            } else if (retType.equals(MemoryAddress.class) || retType.equals(Addressable.class)) {
-                strCallReturn = "var ret = (MemoryAddress)";
+            } else if (retType.equals(MemorySegment.class) || retType.equals(MemorySegment.class)) {
+                strCallReturn = "var ret = (MemorySegment)";
                 strReturn = "return ret;";
             }
             else if (isGenericPtr(retType))
             {
-                strCallReturn = "var ret = (MemoryAddress)";
+                strCallReturn = "var ret = (MemorySegment)";
                 strReturn = "return new " + retType.getName() + "(ret);";
             }
             else
@@ -538,21 +535,21 @@ public class PassportWriter<T extends Passport>
             else if (String.class.equals(parameter))
             {
                 bHasAllocatedMemory = true;
-                preCall.append(String.format("Addressable vv%1$d = v%1$d == null ? MemoryAddress.NULL : Utils.toCString(v%1$d, scope);\n", v));
+                preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL : Utils.toCString(v%1$d, scope);\n", v));
                 params.append("vv").append(v).append(',');
             }
             else if (parameter.isRecord())
             {
                 bHasAllocatedMemory = true;
                 preCall.append(String.format("var vv%1$d =  store%2$s(scope, v%1$d);\n", v, parameter.getSimpleName()));
-                params.append("(Addressable)vv").append(v).append(".address(),");
+                params.append("(MemorySegment)vv").append(v).append(",");
             }
             else if (parameter.isArray() && parameter.getComponentType().isRecord())
             {
                 bHasAllocatedMemory = true;
                 Class<?> recordType = parameter.getComponentType();
                 preCall.append(String.format("var vv%1$d =  store%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
-                params.append("(Addressable)vv").append(v).append(".address(),");
+                params.append("(MemorySegment)vv").append(v).append(",");
 
                 if (isRefArg(paramAnnotations[v-1]))
                 {
@@ -572,7 +569,7 @@ public class PassportWriter<T extends Passport>
             params.setLength(params.length() - 1);
         if (bHasAllocatedMemory)
         {
-            tryArgs.append("var scope = MemorySession.openConfined();");
+            tryArgs.append("var scope = Arena.openConfined();");
 //            preCall.insert(0, "var allocator = SegmentAllocator.newNativeArena(scope);\n\t\t");
         }
 
@@ -641,7 +638,7 @@ public class PassportWriter<T extends Passport>
         var compileThis = fmanager.getJavaFileObjectsFromPaths(paths);
 
         var dothis = compiler.getTask(null, null, null,
-                List.of("--enable-preview", "--release", "19", "--module-path", System.getProperty("jdk.module.path")),
+                List.of("--enable-preview", "--release", "20", "--module-path", System.getProperty("jdk.module.path")),
                 null, compileThis);
 //        compiler.run(null, null, null,
 //                 "--module-path", System.getProperty("jdk.module.path"),
@@ -709,7 +706,7 @@ public class PassportWriter<T extends Passport>
         }
 
         extraImports.remove(String.class);
-        extraImports.remove(MemoryAddress.class);
+        extraImports.remove(MemorySegment.class);
         //In case any of the Records are made up of Records then this will pick those up to
         for (Class<?> c : extraImports)
         {
@@ -745,7 +742,7 @@ public class PassportWriter<T extends Passport>
      * Primitive[][]
      * Record
      * String
-     * MemoryAddress
+     * MemorySegment
      *
      * @param c The type to check
      * @return Is the type something we can work with
@@ -758,7 +755,7 @@ public class PassportWriter<T extends Passport>
             return true;
         if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()))
             return true;
-        if (Addressable.class.equals(c) || String.class.equals(c) || isGenericPtr(c))
+        if (MemorySegment.class.equals(c) || String.class.equals(c) || isGenericPtr(c))
             return true;
         return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
     }

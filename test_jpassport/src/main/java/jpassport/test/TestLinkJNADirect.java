@@ -14,8 +14,6 @@ package jpassport.test;
 import com.sun.jna.Native;
 import jpassport.test.performance.PerfTest;
 
-import java.lang.foreign.Addressable;
-import java.lang.foreign.MemoryAddress;
 import java.lang.foreign.MemorySegment;
 
 public class TestLinkJNADirect
@@ -195,12 +193,12 @@ public class TestLinkJNADirect
         }
 
         @Override
-        public MemoryAddress mallocDoubles(int count) {
+        public MemorySegment mallocDoubles(int count) {
             return null;
         }
 
         @Override
-        public void freeMemory(Addressable address) {
+        public void freeMemory(MemorySegment address) {
 
         }
 

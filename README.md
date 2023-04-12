@@ -1,4 +1,4 @@
-# JPassport - Java 19
+# JPassport - Java 20
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
@@ -11,9 +11,9 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 19** is required to use this library. There are separate branches for Java 17 and 18 support.
+**Java 20** is required to use this library. There are separate branches for Java 17, 18, 19 support.
 
-The Foreign Linker API is in preview in Java 19, so you need to use --enable-preview to use this library.
+The Foreign Linker API is in preview in Java 20, so you need to use --enable-preview to use this library.
 
 # Getting Started
 
