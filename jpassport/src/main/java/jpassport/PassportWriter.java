@@ -197,7 +197,7 @@ public class PassportWriter<T extends Passport>
 
             for (Field f : c.getDeclaredFields())
             {
-                int paddingBits = getPaddingBits(f);
+                int paddingBits = getPaddingBytes(f);
 
                 sbOffsets.append(String.format("\t\t%1$sLayout.byteOffset(groupElement(\"%2$s\")),\n", c.getSimpleName(), f.getName()));
 
@@ -269,7 +269,7 @@ public class PassportWriter<T extends Passport>
         return allStructs.toString();
     }
 
-    public static int getPaddingBits(Field field)
+    public static int getPaddingBytes(Field field)
     {
         Annotation[] annotations = field.getAnnotationsByType(StructPadding.class);
         int paddingBytes = 0;
@@ -288,7 +288,7 @@ public class PassportWriter<T extends Passport>
                 paddingBytes = sp.linuxBytes();
         }
 
-        return paddingBytes * 8;
+        return paddingBytes;
     }
 
     /**
@@ -383,6 +383,7 @@ public class PassportWriter<T extends Passport>
             sb.append(String.format("""
                         private %1$s read%1$s(MemorySegment memStruct, %1$s rec) {
                             GroupLayout layout = %1$sLayout;
+                            memStruct = Utils.resize(memStruct, layout.byteSize());
                     """,
                     c.getSimpleName()));
 
@@ -569,7 +570,7 @@ public class PassportWriter<T extends Passport>
             params.setLength(params.length() - 1);
         if (bHasAllocatedMemory)
         {
-            tryArgs.append("var scope = Arena.openConfined();");
+            tryArgs.append("var scope = Arena.ofConfined();");
 //            preCall.insert(0, "var allocator = SegmentAllocator.newNativeArena(scope);\n\t\t");
         }
 
@@ -638,7 +639,7 @@ public class PassportWriter<T extends Passport>
         var compileThis = fmanager.getJavaFileObjectsFromPaths(paths);
 
         var dothis = compiler.getTask(null, null, null,
-                List.of("--enable-preview", "--release", "20", "--module-path", System.getProperty("jdk.module.path")),
+                List.of("--enable-preview", "--release", "21", "--module-path", System.getProperty("jdk.module.path")),
                 null, compileThis);
 //        compiler.run(null, null, null,
 //                 "--module-path", System.getProperty("jdk.module.path"),

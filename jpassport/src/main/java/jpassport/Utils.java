@@ -19,16 +19,12 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
-import java.lang.ref.Cleaner;
 import java.lang.reflect.Field;
-import java.nio.ByteBuffer;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
-import java.util.stream.IntStream;
 
 
 public class Utils {
@@ -95,7 +91,7 @@ public class Utils {
 
         if (addr.byteSize() == 0)
         {
-            var seg = MemorySegment.ofAddress(addr.address(), (long)Double.BYTES * count);
+            var seg = MemorySegment.ofAddress(addr.address()).reinterpret((long)Double.BYTES * count);
             return seg.toArray(ValueLayout.JAVA_DOUBLE);
         }
 
@@ -159,7 +155,7 @@ public class Utils {
 
         if (addr.byteSize() == 0)
         {
-            var seg = MemorySegment.ofAddress(addr.address(), (long)Float.BYTES * count);
+            var seg = MemorySegment.ofAddress(addr.address()).reinterpret((long)Float.BYTES * count);
             return seg.toArray(ValueLayout.JAVA_FLOAT);
         }
 
@@ -222,7 +218,7 @@ public class Utils {
 
         if (addr.byteSize() == 0)
         {
-            var seg = MemorySegment.ofAddress(addr.address(), (long)Long.BYTES * count);
+            var seg = MemorySegment.ofAddress(addr.address()).reinterpret((long)Long.BYTES * count);
             return seg.toArray(ValueLayout.JAVA_LONG);
         }
 
@@ -285,8 +281,8 @@ public class Utils {
 
         if (addr.byteSize() == 0)
         {
-            var seg = MemorySegment.ofAddress(addr.address(), (long)Integer.BYTES * count);
-            return seg.toArray(ValueLayout.JAVA_INT);
+            return  MemorySegment.ofAddress(addr.address()).
+                    reinterpret((long)Integer.BYTES * count).toArray(ValueLayout.JAVA_INT);
         }
 
         return addr.asSlice(0, (long) count * Integer.BYTES).toArray(layout);
@@ -348,7 +344,7 @@ public class Utils {
 
         if (addr.byteSize() == 0)
         {
-            var seg = MemorySegment.ofAddress(addr.address(), (long)Short.BYTES * count);
+            var seg = MemorySegment.ofAddress(addr.address()).reinterpret((long)Short.BYTES * count);
             return seg.toArray(ValueLayout.JAVA_SHORT);
         }
 
@@ -408,7 +404,7 @@ public class Utils {
 
         if (addr.byteSize() == 0)
         {
-            var seg = MemorySegment.ofAddress(addr.address(), count);
+            var seg = MemorySegment.ofAddress(addr.address()).reinterpret(count);
             return seg.toArray(ValueLayout.JAVA_BYTE);
         }
 
@@ -418,7 +414,10 @@ public class Utils {
     /*///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment slice(MemorySegment scope, MemorySegment addr, long bytes) {
-        return MemorySegment.ofAddress(addr.address(), bytes, scope.scope());
+        if (addr.byteSize() == 0)
+            return MemorySegment.ofAddress(addr.address()).reinterpret(bytes).asSlice(0, bytes);
+
+        return MemorySegment.ofAddress(addr.address()).asSlice(0, bytes);
     }
 
     public static String readString(MemorySegment addr) {
@@ -429,11 +428,17 @@ public class Utils {
         {
             // This is slightly horrible. I can't find a better way. Use C's strlen to figure out
             //how big the memory segment really is.
-            var seg = MemorySegment.ofAddress(addr.address(), strLen(addr)+1);
-            return seg.getUtf8String(0);
+            return addr.reinterpret(strLen(addr)+1).getUtf8String(0);
         }
 
         return addr.getUtf8String(0);
+    }
+
+    public static MemorySegment resize(MemorySegment addr, long bytes)
+    {
+        if (addr.byteSize() == 0)
+            addr = addr.reinterpret(bytes);
+        return addr;
     }
 
     static MethodHandle strlen = null;
@@ -540,7 +545,7 @@ public class Utils {
         int size = 0;
         for (Field f : c.getDeclaredFields())
         {
-            size += PassportWriter.getPaddingBits(f) / 8;
+            size += PassportWriter.getPaddingBytes(f);
 
             Class<?> type = f.getType();
             if (type.isPrimitive())

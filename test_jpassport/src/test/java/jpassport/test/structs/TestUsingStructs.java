@@ -5,10 +5,14 @@ import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.GroupLayout;
+import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.ValueLayout;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import static java.lang.foreign.MemoryLayout.PathElement.groupElement;
+import static java.lang.foreign.ValueLayout.*;
 import static jpassport.test.TestLinkHelp.getLibName;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,9 +32,9 @@ public class TestUsingStructs {
     @Test
     public void testSimpleStruct()
     {
-        assertEquals(4 * ValueLayout.JAVA_LONG.byteSize(), Utils.size_of(TestStruct.class));
-        assertEquals(ValueLayout.JAVA_LONG.byteSize() + Utils.size_of(TestStruct.class) +
-                ValueLayout.ADDRESS.byteSize() * 2, Utils.size_of(ComplexStruct.class));
+        assertEquals(4 * JAVA_LONG.byteSize(), Utils.size_of(TestStruct.class));
+        assertEquals(JAVA_LONG.byteSize() + Utils.size_of(TestStruct.class) +
+                ADDRESS.byteSize() * 2, Utils.size_of(ComplexStruct.class));
 
 
         assertEquals(2+3+4+5, PassingStructs.passStruct(new TestStruct(2, 3, 4, 5)));

@@ -1,4 +1,4 @@
-# JPassport - Java 20
+# JPassport - Java 21
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
@@ -11,9 +11,9 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 20** is required to use this library. There are separate branches for Java 17, 18, 19 support.
+**Java 21** is required to use this library. There are separate branches for Java 17, 18, 19 and 20 support.
 
-The Foreign Linker API is in preview in Java 20, so you need to use --enable-preview to use this library.
+The Foreign Linker API is in preview in Java 21, so you need to use --enable-preview to use this library.
 
 # Getting Started
 
@@ -252,13 +252,13 @@ JPassport uses annotations as code generation hints. The available annotations a
 | Annotation                   | Usage          | Meaning                                                                                                                                                                |
 |------------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Array                        | Record members | If a C Struct takes a pointer to a primative array, this allows you to say what the size of the primative array is for RefArgs.                                        |
-| NotRequired                  | Functions | If a function could not be found in the native library then no exception will be thrown. Use hasMethod("") to determine if the function was found. |                    |
+| NotRequired                  | Methods | If a function could not be found in the native library then no exception will be thrown. Use hasMethod("") to determine if the function was found. |                    |
 | Ptr                          | Record members | If a C Struct takes a pointer to a primative or another struct then use this annotation.                                                                               |
 | PtrPtrArg                    | Function argument| Any C function that takes a **<arg> must be annotated with this.                                                                                                       |
 | RefArg                       | Function argument | Any C function that changes the contents of a pointer must be annotated with this to force the read back of the parameter                                              |
 | RefArg (read_back_only=true) | Function argument | If you only need to pass a blank memory space for a method to fill, use this optimization, otherwise the values in the array are copied to memory that is passed to C. |
 | StructPadding                | Record members | See the Javadoc or the above section on structs and records.                                                                                                           |
-
+| Trivial                      | Methods  | Removes some overhead for calling a native method. Cannot be used when callbacks are used. |
 # Limitations
 
 * Only arrays of Records of length 1 work.
@@ -307,7 +307,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires **Java 20** to build and run. There are separate Java 17-19 branches. 
+JPassport itself only requires **Java 21** to build and run. There are separate Java 17-20 branches. 
 
 The testing classes require:
 

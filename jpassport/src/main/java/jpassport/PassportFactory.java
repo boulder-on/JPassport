@@ -13,6 +13,7 @@ package jpassport;
 
 
 import jpassport.annotations.NotRequired;
+import jpassport.annotations.Trivial;
 
 import java.io.File;
 import java.lang.foreign.*;
@@ -103,7 +104,14 @@ public class PassportFactory
                 throw new PassportException("Could not find method in library: " + method.getName());
 
             if (addr != null) {
-                MethodHandle methodHandle = cLinker.downcallHandle(addr, fd);
+
+                MethodHandle methodHandle;
+
+                if (method.getAnnotation(Trivial.class) == null)
+                    methodHandle = cLinker.downcallHandle(addr, fd);
+                else
+                    methodHandle = cLinker.downcallHandle(addr, fd, Linker.Option.isTrivial());
+
                 methodMap.put(method.getName(), methodHandle);
             }
         }
@@ -182,7 +190,7 @@ public class PassportFactory
             var handle = MethodHandles.publicLookup().findVirtual(ob.getClass(), methodName, MethodType.methodType(retType, parameters));
             var handleToCall = handle.bindTo(ob);
 
-            var scope = SegmentScope.auto();
+            var scope = Arena.ofAuto();
             return Linker.nativeLinker().upcallStub(handleToCall, fd, scope);
         }
         catch (NoSuchMethodException | IllegalAccessException ex)

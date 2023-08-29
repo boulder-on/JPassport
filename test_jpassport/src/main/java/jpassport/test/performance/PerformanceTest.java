@@ -43,7 +43,7 @@ public class PerformanceTest
     {
         startup();
 
-        try(var csv = new CSVOutput(Path.of("performance", "doubles_opt.csv")))
+        try(var csv = new CSVOutput(Path.of("performance", "doubles_opt_t.csv")))
         {
             csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport").endLine();
 
@@ -62,7 +62,7 @@ public class PerformanceTest
             ex.printStackTrace();
         }
 
-        try(var csv = new CSVOutput(Path.of("performance", "double_arr_opt.csv")))
+        try(var csv = new CSVOutput(Path.of("performance", "double_arr_opt_t.csv")))
         {
             csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport").endLine();
             for (int size = 1024; size <= 1024*256; size += 1024)
