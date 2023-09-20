@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 
 
 public class Utils {
@@ -575,5 +576,45 @@ public class Utils {
             }
         }
         return size;
+    }
+
+    /**
+     * Called by generated code to build the memory layout for a struct. This automatically
+     * tries to figure out where padding is needed in the struct in order to get proper byte
+     * alignment.
+     * @param layout The members of the struct
+     * @return The full GroupLayout of the struct.
+     */
+    public static GroupLayout makeStruct(MemoryLayout ... layout)
+    {
+        int byteBarrier = System.getProperty("sun.arch.data.model").contains("64") ? 8 : 4;
+        ArrayList<MemoryLayout> memLayout = new ArrayList<>();
+        memLayout.add(layout[0]);
+        long nextBarrier = byteBarrier;
+
+        var curSize = memLayout.stream().mapToLong(MemoryLayout::byteSize).sum();
+        while (nextBarrier <= curSize) nextBarrier += byteBarrier;
+
+        for (int n = 1; n < layout.length; ++n)
+        {
+            curSize = memLayout.stream().mapToLong(MemoryLayout::byteSize).sum();
+            long nextItemSize = layout[n].byteSize();
+
+            //if an array is next, then we only need to byte align the first element of the array
+            if (layout[n] instanceof SequenceLayout seq)
+                nextItemSize = seq.byteSize() / seq.elementCount();
+
+            // If the next piece of memory we are adding crosses the byte alignement barrier
+            // then we need to pad the struct to alow byte alignment
+            if (curSize + nextItemSize > nextBarrier)
+                memLayout.add(MemoryLayout.paddingLayout(nextBarrier - curSize));
+            memLayout.add(layout[n]);
+
+            curSize = memLayout.stream().mapToLong(MemoryLayout::byteSize).sum();
+            while (nextBarrier <= curSize) nextBarrier += byteBarrier;
+        }
+
+
+        return MemoryLayout.structLayout(memLayout.toArray(new MemoryLayout[0]));
     }
 }

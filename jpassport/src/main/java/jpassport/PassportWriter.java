@@ -17,6 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
+import static java.lang.StringTemplate.STR;
+import static java.lang.foreign.ValueLayout.ADDRESS;
+import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import static jpassport.Utils.Platform.Windows;
 
 /***
@@ -67,6 +70,17 @@ public class PassportWriter<T extends Passport>
             put(long.class, "JAVA_LONG");
             put(float.class, "JAVA_FLOAT");
             put(double.class, "JAVA_DOUBLE");
+        }
+    };
+    private static final Map<Class<?>, Integer> typeToSize = new HashMap<>()
+    {
+        {
+            put(byte.class, 1);
+            put(short.class, 2);
+            put(int.class, 4);
+            put(long.class, 8);
+            put(float.class, 4);
+            put(double.class, 8);
         }
     };
 
@@ -190,7 +204,7 @@ public class PassportWriter<T extends Passport>
             StringBuilder sbOffsets = new StringBuilder();
             layoutMap.put(c, sbLayout);
 
-            sbLayout.append(String.format("private static final GroupLayout %sLayout = MemoryLayout.structLayout(\n", c.getSimpleName()));
+            sbLayout.append(String.format("private static final GroupLayout %sLayout = Utils.makeStruct(\n", c.getSimpleName()));
 
             //Build an array cached with the required byte offsets. This reduces the overhead on calls using structs ~60%-75%
             sbOffsets.append(String.format("\tprivate static final long[] %sLayoutOffsets = new long[] {\n", c.getSimpleName()));

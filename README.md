@@ -232,11 +232,12 @@ public interface PerfTest extends Passport {
     double passComplex(@RefArg ComplexPassing[] complexStruct);
 }
 ```
-The most important thing to note here is the @StructPadding annotation. When a C compiler compiles a 
-struct it will insert bytes of padding. It is critical for you to tell JPassport how much padding is either
-before or after a structure member (negative numbers indicate pre-member padding). There is no standard about what padding will be used in any situation
-so JPassport can't figure this out on its own (at least not that I'm aware of!). There are separate
-annotation values for different platforms (windowsBytes, macBytes, linuxBytes).
+The @StructPadding annotation here is optional and maintained for legacy reasons (and in case my
+calculations for padding a wrong on some platforms). Also, I guess it's possible that you have a 
+very strange struct where you need bespoke padding. In general, the library will automatically 
+add the padding that it thinks is required. If you use @StructPadding then that tell JPassport 
+how much padding to put before or after a struct member (negative numbers indicate pre-member 
+padding). There are also separate annotation values for different platforms (windowsBytes, macBytes, linuxBytes). 
 
 The other important annotation is @Ptr, this lets JPassport know to treat the member of the struct as
 a pointer to another struct.
@@ -324,6 +325,9 @@ Roughly in order of importance
 4. Compile classes in memory instead of from disk
 
 # Release Notes
+- 0.6.0-21
+  - Support Java 21
+  - Make specifying byte padding in records/structs optional.
 - 0.6 
   - Added the version of Java the library uses to the version (0.6.0-[java version])
   - Added GenericPointer returns and method arguments.
