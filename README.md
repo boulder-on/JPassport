@@ -323,6 +323,7 @@ Roughly in order of importance
 2. Support returning a Record
 3. Use the Java Micro-benchmarking harness.
 4. Compile classes in memory instead of from disk
+   - This is a challenge because the code needs to be compiled as a module
 
 # Release Notes
 - 0.6.0-22
