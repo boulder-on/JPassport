@@ -26,14 +26,13 @@ public class TestUsingStructs {
     {
         System.setProperty("jpassport.build.home", "out/testing");
         PassingStructs = PassportFactory.link(getLibName(), TestStructCalls.class);
-//        PassingStructs = new TestStructCalls_impl(PassportFactory.loadMethodHandles("C:\\code\\github\\JFA\\test_jpassport\\libpassport_test.dll", TestStructCalls.class));
     }
 
     @Test
     public void testSimpleStruct()
     {
         assertEquals(4 * JAVA_LONG.byteSize(), Utils.size_of(TestStruct.class));
-        assertEquals(JAVA_LONG.byteSize() + Utils.size_of(TestStruct.class) +
+        assertEquals(JAVA_INT.byteSize() + Utils.size_of(TestStruct.class) +
                 ADDRESS.byteSize() * 2, Utils.size_of(ComplexStruct.class));
 
 

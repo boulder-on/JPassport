@@ -18,12 +18,14 @@ import jpassport.test.util.CSVOutput;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.stream.IntStream;
 
 
 public class PerformanceTest
 {
     static PerfTest testFL;
+    static PerfTest testFLP;
     static PerfTest testJNA;
     static PerfTest testJNADirect;
     static PerfTest testJava;
@@ -34,6 +36,7 @@ public class PerformanceTest
         System.setProperty("jpassport.build.home", "out/testing");
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
         testFL = PassportFactory.link("libpassport_test", PerfTest.class);
+        testFLP = PassportFactory.proxy("libpassport_test", PerfTest.class);
         testJNA =  Native.load("passport_test", PerfTest.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();
@@ -43,17 +46,27 @@ public class PerformanceTest
     {
         startup();
 
-        try(var csv = new CSVOutput(Path.of("performance", "doubles_opt_t.csv")))
+        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testFL, testFLP};
+
+        try(var csv = new CSVOutput(Path.of("performance", "doubles_add_2.csv")))
         {
-            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport").endLine();
+            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy").endLine();
 
             for (int loops = 1000; loops < 100000; loops += 1000) {
-                double j = sumTest(testJava, loops);
-                double jlink = sumTest(testFL, loops);
-                double jna = sumTest(testJNA, loops);
-                double jnaDirect = sumTest(testJNADirect, loops);
 
-                csv.addF(loops, j, jna, jnaDirect, jlink).endLine();
+                double[][] results = new double[5][5];
+                for (int n = 0; n < 5; ++n) {
+                    for (int m = 0; m < tests.length; ++m)
+                        results[m][n] = sumTest(tests[m], loops);
+                }
+
+                csv.addF(loops);
+                for (double[] arr : results)
+                {
+                    Arrays.sort(arr);
+                    csv.addF(arr[arr.length/2]);
+                }
+                csv.endLine();
                 System.out.println("loops: " + loops);
             }
         }
@@ -62,17 +75,25 @@ public class PerformanceTest
             ex.printStackTrace();
         }
 
-        try(var csv = new CSVOutput(Path.of("performance", "double_arr_opt_t.csv")))
+        try(var csv = new CSVOutput(Path.of("performance", "double_arr_add.csv")))
         {
-            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport").endLine();
+            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy").endLine();
             for (int size = 1024; size <= 1024*256; size += 1024)
             {
-                double j = sumTestArrD(testJava, 100, size);
-                double jlink = sumTestArrD(testFL, 100, size);
-                double jna = sumTestArrD(testJNA, 100, size);
-                double jnaDirect = sumTestArrD(testJNADirect, 100, size);
+                double[][] results = new double[5][5];
 
-                csv.addF(size, j, jna, jnaDirect, jlink).endLine();
+                for (int n = 0; n < 5; ++n) {
+                    for (int m = 0; m < tests.length; ++m)
+                        results[m][n] = sumTestArrD(tests[m], 100, size);;
+                }
+
+                csv.addF(size);
+                for (double[] arr : results)
+                {
+                    Arrays.sort(arr);
+                    csv.addF(arr[arr.length/2]);
+                }
+                csv.endLine();
                 System.out.println("array size: " + size);
             }
         }

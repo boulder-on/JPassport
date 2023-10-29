@@ -23,13 +23,18 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class PassportFactory
 {
     /**
-     * Call this method to generate the library linkage.
+     * Call this method to generate the library linkage. This version of the method will write the java file and compile
+     * it. As a result, the start-up is a bit slower than {@link #proxy(String, Class) proxy()}, but the implementation
+     * is a bit quicker.
+     *
+     * <p>This version also supports Record -> struct conversions.
      *
      * @param libraryName The library name (the file name of the shared library without extension on all platforms,
      *                    without lib prefix on Linux and Mac).
@@ -40,10 +45,36 @@ public class PassportFactory
     public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass) throws Throwable
     {
         if (!Passport.class.isAssignableFrom(interfaceClass)) {
-            throw new IllegalArgumentException("Interface (" + interfaceClass.getSimpleName() + ") of library=" + libraryName + " does not extend " + Passport.class.getSimpleName());
+            throw new IllegalArgumentException(
+                    STR."Interface ({interfaceClass.getSimpleName()}) of library={libraryName} does not extend {Passport.class.getSimpleName()}");
         } else {
             return buildClass(libraryName, interfaceClass);
         }
+    }
+
+    /**
+     * Call this method to generate the library linkage. This version of the method uses a dynamic proxy to handle native
+     * calls. As a result, the start-up is faster than {@link #link(String, Class) link()}, but the implementation is a bit slower.
+     *
+     * <p>This method does not support Record -> struct conversions.</p>
+     *
+     * @param libraryName The library name (the file name of the shared library without extension on all platforms,
+     *                    without lib prefix on Linux and Mac).
+     * @param interfaceClass The class to wrap.
+     * @param <T> Any interface that extends Passport
+     * @return A class linked to call into a DLL or SO using the Foreign Linker.
+     */
+    public static <T extends Passport> T proxy(String libraryName, Class<T> interfaceClass) throws Throwable
+    {
+        if (!Passport.class.isAssignableFrom(interfaceClass)) {
+            throw new IllegalArgumentException("Interface (" + interfaceClass.getSimpleName() + ") of library=" + libraryName + " does not extend " + Passport.class.getSimpleName());
+        }
+
+        var methods = loadMethodHandles(libraryName, interfaceClass);
+        var handler = new PassportInvocationHandler(methods);
+        return (T) Proxy.newProxyInstance(interfaceClass.getClassLoader(),
+                new Class[] { interfaceClass },
+                handler);
     }
 
     private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable
@@ -55,7 +86,7 @@ public class PassportFactory
     }
 
     /**
-     * This methods looks up all of the methods in the requested native library that match non-static
+     * This method looks up the methods in the requested native library that match non-static
      * methods in the given interface class.
      *
      * @param libName Name of the native library to load.
@@ -81,10 +112,6 @@ public class PassportFactory
         for (Method method : interfaceMethods) {
             Class<?> retType = method.getReturnType();
             Class<?>[] parameters = method.getParameterTypes();
-            Class<?> methRet = retType;
-
-            if (!methRet.isPrimitive())
-                methRet= MemorySegment.class;
 
             for (int n = 0; n < parameters.length; ++n) {
                 if (!parameters[n].isPrimitive())
@@ -160,7 +187,7 @@ public class PassportFactory
         var methods = getDeclaredMethods(ob.getClass());
 
         methods = methods.stream().filter(m -> m.getName().equals(methodName)).collect(Collectors.toList());
-        if (methods.size() == 0)
+        if (methods.isEmpty())
             throw new IllegalArgumentException("Could not find method " + methodName + " in class " + ob.getClass().getName());
         else if (methods.size() > 1)
             throw new IllegalArgumentException("Multiple overloads of method " + methodName + " in class " + ob.getClass().getName());
