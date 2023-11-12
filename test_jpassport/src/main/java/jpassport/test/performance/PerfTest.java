@@ -13,12 +13,12 @@ package jpassport.test.performance;
 
 import com.sun.jna.Library;
 import jpassport.Passport;
-import jpassport.annotations.Trivial;
+import jpassport.annotations.Critical;
 
 public interface PerfTest extends Passport, Library {
-    @Trivial
+    @Critical
     double sumD(double d, double d2);
-    @Trivial
+    @Critical
     double sumArrD(double[] d, int len);
     float sumArrF(float[] d, int len);
     int sumArrI(int[] d, int len);

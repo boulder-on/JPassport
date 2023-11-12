@@ -17,9 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
-import static java.lang.StringTemplate.STR;
-import static java.lang.foreign.ValueLayout.ADDRESS;
-import static java.lang.foreign.ValueLayout.JAVA_LONG;
+//import static java.lang.StringTemplate.STR;
+//import static java.lang.foreign.ValueLayout.ADDRESS;
+//import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import static jpassport.Utils.Platform.Windows;
 
 /***

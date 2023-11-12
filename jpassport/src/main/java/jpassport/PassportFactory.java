@@ -13,7 +13,7 @@ package jpassport;
 
 
 import jpassport.annotations.NotRequired;
-import jpassport.annotations.Trivial;
+import jpassport.annotations.Critical;
 
 import java.io.File;
 import java.lang.foreign.*;
@@ -107,10 +107,10 @@ public class PassportFactory
 
                 MethodHandle methodHandle;
 
-                if (method.getAnnotation(Trivial.class) == null)
+                if (method.getAnnotation(Critical.class) == null)
                     methodHandle = cLinker.downcallHandle(addr, fd);
                 else
-                    methodHandle = cLinker.downcallHandle(addr, fd, Linker.Option.isTrivial());
+                    methodHandle = cLinker.downcallHandle(addr, fd, Linker.Option.critical());
 
                 methodMap.put(method.getName(), methodHandle);
             }
@@ -160,7 +160,7 @@ public class PassportFactory
         var methods = getDeclaredMethods(ob.getClass());
 
         methods = methods.stream().filter(m -> m.getName().equals(methodName)).collect(Collectors.toList());
-        if (methods.size() == 0)
+        if (methods.isEmpty())
             throw new IllegalArgumentException("Could not find method " + methodName + " in class " + ob.getClass().getName());
         else if (methods.size() > 1)
             throw new IllegalArgumentException("Multiple overloads of method " + methodName + " in class " + ob.getClass().getName());

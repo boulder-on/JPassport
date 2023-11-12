@@ -1,4 +1,4 @@
-# JPassport - Java 21
+# JPassport - Java 22 Early Access
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
@@ -11,9 +11,9 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 21** is required to use this library. There are separate branches for Java 17, 18, 19 and 20 support.
+**Java 22** is required to use this library. There are separate branches for Java 17, 18, 19 and 20 support.
 
-The Foreign Linker API is in preview in Java 21, so you need to use --enable-preview to use this library.
+The Foreign Linker API is final in Java 22, so you need to use --enable-preview to use this library.
 
 # Getting Started
 
@@ -308,7 +308,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires **Java 21** to build and run. There are separate Java 17-20 branches. 
+JPassport itself only requires **Java 22** to build and run. There are separate Java 17-20 branches. 
 
 The testing classes require:
 
@@ -325,6 +325,8 @@ Roughly in order of importance
 4. Compile classes in memory instead of from disk
 
 # Release Notes
+- 0.6.0-22
+  - Support Java 22
 - 0.6.0-21
   - Support Java 21
   - Make specifying byte padding in records/structs optional.

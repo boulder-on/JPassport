@@ -8,11 +8,11 @@
         <relativePath>../pom.xml</relativePath>
         <groupId>JPassport</groupId>
         <artifactId>JPassport-parent</artifactId>
-        <version>0.6.0-21</version>
+        <version>0.6.0-22</version>
     </parent>
 
     <artifactId>JPassport-tests</artifactId>
-    <version>0.6.0-21</version>
+    <version>0.6.0-22</version>
 
     <!--    <name>JPassport</name>-->
     <packaging>jar</packaging>
@@ -22,7 +22,7 @@
     <properties>
 <!--        <maven.compiler.source>16</maven.compiler.source>-->
 <!--        <maven.compiler.target>16</maven.compiler.target>-->
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>22</maven.compiler.release>
     </properties>
 
         <dependencies>
@@ -59,7 +59,7 @@
             <dependency>
                 <groupId>JPassport</groupId>
                 <artifactId>JPassport-main</artifactId>
-                <version>0.6.0-21</version>
+                <version>0.6.0-22</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
@@ -88,8 +88,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <source>22</source>
+                    <target>22</target>
                     <compilerArgs>--enable-preview</compilerArgs>
                 </configuration>
             </plugin>

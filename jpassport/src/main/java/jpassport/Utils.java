@@ -42,7 +42,7 @@ public class Utils {
         if (arr == null)
             return null;
         return isReadBackOnly ? scope.allocate((long)arr.length * Double.BYTES) :
-                scope.allocateArray(ValueLayout.JAVA_DOUBLE, arr);
+                scope.allocateFrom(ValueLayout.JAVA_DOUBLE, arr);
     }
 
     public static MemorySegment toMS(SegmentAllocator scope, double[][] arr, boolean isReadBackOnly) {
@@ -66,7 +66,7 @@ public class Utils {
         MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (double[] a : arr) {
-            MemorySegment subSeg = scope.allocateArray(ValueLayout.JAVA_DOUBLE, a);
+            MemorySegment subSeg = scope.allocateFrom(ValueLayout.JAVA_DOUBLE, a);
             segment.setAtIndex(ValueLayout.ADDRESS, n++, subSeg);
         }
         return segment;
@@ -106,7 +106,7 @@ public class Utils {
             return null;
 
         return isReadBackOnly ? scope.allocate(arr.length * Float.BYTES) :
-                scope.allocateArray(ValueLayout.JAVA_FLOAT, arr);
+                scope.allocateFrom(ValueLayout.JAVA_FLOAT, arr);
     }
 
     public static MemorySegment toMS(SegmentAllocator scope, float[][] arr, boolean isReadBackOnly) {
@@ -130,7 +130,7 @@ public class Utils {
         MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (float[] a : arr) {
-            MemorySegment subSeg = scope.allocateArray(ValueLayout.JAVA_FLOAT, a);
+            MemorySegment subSeg = scope.allocateFrom(ValueLayout.JAVA_FLOAT, a);
             segment.setAtIndex(ValueLayout.ADDRESS, n++, subSeg);
         }
         return segment;
@@ -169,7 +169,7 @@ public class Utils {
         if (arr == null)
             return null;
         return isReadBackOnly ? scope.allocate((long)arr.length * Long.BYTES) :
-                scope.allocateArray(ValueLayout.JAVA_LONG, arr);
+                scope.allocateFrom(ValueLayout.JAVA_LONG, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, long[][] arr) {
@@ -179,7 +179,7 @@ public class Utils {
         MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (long[] a : arr) {
-            MemorySegment subSeg = scope.allocateArray(ValueLayout.JAVA_LONG, a);
+            MemorySegment subSeg = scope.allocateFrom(ValueLayout.JAVA_LONG, a);
             segment.setAtIndex(ValueLayout.ADDRESS, n++, subSeg);
         }
         return segment;
@@ -233,7 +233,7 @@ public class Utils {
             return null;
 
         return isReadBackOnly ? scope.allocate(arr.length * Integer.BYTES) :
-                scope.allocateArray(ValueLayout.JAVA_INT, arr);
+                scope.allocateFrom(ValueLayout.JAVA_INT, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, int[][] arr) {
@@ -243,7 +243,7 @@ public class Utils {
         MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (int[] a : arr) {
-            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateArray(ValueLayout.JAVA_INT, a));
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateFrom(ValueLayout.JAVA_INT, a));
         }
         return segment;
     }
@@ -297,7 +297,7 @@ public class Utils {
             return null;
 
         return isReadBackOnly ? scope.allocate((int) (arr.length * Short.BYTES)) :
-                scope.allocateArray(ValueLayout.JAVA_SHORT, arr);
+                scope.allocateFrom(ValueLayout.JAVA_SHORT, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, short[][] arr) {
@@ -307,7 +307,7 @@ public class Utils {
         MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (short[] a : arr) {
-            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateArray(ValueLayout.JAVA_SHORT, a));
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateFrom(ValueLayout.JAVA_SHORT, a));
         }
         return segment;
     }
@@ -358,7 +358,7 @@ public class Utils {
         if (arr == null)
             return null;
 
-        return isReadBackOnly ? scope.allocate(arr.length) : scope.allocateArray(ValueLayout.JAVA_BYTE, arr);
+        return isReadBackOnly ? scope.allocate(arr.length) : scope.allocateFrom(ValueLayout.JAVA_BYTE, arr);
     }
 
     public static MemorySegment toPtrPTrMS(SegmentAllocator scope, byte[][] arr) {
@@ -368,7 +368,7 @@ public class Utils {
         MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
         int n = 0;
         for (byte[] a : arr)
-            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateArray(ValueLayout.JAVA_BYTE, a));
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateFrom(ValueLayout.JAVA_BYTE, a));
         return segment;
     }
 
@@ -429,10 +429,10 @@ public class Utils {
         {
             // This is slightly horrible. I can't find a better way. Use C's strlen to figure out
             //how big the memory segment really is.
-            return addr.reinterpret(strLen(addr)+1).getUtf8String(0);
+            return addr.reinterpret(strLen(addr)+1).getString(0);
         }
 
-        return addr.getUtf8String(0);
+        return addr.getString(0);
     }
 
     public static MemorySegment resize(MemorySegment addr, long bytes)
@@ -464,11 +464,11 @@ public class Utils {
     }
 
     public static MemorySegment toCString(String s, Arena scope) {
-        return scope.allocateUtf8String(s);
+        return scope.allocateFrom(s);
     }
 
     public static MemorySegment toCString(String s, SegmentAllocator scope) {
-        return scope.allocateUtf8String(s);
+        return scope.allocateFrom(s);
     }
 
     /**

@@ -6,7 +6,7 @@
 
     <groupId>JPassport</groupId>
     <artifactId>JPassport-parent</artifactId>
-    <version>0.6.0-21</version>
+    <version>0.6.0-22</version>
 
     <modules>
         <module>jpassport</module>
@@ -19,8 +19,8 @@
     <url>https://github.com/boulder-on/JPassport#readme</url>
 
     <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.source>22</maven.compiler.source>
+        <maven.compiler.target>22</maven.compiler.target>
     </properties>
 
     <build>
@@ -31,7 +31,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.8.1</version>
                     <configuration>
-                        <release>21</release> <!-- <release>13/14/15</release> -->
+                        <release>22</release> <!-- <release>13/14/15</release> -->
                         <compilerArgs>--enable-preview</compilerArgs>
                     </configuration>
                 </plugin>
