@@ -653,7 +653,7 @@ public class PassportWriter<T extends Passport>
         var compileThis = fmanager.getJavaFileObjectsFromPaths(paths);
 
         var dothis = compiler.getTask(null, null, null,
-                List.of("--enable-preview", "--release", "21", "--module-path", System.getProperty("jdk.module.path")),
+                List.of("--enable-preview", "--release", "22", "--module-path", System.getProperty("jdk.module.path")),
                 null, compileThis);
 //        compiler.run(null, null, null,
 //                 "--module-path", System.getProperty("jdk.module.path"),
