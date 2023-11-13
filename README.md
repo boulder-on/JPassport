@@ -11,9 +11,9 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 22** is required to use this library. There are separate branches for Java 17, 18, 19 and 20 support.
+**Java 22** is required to use this library. There are separate branches for Java 17 and higher support.
 
-The Foreign Linker API is final in Java 22, so you need to use --enable-preview to use this library.
+The Foreign Linker API is final in Java 22.
 
 # Getting Started
 
