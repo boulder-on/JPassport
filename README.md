@@ -1,4 +1,4 @@
-# JPassport - Java 22 Early Access
+# JPassport - Java 21
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
@@ -11,7 +11,7 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 22** is required to use this library. There are separate branches for Java 17 and higher support.
+**Java 22** is required to use this library. There are separate branches for Java 17 to 22.
 
 The Foreign Linker API is final in Java 22.
 
@@ -326,8 +326,13 @@ Roughly in order of importance
    - This is a challenge because the code needs to be compiled as a module
 
 # Release Notes
-- 0.6.0-22
+- 0.7.0-22
   - Support Java 22
+  - Added support for arrays of GenericPointer
+  - Added Pointer as a sub-class of GenericPointer for better JNA compatability
+  - Added the ability to use a Proxy object rather than writing a full new class
+    - Using a Proxy is faster to create, but slower to invoke. Proxies are much slower than invoking a normal method, but the code to handle the native call is much less optimized as well.  
+  - The RefArg annotation can be added to an interface to indicate that all arrays should be read back after a call.
 - 0.6.0-21
   - Support Java 21
   - Make specifying byte padding in records/structs optional.

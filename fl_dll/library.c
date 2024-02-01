@@ -88,6 +88,25 @@ void readL(long long *val, long long set)
     *val = set;
 }
 
+void readPointer(long long *val, long long set)
+{
+    val[0] = set;
+}
+
+long long getPointer(long long *val, long long set)
+{
+    val[0] = set;
+    return val[0];
+}
+
+int swapStrings(char** strings, int i, int j)
+{
+    char* tmp = strings[i];
+    strings[i] = strings[j];
+    strings[j] = tmp;
+    return strlen(strings[i]) + strlen(strings[j]);
+}
+
 int sumArrI(const int *arr, const int count)
 {
     if (arr == NULL)

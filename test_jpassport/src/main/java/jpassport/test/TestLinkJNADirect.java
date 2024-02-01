@@ -12,6 +12,8 @@
 package jpassport.test;
 
 import com.sun.jna.Native;
+import jpassport.Pointer;
+import jpassport.annotations.RefArg;
 import jpassport.test.performance.PerfTest;
 
 import java.lang.foreign.MemorySegment;
@@ -210,6 +212,19 @@ public class TestLinkJNADirect
         @Override
         public Object readStruct(MemorySegment segment, Object rec) {
             return null;
+        }
+
+        public void readPointer(Pointer[] val, long set)
+        {}
+
+        public Pointer getPointer(Pointer[] val, long set)
+        {
+            return null;
+        }
+
+        public int swapStrings(@RefArg String[] vals, int i, int j)
+        {
+            return 0;
         }
     }
 }

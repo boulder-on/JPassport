@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 
 public class Utils {
@@ -161,6 +162,42 @@ public class Utils {
         }
 
         return addr.asSlice(0, (long) count * Long.BYTES).toArray(layout);
+    }
+
+    /* Pointers ///////////////////////////////////////////////////////////////// */
+
+    public static MemorySegment toMS(SegmentAllocator scope, GenericPointer[] arr, boolean isReadBackOnly) {
+        if (arr == null)
+            return null;
+
+        var pass = Arrays.stream(arr).mapToLong(gp -> gp == null ? MemorySegment.NULL.address() : gp.getPtr().address()).toArray();
+        return isReadBackOnly ? scope.allocate((long)arr.length * Long.BYTES) :
+                scope.allocateFrom(ValueLayout.JAVA_LONG, pass);
+    }
+    public static void toArr(GenericPointer[] arr, MemorySegment segment) {
+        if (arr == null)
+            return;
+
+        var asLong = new long[arr.length];
+        toArr(asLong, segment);
+
+        for (int n = 0; n < asLong.length; ++n)
+        {
+            var addr = MemorySegment.ofAddress(asLong[n]);
+            if (arr[n] == null)
+            {
+                try {
+                    var cons = arr.getClass().getComponentType().getConstructor(MemorySegment.class);
+                    arr[n] = (GenericPointer) cons.newInstance(addr);
+                }
+                catch(Exception ex)
+                {
+                    ex.printStackTrace();
+                }
+            }
+            else
+                arr[n].ptr = addr;
+        }
     }
 
     /* Long ///////////////////////////////////////////////////////////////// */
@@ -461,6 +498,21 @@ public class Utils {
         } catch (Throwable e) {
             return 0;
         }
+    }
+
+    public static MemorySegment toCString(String[] s, Arena scope) {
+        var segment = scope.allocate(ValueLayout.JAVA_LONG.byteSize() * s.length);
+        for (int i = 0; i < s.length; ++i)
+        {
+            segment.setAtIndex(ValueLayout.ADDRESS, i, toCString(s[i], scope));
+        }
+        return segment;
+    }
+
+    public static void fromCString(MemorySegment mem, String[] s)
+    {
+        for (int n = 0; n < s.length; ++n)
+            s[n] = readString(mem.getAtIndex(ValueLayout.ADDRESS, n));
     }
 
     public static MemorySegment toCString(String s, Arena scope) {

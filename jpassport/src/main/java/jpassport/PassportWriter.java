@@ -101,6 +101,8 @@ public class PassportWriter<T extends Passport>
                     %s
                     import %s;
                     import jpassport.Utils;
+                    import jpassport.Pointer;
+                    import jpassport.GenericPointer;
                     import java.lang.invoke.MethodHandle;
                     import java.lang.foreign.*;
                     import java.util.HashMap;
@@ -149,7 +151,7 @@ public class PassportWriter<T extends Passport>
                     """, interfaceClass.getModule().getName()));
 
         for (Method method : interfaceMethods) {
-            addMethod(method, method.getReturnType());
+            addMethod(method, method.getReturnType(), interfaceClass);
         }
     }
 
@@ -478,7 +480,7 @@ public class PassportWriter<T extends Passport>
      * @param method The interface method to implement
      * @param retType The return type of the method.
      */
-    public void addMethod(Method method, Class<?> retType)
+    public void addMethod(Method method, Class<?> retType, Class<T> interfaceClass)
     {
         StringBuilder args = new StringBuilder();
         StringBuilder params = new StringBuilder();
@@ -533,7 +535,7 @@ public class PassportWriter<T extends Passport>
 
                 params.append("Utils.toAddr(vv").append(v).append("),");
 
-                if (isRefArg(paramAnnotations[v-1]))
+                if (isRefArg(paramAnnotations[v-1]) || (!is2DArrayOfPrimitives(parameter)) && isRefArg(interfaceClass.getAnnotations()))
                     postCall.append(String.format("Utils.toArr(v%1$d, vv%1$d);\n", v));
             }
             else if (String.class.equals(parameter))
@@ -541,6 +543,15 @@ public class PassportWriter<T extends Passport>
                 bHasAllocatedMemory = true;
                 preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL : Utils.toCString(v%1$d, scope);\n", v));
                 params.append("vv").append(v).append(',');
+            }
+            else if (parameter.isArray() && String.class.equals(parameter.getComponentType()))
+            {
+                bHasAllocatedMemory = true;
+                preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL : Utils.toCString(v%1$d, scope);\n", v));
+                params.append("vv").append(v).append(',');
+
+                if (isRefArg(paramAnnotations[v-1]) || isRefArg(interfaceClass.getAnnotations()))
+                    postCall.append(String.format("Utils.fromCString(vv%1$d, v%1$d);\n", v));
             }
             else if (parameter.isRecord())
             {
@@ -555,13 +566,22 @@ public class PassportWriter<T extends Passport>
                 preCall.append(String.format("var vv%1$d =  store%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
                 params.append("(MemorySegment)vv").append(v).append(",");
 
-                if (isRefArg(paramAnnotations[v-1]))
+                if (isRefArg(paramAnnotations[v-1]) || isRefArg(interfaceClass.getAnnotations()))
                 {
                     postCall.append(String.format("v%1$d[0] = read%2$s(vv%1d, v%1$d[0]);", v, recordType.getSimpleName()));
                 }
             }
             else if (isGenericPtr(parameter))
                 params.append("v").append(v).append(".getPtr(),");
+            else if (parameter.isArray() && isGenericPtr(parameter.getComponentType()))
+            {
+                bHasAllocatedMemory = true;
+                preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d, %2$s);\n", v,
+                        isRefArgReadBackOnly(methodArgs[v - 1])));
+                params.append("Utils.toAddr(vv").append(v).append("),");
+                if (isRefArg(paramAnnotations[v-1]) || isRefArg(interfaceClass.getAnnotations()))
+                    postCall.append(String.format("Utils.toArr(v%1$d, vv%1$d);\n", v));
+            }
             else
                 params.append("v").append(v).append(",");
             ++v;
@@ -696,11 +716,11 @@ public class PassportWriter<T extends Passport>
             Class<?>[] params = m.getParameterTypes();
 
             if (!isValidArgType(retType))
-                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
+                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
 
             List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).toList();
             if (!invalid.isEmpty())
-                throw new PassportException("Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
+                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
 
             if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
                 extraImports.add(retType);
@@ -757,14 +777,15 @@ public class PassportWriter<T extends Passport>
             return true;
         if (c.isRecord())
             return true;
-        if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()))
+        if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()
+                || isGenericPtr(c.getComponentType()) || c.getComponentType().equals(String.class)))
             return true;
         if (MemorySegment.class.equals(c) || String.class.equals(c) || isGenericPtr(c))
             return true;
         return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
     }
 
-    private static boolean isGenericPtr(Class<?> c)
+    static boolean isGenericPtr(Class<?> c)
     {
         while (!c.equals(GenericPointer.class) && c.getSuperclass() != null)
             c = c.getSuperclass();

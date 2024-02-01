@@ -11,8 +11,11 @@
  */
 package jpassport.test;
 
+import java.lang.foreign.Arena;
 import java.util.Collection;
 import java.util.stream.IntStream;
+
+import jpassport.Pointer;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
@@ -225,5 +228,40 @@ public class TestJPassport
 //        TestLink.calling(testFL);
 //    }
 
+    @Test
+    public void testPointerPassing()
+    {
+
+        for (TestLink testFL : testClass) {
+            var pt = new Pointer[1];
+            pt[0] = new Pointer();
+
+            testFL.readPointer(pt, 5);
+            assertEquals(5, pt[0].getPtr().address());
+
+            try (var scope = Arena.ofConfined();) {
+                var mem = scope.allocate(8);
+                pt[0] = new Pointer();
+                var ret =  testFL.getPointer (pt, mem.address());
+
+                assertEquals(mem.address(), pt[0].getPtr().address());
+                assertEquals(mem.address(), ret.getPtr().address());
+
+            }
+        }
+    }
+
+    @Test
+    public void testStringArr()
+    {
+        for (TestLink testFL : testClass) {
+            String[]  var= new String[] {"hello", "Goodbye"};
+
+            var len = testFL.swapStrings(var, 0, 1);
+            assertEquals(var[0].length() + var[1].length(), len);
+            assertEquals("hello".length(), var[1].length());
+            assertEquals("Goodbye".length(), var[0].length());
+        }
+    }
 
 }
