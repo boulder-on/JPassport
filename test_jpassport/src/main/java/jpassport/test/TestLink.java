@@ -14,6 +14,7 @@ package jpassport.test;
 import com.sun.jna.Library;
 import jpassport.NamedLookup;
 import jpassport.Passport;
+import jpassport.Pointer;
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
@@ -71,6 +72,10 @@ public interface TestLink extends Passport, Library {
     MemorySegment mallocDoubles(int count);
     void freeMemory(MemorySegment address);
 
+    void readPointer(@RefArg Pointer[] val, long set);
+    Pointer getPointer(@RefArg Pointer[] val, long set);
+
+    int swapStrings(@RefArg String[] vals, int i, int j);
 //    static void calling(TestLink tl)
 //    {
 //        double[] values = new double[5];

@@ -71,7 +71,7 @@ public class PassportFactory
         }
 
         var methods = loadMethodHandles(libraryName, interfaceClass);
-        var handler = new PassportInvocationHandler(methods);
+        var handler = new PassportInvocationHandler(methods, interfaceClass);
         return (T) Proxy.newProxyInstance(interfaceClass.getClassLoader(),
                 new Class[] { interfaceClass },
                 handler);

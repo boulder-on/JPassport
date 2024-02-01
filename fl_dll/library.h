@@ -49,6 +49,10 @@ extern char* mallocString(const char* origString);
 extern double* mallocDoubles(int count);
 extern void freeMemory(void *memory);
 
+extern void readPointer(long long *val, long long set);
+extern long long getPointer(long long *val, long long set);
+
+
 struct PassingData
 {
     int s_int;

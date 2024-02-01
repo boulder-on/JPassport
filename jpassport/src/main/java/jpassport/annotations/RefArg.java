@@ -20,7 +20,8 @@ import java.lang.annotation.Target;
  * This annotation is for an array that will be changed in the foreign library and
  * therefore should be read back in after the library call.
  *
- * This annotation is only observed for array arguments.
+ * This annotation is observed for array arguments and the class as a whole. When
+ * used on a class it means that ALL arrays in interface methods are RefArgs.
  *
  * If the read_back_only parameter is false then the value in the java array is copied
  * into the native memory that is passed to the function call. If read_back_only is true
@@ -29,7 +30,7 @@ import java.lang.annotation.Target;
  * read_back_only = true can save quite a bit of time.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.PARAMETER)
+@Target({ElementType.PARAMETER, ElementType.TYPE})
 public @interface RefArg {
     boolean read_back_only() default false;
 }

@@ -12,6 +12,9 @@
 package jpassport.test;
 
 
+import jpassport.Pointer;
+import jpassport.annotations.RefArg;
+
 import java.lang.foreign.MemorySegment;
 
 public class PureJava implements TestLink
@@ -247,5 +250,23 @@ public class PureJava implements TestLink
     @Override
     public boolean hasMethod(String name) {
         return true;
+    }
+
+    public void readPointer(Pointer[] val, long set)
+    {
+        val[0] = new Pointer(MemorySegment.ofAddress(set));
+    }
+    public Pointer getPointer(Pointer[] val, long set)
+    {
+        readPointer(val, set);
+        return val[0];
+    }
+
+    public int swapStrings(@RefArg String[] vals, int i, int j)
+    {
+        var s = vals[i];
+        vals[i] = vals[j];
+        vals[j] = s;
+        return vals[i].length() + vals[j].length();
     }
 }
