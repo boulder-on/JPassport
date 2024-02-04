@@ -1,4 +1,4 @@
-# JPassport - Java 21
+# JPassport - Java 22
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
