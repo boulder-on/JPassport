@@ -145,12 +145,22 @@ public class PassportWriter<T extends Passport>
                                     private void init(){
                                 """);
 
-        m_moduleSource.append(String.format("""
+        if (interfaceClass.getModule().getName().equals("jpassport"))
+        {
+            m_moduleSource.append("""
+                    module foreign.caller {
+                        requires jpassport;
+                    }
+                    """);
+        }
+        else {
+            m_moduleSource.append(String.format("""
                     module foreign.caller {
                         requires jpassport;
                         requires %s;
                     }
                     """, interfaceClass.getModule().getName()));
+        }
 
         for (Method method : interfaceMethods) {
             addMethod(method, method.getReturnType(), interfaceClass);
@@ -226,7 +236,7 @@ public class PassportWriter<T extends Passport>
                     else
                         sbLayout.append(String.format("\t\t%sLayout.withName(\"%s\"),\n",type.getSimpleName(), f.getName()));
                 }
-                else if (String.class.equals(type) || MemorySegment.class.equals(type))
+                else if (String.class.equals(type) || MemorySegment.class.equals(type) || isGenericPtr(type))
                     sbLayout.append(String.format("\t\tADDRESS.withName(\"%s\"),\n", f.getName()));
                 else if (type.isArray())
                 {
@@ -415,6 +425,11 @@ public class PassportWriter<T extends Passport>
                 else if (MemorySegment.class.equals(type))
                 {
                     sb.append(String.format("\t\tvar %1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
+                }
+                else if (isGenericPtr(type))
+                {
+                    sb.append(String.format("\t\tvar mem_%1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
+                    sb.append(String.format("\t\tvar %1$s = new %2$s(mem_%1$s);\n", f.getName(), type.getName()));
                 }
                 else if (String.class.equals(type))
                     sb.append(String.format("\t\tvar %1$s = Utils.readString(memStruct.get(ADDRESS, %2$s));\n", f.getName(), offset));

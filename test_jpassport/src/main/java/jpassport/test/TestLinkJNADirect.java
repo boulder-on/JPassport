@@ -12,10 +12,12 @@
 package jpassport.test;
 
 import com.sun.jna.Native;
+import jpassport.MemoryBlock;
 import jpassport.Pointer;
 import jpassport.annotations.RefArg;
 import jpassport.test.performance.PerfTest;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
 public class TestLinkJNADirect
@@ -226,5 +228,20 @@ public class TestLinkJNADirect
         {
             return 0;
         }
+
+        public int fillChars(Arena a, MemoryBlock fillThis, int sizemax)
+        {
+            String s= "hello world";
+            fillThis.setString(s);
+            return s.length();
+        }
+        public int passChars(char[] fillThis, int sizemax)
+        {
+            int s = 0;
+            for (char c : fillThis)
+                s += c;
+            return s;
+        }
+
     }
 }
