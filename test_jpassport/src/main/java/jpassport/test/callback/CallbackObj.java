@@ -17,7 +17,7 @@ public class CallbackObj {
 
     public MemorySegment getAsFunctionPtr()
     {
-        return PassportFactory.createCallback(this, "callback");
+        return PassportFactory.createCallback(this, "callback").getPtr();
     }
 
     public int sum = 0;
@@ -34,6 +34,6 @@ public class CallbackObj {
 
     public MemorySegment getAsFunctionArrPtr()
     {
-        return PassportFactory.createCallback(this, "callbackArr");
+        return PassportFactory.createCallback(this, "callbackArr").getPtr();
     }
 }

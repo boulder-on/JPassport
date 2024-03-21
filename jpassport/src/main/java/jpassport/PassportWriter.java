@@ -6,6 +6,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
@@ -103,6 +104,7 @@ public class PassportWriter<T extends Passport>
                     import jpassport.Utils;
                     import jpassport.Pointer;
                     import jpassport.GenericPointer;
+                    import jpassport.MemoryBlock;
                     import java.lang.invoke.MethodHandle;
                     import java.lang.foreign.*;
                     import java.util.HashMap;
@@ -517,10 +519,14 @@ public class PassportWriter<T extends Passport>
         var methodArgs = method.getParameters();
         int v = 1;
         boolean bHasAllocatedMemory = false;
+        boolean bHasArenaArg = false;
 
         for (Class<?> parameter : method.getParameterTypes())
         {
-            args.append(String.format("%s v%d,", parameter.getSimpleName(), v));
+            if (Arena.class.equals(parameter))
+                args.append(String.format("%s scope,", parameter.getSimpleName()));
+            else
+                args.append(String.format("%s v%d,", parameter.getSimpleName(), v));
 
             if (isArrayOfPrimitives(parameter) || is2DArrayOfPrimitives(parameter))
             {
@@ -543,6 +549,17 @@ public class PassportWriter<T extends Passport>
                 bHasAllocatedMemory = true;
                 preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL : Utils.toCString(v%1$d, scope);\n", v));
                 params.append("vv").append(v).append(',');
+            }
+            else if (Arena.class.equals(parameter))
+            {
+                bHasArenaArg = true;
+            }
+            else if (MemoryBlock.class.equals(parameter))
+            {
+                bHasAllocatedMemory = true;
+                preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL :v%1$d.toPtr(scope);\n", v));
+                params.append("vv").append(v).append(',');
+                postCall.append(String.format("v%1$d.readBack();\n", v));
             }
             else if (parameter.isArray() && String.class.equals(parameter.getComponentType()))
             {
@@ -591,7 +608,7 @@ public class PassportWriter<T extends Passport>
             args.setLength(args.length() - 1);
         if (!params.isEmpty() && params.charAt(params.length() - 1) == ',')
             params.setLength(params.length() - 1);
-        if (bHasAllocatedMemory)
+        if (bHasAllocatedMemory && !bHasArenaArg)
         {
             tryArgs.append("var scope = Arena.ofConfined();");
 //            preCall.insert(0, "var allocator = SegmentAllocator.newNativeArena(scope);\n\t\t");
@@ -780,7 +797,7 @@ public class PassportWriter<T extends Passport>
         if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()
                 || isGenericPtr(c.getComponentType()) || c.getComponentType().equals(String.class)))
             return true;
-        if (MemorySegment.class.equals(c) || String.class.equals(c) || isGenericPtr(c))
+        if (MemorySegment.class.equals(c) || String.class.equals(c) || isGenericPtr(c) || MemoryBlock.class.equals(c) || Arena.class.equals(c))
             return true;
         return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
     }

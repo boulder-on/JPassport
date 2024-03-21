@@ -420,3 +420,18 @@ void call_CBArr(callbackFNArr fn,  int* vals, int count)
 {
     fn(vals, count);
 }
+
+extern int fillChars(char* fillThis, int sizemax)
+{
+    strncpy(fillThis, "hello world", sizemax);
+    return strlen(fillThis);
+}
+
+extern int passChars(char* fillThis, int sizemax)
+{
+    int s = 0;
+    for (int n = 0; n < sizemax; ++n)
+        s += fillThis[n];
+
+    return s;
+}

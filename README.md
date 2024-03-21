@@ -103,15 +103,18 @@ At the moment this does not work for static method - that will be an easy enhanc
 # Performance
 Performance was tested vs JNA, JNA Direct, and pure Java.
 
-Performance of a method that passes 2 doubles:
+Performance of a method that passes 2 doubles. JPassport is about 5x faster than
+JNA. JNA Direct is impressively fast. JPassport that uses a proxy class performs
+quite poorly because of its heavy use of reflection.
 
 ![primative performance](passing_doubles.png)
 
-Performance of a method that passes an array of doubles
+Performance of a method that passes an array of doubles. The gap here
+ is much smaller between JNA and JPassport.
 
 ![array performance](passing_double_arr.png)
 
-(Tests were run on Windows 10 with an i7-10850H.)
+(Tests were run on Windows 11 with an i7-10850H.)
 
 # C Data Types Handled Automatically
 
@@ -143,6 +146,8 @@ Performance of a method that passes an array of doubles
 | char**            | @PtrPtrArg byte[][]   |
 | char[][]          | byte[][]              |
 | structs           | Records               |
+| char*, void *     | MemoryBlock           |
+| n/a               | Arena                 |
 
 Any C argument that is defined with ** must be annotated with @PTrPtrArg in your Java interface.
 
@@ -326,6 +331,10 @@ Roughly in order of importance
    - This is a challenge because the code needs to be compiled as a module
 
 # Release Notes
+- 1.0.0-22
+  - Full 1.0 since Java 22 has gone GA and the foreign function API is now official
+  - Added MemoryBlock as a method argument to pass allocated memory to a foreign function.
+  - An Arena can now be an argument to a method. The Arena will be used for allocations during the call. In some cases this may be an optimization. 
 - 0.7.0-22
   - Support Java 22
   - Added support for arrays of GenericPointer

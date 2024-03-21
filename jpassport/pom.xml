@@ -7,11 +7,11 @@
     <parent>
         <groupId>JPassport</groupId>
         <artifactId>JPassport-parent</artifactId>
-        <version>0.7.0-22</version>
+        <version>1.0.0-22</version>
     </parent>
 
     <artifactId>JPassport-main</artifactId>
-    <version>0.7.0-22</version>
+    <version>1.0.0-22</version>
 
 <!--    <name>JPassport</name>-->
     <packaging>jar</packaging>

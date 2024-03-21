@@ -52,6 +52,8 @@ extern void freeMemory(void *memory);
 extern void readPointer(long long *val, long long set);
 extern long long getPointer(long long *val, long long set);
 
+extern int fillChars(char* fillThis, int sizemax);
+extern int passChars(char* fillThis, int sizemax);
 
 struct PassingData
 {

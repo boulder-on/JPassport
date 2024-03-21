@@ -114,11 +114,12 @@ public class PassportFactory
             Class<?>[] parameters = method.getParameterTypes();
 
             for (int n = 0; n < parameters.length; ++n) {
-                if (!parameters[n].isPrimitive())
+                if (!parameters[n].isPrimitive() && !Arena.class.equals(parameters[n]))
                     parameters[n] = MemorySegment.class;
             }
 
-            MemoryLayout[] memoryLayout = Arrays.stream(parameters).map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
+            MemoryLayout[] memoryLayout = Arrays.stream(parameters).filter(p -> !Arena.class.equals(p)).
+                    map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
 
             FunctionDescriptor fd;
             if (void.class.equals(retType))
@@ -182,7 +183,7 @@ public class PassportFactory
      * @throws IllegalArgumentException if there is no method with the given name, or there is more
      * than 1 method with the given name.
      */
-    public static MemorySegment createCallback(Object ob, String methodName)
+    public static FunctionPtr createCallback(Object ob, String methodName)
     {
         var methods = getDeclaredMethods(ob.getClass());
 
@@ -218,7 +219,7 @@ public class PassportFactory
             var handleToCall = handle.bindTo(ob);
 
             var scope = Arena.ofAuto();
-            return Linker.nativeLinker().upcallStub(handleToCall, fd, scope);
+            return new FunctionPtr(Linker.nativeLinker().upcallStub(handleToCall, fd, scope));
         }
         catch (NoSuchMethodException | IllegalAccessException ex)
         {

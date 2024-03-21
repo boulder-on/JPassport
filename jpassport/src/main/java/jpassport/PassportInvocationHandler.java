@@ -2,9 +2,7 @@ package jpassport;
 
 import java.lang.annotation.Annotation;
 import java.lang.foreign.Arena;
-import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -39,16 +37,25 @@ public class PassportInvocationHandler  implements InvocationHandler {
         if (mh == null)
             throw new Error("Method does not exist");
 
+        var passedArena = Arrays.stream(args).filter(a -> a instanceof Arena).findFirst();
+
         try (var scope = Arena.ofConfined()) {
+            Arena useScope = (Arena) passedArena.orElse(scope);
             var largs = new ArrayList();
             for (int i = 0; i < parameters.length; ++i)
-                largs.add(toArg(parameters[i], args[i], scope, paramAnnotations[i], params[i]));
+            {
+                if (Arena.class.equals(parameters[i]))
+                    continue;
+                largs.add(toArg(parameters[i], args[i], useScope, paramAnnotations[i], params[i]));
+            }
 
             var ret = mh.invokeWithArguments(largs);
 
             for (int i = 0; i < largs.size(); ++i)
             {
-                if (PassportWriter.isRefArg(paramAnnotations[i]) || (parameters[i].isArray() && allArraysAreReadBack))
+                if (PassportWriter.isRefArg(paramAnnotations[i]) ||
+                        MemoryBlock.class.equals(parameters[i]) ||
+                        (parameters[i].isArray() && allArraysAreReadBack))
                     readBack(args[i], largs.get(i));
             }
 
@@ -78,6 +85,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
             {
                 case null -> MemorySegment.NULL;
                 case byte[][] i -> Utils.toPtrPTrMS(arena, i);
+                case char[][] i -> Utils.toPtrPTrMS(arena, i);
                 case short[][] i -> Utils.toPtrPTrMS(arena, i);
                 case int[][] i -> Utils.toPtrPTrMS(arena, i);
                 case long[][] i -> Utils.toPtrPTrMS(arena, i);
@@ -95,14 +103,17 @@ public class PassportInvocationHandler  implements InvocationHandler {
             case GenericPointer g -> g.getPtr();
             case GenericPointer[] g -> Utils.toMS(arena, g,readBack);
             case String i -> Utils.toCString(i, arena);
+            case MemoryBlock i -> i.toPtr(arena);
             case String[] i -> Utils.toCString(i, arena);
             case byte[] i -> Utils.toMS(arena, i, readBack);
+            case char[] i -> Utils.toMS(arena, i, readBack);
             case short[] i -> Utils.toMS(arena, i, readBack);
             case int[] i -> Utils.toMS(arena, i, readBack);
             case long[] i -> Utils.toMS(arena, i, readBack);
             case float[] i -> Utils.toMS(arena, i, readBack);
             case double[] i -> Utils.toMS(arena, i, readBack);
             case byte[][] i -> Utils.toMS(arena, i, readBack);
+            case char[][] i -> Utils.toMS(arena, i, readBack);
             case short[][] i -> Utils.toMS(arena, i, readBack);
             case int[][] i -> Utils.toMS(arena, i, readBack);
             case long[][] i -> Utils.toMS(arena, i, readBack);
@@ -124,6 +135,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
             //case GenericPointer g -> new GenericPointer();
 
             case byte[] i -> Utils.toArr(i, (MemorySegment) called);
+            case char[] i -> Utils.toArr(i, (MemorySegment) called);
             case short[] i -> Utils.toArr(i, (MemorySegment) called);
             case int[] i -> Utils.toArr(i, (MemorySegment) called);
             case long[] i -> Utils.toArr(i, (MemorySegment) called);
@@ -132,6 +144,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
 
             case GenericPointer[] g -> Utils.toArr(g, (MemorySegment) called);
             case String[] g -> Utils.fromCString((MemorySegment) called, g);
+            case MemoryBlock fs -> fs.readBack();
 //            case byte[][] i -> Utils.toArr(i, (MemorySegment) called);
 //            case short[][] i -> Utils.toMS(arena, i, false);
 //            case int[][] i -> Utils.toMS(arena, i, false);

@@ -12,15 +12,14 @@
 package jpassport.test;
 
 import java.lang.foreign.Arena;
-import java.util.Collection;
 import java.util.stream.IntStream;
 
+import jpassport.MemoryBlock;
 import jpassport.Pointer;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 
 import static jpassport.test.TestLinkHelp.getLibName;
 import static org.junit.jupiter.api.Assertions.*;
@@ -262,6 +261,28 @@ public class TestJPassport
             assertEquals("hello".length(), var[1].length());
             assertEquals("Goodbye".length(), var[0].length());
         }
+    }
+
+    @Test
+    public void testCharArgs()
+    {
+        String expected = "hello world";
+
+        for (TestLink testFL : testClass) {
+            MemoryBlock fill = new MemoryBlock(100);
+            try (Arena a = Arena.ofConfined()) {
+                int ll = testFL.fillChars(a, fill, (int) fill.size());
+                assertEquals(expected.length(), ll);
+                assertEquals(expected, fill.toString());
+
+                int s = 0;
+                for (char c : expected.toCharArray())
+                    s += c;
+
+                assertEquals(s, testFL.passChars(fill.toString().toCharArray(), (int) expected.length() * 2));
+            }
+        }
+
     }
 
 }

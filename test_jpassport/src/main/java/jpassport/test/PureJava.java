@@ -12,9 +12,11 @@
 package jpassport.test;
 
 
+import jpassport.MemoryBlock;
 import jpassport.Pointer;
 import jpassport.annotations.RefArg;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
 public class PureJava implements TestLink
@@ -268,5 +270,19 @@ public class PureJava implements TestLink
         vals[i] = vals[j];
         vals[j] = s;
         return vals[i].length() + vals[j].length();
+    }
+
+    public int fillChars(Arena a, MemoryBlock fillThis, int sizemax)
+    {
+        String s= "hello world";
+        fillThis.setString(s);
+        return s.length();
+    }
+    public int passChars(char[] fillThis, int sizemax)
+    {
+        int s = 0;
+        for (char c : fillThis)
+            s += c;
+        return s;
     }
 }

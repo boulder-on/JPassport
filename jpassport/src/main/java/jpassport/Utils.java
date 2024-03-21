@@ -449,6 +449,66 @@ public class Utils {
         return addr.asSlice(0, count).toArray(layout);
     }
 
+    /* Char ///////////////////////////////////////////////////////////////// */
+
+    public static MemorySegment toMS(SegmentAllocator scope, char[] arr, boolean isReadBackOnly) {
+        if (arr == null)
+            return null;
+
+        return isReadBackOnly ? scope.allocate(Character.BYTES * arr.length) : scope.allocateFrom(ValueLayout.JAVA_CHAR, arr);
+    }
+
+    public static MemorySegment toPtrPTrMS(SegmentAllocator scope, char[][] arr) {
+        if (arr == null)
+            return null;
+
+        MemorySegment segment = scope.allocate((long) arr.length * Long.BYTES);
+        int n = 0;
+        for (char[] a : arr)
+            segment.setAtIndex(ValueLayout.ADDRESS, n++, scope.allocateFrom(ValueLayout.JAVA_CHAR, a));
+        return segment;
+    }
+
+    public static MemorySegment toMS(SegmentAllocator scope, char[][] arr, boolean isReadBackOnly) {
+        if (arr == null)
+            return null;
+
+        MemorySegment segment = scope.allocate((long) arr.length * arr[0].length * Byte.BYTES);
+        int n = 0;
+        for (char[] row : arr) {
+            segment.asSlice(n, (int)(row.length * Character.BYTES)).copyFrom(MemorySegment.ofArray(row));
+            n += row.length * Byte.BYTES;
+        }
+
+        return segment;
+    }
+
+    public static void toArr(char[] arr, MemorySegment segment) {
+        if (arr == null)
+            return;
+        MemorySegment.copy(segment, ValueLayout.JAVA_CHAR, 0, arr, 0, arr.length);
+    }
+
+    public static char[] toArr(ValueLayout.OfChar layout, MemorySegment seg, MemorySegment addr, int count) {
+        if (MemorySegment.NULL.equals(addr))
+            return null;
+
+        return slice(seg, addr, count * layout.byteSize()).toArray(layout);
+    }
+
+    public static char[] toArr(ValueLayout.OfChar layout, MemorySegment addr, int count) {
+        if (MemorySegment.NULL.equals(addr))
+            return null;
+
+        if (addr.byteSize() == 0)
+        {
+            var seg = MemorySegment.ofAddress(addr.address()).reinterpret(count);
+            return seg.toArray(ValueLayout.JAVA_CHAR);
+        }
+
+        return addr.asSlice(0, count).toArray(layout);
+    }
+
     /*///////////////////////////////////////////////////////////////// */
 
     public static MemorySegment slice(MemorySegment scope, MemorySegment addr, long bytes) {

@@ -12,13 +12,14 @@
 package jpassport.test;
 
 import com.sun.jna.Library;
-import jpassport.NamedLookup;
+import jpassport.MemoryBlock;
 import jpassport.Passport;
 import jpassport.Pointer;
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
 
@@ -76,6 +77,10 @@ public interface TestLink extends Passport, Library {
     Pointer getPointer(@RefArg Pointer[] val, long set);
 
     int swapStrings(@RefArg String[] vals, int i, int j);
+
+    int fillChars(Arena a, MemoryBlock fillThis, int sizemax);
+    int passChars(char[] fillThis, int sizemax);
+
 //    static void calling(TestLink tl)
 //    {
 //        double[] values = new double[5];
