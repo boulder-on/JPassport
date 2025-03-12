@@ -15,6 +15,7 @@ import java.lang.foreign.Arena;
 import java.util.stream.IntStream;
 
 import jpassport.MemoryBlock;
+import jpassport.PassportBuilder;
 import jpassport.Pointer;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
@@ -36,6 +37,8 @@ public class TestJPassport
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
         testClass = new TestLink[] {PassportFactory.link(getLibName(), TestLink.class),
                                 PassportFactory.proxy(getLibName(), TestLink.class)};
+
+        new PassportBuilder<TestLink>(TestLink.class, "none.none", "testlinkImpl");
     }
 
     @Test

@@ -46,6 +46,13 @@ public class Utils {
                 scope.allocateFrom(ValueLayout.JAVA_DOUBLE, arr);
     }
 
+    public static MemorySegment toMS(Arena scope, double[] arr, boolean isReadBackOnly) {
+        if (arr == null)
+            return null;
+        return isReadBackOnly ? scope.allocate((long)arr.length * Double.BYTES) :
+                scope.allocateFrom(ValueLayout.JAVA_DOUBLE, arr);
+    }
+
     public static MemorySegment toMS(SegmentAllocator scope, double[][] arr, boolean isReadBackOnly) {
         if (arr == null)
             return null;
@@ -729,4 +736,16 @@ public class Utils {
 
         return MemoryLayout.structLayout(memLayout.toArray(new MemoryLayout[0]));
     }
+
+    public void templatedMethod()
+    {
+        try (var scope = Arena.ofConfined();) {
+
+        }
+        catch(Throwable th)
+        {
+            throw new Error(th);
+        }
+    }
+
 }

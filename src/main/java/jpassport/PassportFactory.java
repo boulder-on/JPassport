@@ -25,7 +25,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class PassportFactory
 {
@@ -50,6 +49,30 @@ public class PassportFactory
                             interfaceClass.getSimpleName(), libraryName, Passport.class.getSimpleName()));
         } else {
             return buildClass(libraryName, interfaceClass);
+        }
+    }
+
+    /**
+     * Call this method to generate the library linkage. This version of the method will write the java file and compile
+     * it. As a result, the start-up is a bit slower than {@link #proxy(String, Class) proxy()}, but the implementation
+     * is a bit quicker.
+     *
+     * <p>This version also supports Record -> struct conversions.
+     *
+     * @param libraryName The library name (the file name of the shared library without extension on all platforms,
+     *                    without lib prefix on Linux and Mac). Use null to load system method calls (ex. malloc)
+     * @param interfaceClass The class to wrap.
+     * @param <T> Any interface that extends Passport
+     * @return A class linked to call into a DLL or SO using the Foreign Linker.
+     */
+    public synchronized static <T extends Passport> T link_experimental(String libraryName, Class<T> interfaceClass) throws Throwable
+    {
+        if (!Passport.class.isAssignableFrom(interfaceClass)) {
+            throw new IllegalArgumentException(
+                    String.format("Interface (%s) of library=%s does not extend %s",
+                            interfaceClass.getSimpleName(), libraryName, Passport.class.getSimpleName()));
+        } else {
+            return buildClassExperimental(libraryName, interfaceClass);
         }
     }
 
@@ -86,14 +109,21 @@ public class PassportFactory
         return classWriter.build(handles);
     }
 
-    /**
-     * This method looks up the methods in the requested native library that match non-static
-     * methods in the given interface class.
-     *
-     * @param libName Name of the native library to load, of null if the methods will be system method (ex. malloc).
-     * @param interfaceClass The interface class to use as a reference for loading methods.
-     * @return A map of Name to method handle pairs for the methods in the interface class.
-     */
+    private static <T extends Passport> T buildClassExperimental(String libName, Class<T> interfaceClass) throws Throwable {
+        HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
+        PassportBuilder<T> classWriter = new PassportBuilder<>(interfaceClass);
+
+        return classWriter.build(handles);
+    }
+
+        /**
+         * This method looks up the methods in the requested native library that match non-static
+         * methods in the given interface class.
+         *
+         * @param libName Name of the native library to load, of null if the methods will be system method (ex. malloc).
+         * @param interfaceClass The interface class to use as a reference for loading methods.
+         * @return A map of Name to method handle pairs for the methods in the interface class.
+         */
     public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class<? extends Passport> interfaceClass)
     {
         if (libName != null) {
