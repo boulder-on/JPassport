@@ -26,6 +26,7 @@ public class PerformanceTest
 {
     static PerfTest testFL;
     static PerfTest testFLP;
+    static PerfTest testBC;
     static PerfTest testJNA;
     static PerfTest testJNADirect;
     static PerfTest testJava;
@@ -37,6 +38,7 @@ public class PerformanceTest
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
         testFL = PassportFactory.link("libpassport_test", PerfTest.class);
         testFLP = PassportFactory.proxy("libpassport_test", PerfTest.class);
+        testBC = PassportFactory.link_experimental("libpassport_test", PerfTest.class);
         testJNA =  Native.load("passport_test", PerfTest.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();
@@ -46,15 +48,15 @@ public class PerformanceTest
     {
         startup();
 
-        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testFL, testFLP};
+        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testFL, testFLP, testBC};
 
         try(var csv = new CSVOutput(Path.of("performance", "doubles_add_2.csv")))
         {
-            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy").endLine();
+            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy", "Byte Code").endLine();
 
             for (int loops = 1000; loops < 100000; loops += 1000) {
 
-                double[][] results = new double[5][5];
+                double[][] results = new double[tests.length][5];
                 for (int n = 0; n < 5; ++n) {
                     for (int m = 0; m < tests.length; ++m)
                         results[m][n] = sumTest(tests[m], loops);
@@ -77,10 +79,10 @@ public class PerformanceTest
 
         try(var csv = new CSVOutput(Path.of("performance", "double_arr_add.csv")))
         {
-            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy").endLine();
+            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy", "Byte Code").endLine();
             for (int size = 1024; size <= 1024*256; size += 1024)
             {
-                double[][] results = new double[5][5];
+                double[][] results = new double[tests.length][5];
 
                 for (int n = 0; n < 5; ++n) {
                     for (int m = 0; m < tests.length; ++m)

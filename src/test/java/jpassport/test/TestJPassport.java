@@ -36,9 +36,10 @@ public class TestJPassport
         System.setProperty("jpassport.build.home", "out/testing");
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
         testClass = new TestLink[] {PassportFactory.link(getLibName(), TestLink.class),
-                                PassportFactory.proxy(getLibName(), TestLink.class)};
+                                PassportFactory.proxy(getLibName(), TestLink.class),
+                                PassportFactory.link_experimental(getLibName(), TestLink.class)};
 
-        new PassportBuilder<TestLink>(TestLink.class, "none.none", "testlinkImpl");
+//        new PassportBuilder<TestLink>(TestLink.class, "none.none", "testlinkImpl");
     }
 
     @Test

@@ -695,7 +695,7 @@ public class PassportWriter<T extends Passport>
         var compileThis = fmanager.getJavaFileObjectsFromPaths(paths);
 
         var dothis = compiler.getTask(null, null, null,
-                List.of("--enable-preview", "--release", "22", "--module-path", System.getProperty("jdk.module.path")),
+                List.of( "--module-path", System.getProperty("jdk.module.path")),
                 null, compileThis);
 //        compiler.run(null, null, null,
 //                 "--module-path", System.getProperty("jdk.module.path"),
@@ -725,12 +725,12 @@ public class PassportWriter<T extends Passport>
         return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
     }
 
-    private boolean isArrayOfPrimitives(Class<?> c)
+    public static boolean isArrayOfPrimitives(Class<?> c)
     {
         return c.isArray() && c.getComponentType().isPrimitive();
     }
 
-    private boolean is2DArrayOfPrimitives(Class<?> c)
+    public static boolean is2DArrayOfPrimitives(Class<?> c)
     {
         return c.isArray() && c.getComponentType().isArray() && isArrayOfPrimitives(c.getComponentType());
     }
@@ -818,7 +818,7 @@ public class PassportWriter<T extends Passport>
         return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
     }
 
-    static boolean isGenericPtr(Class<?> c)
+    public static boolean isGenericPtr(Class<?> c)
     {
         while (!c.equals(GenericPointer.class) && c.getSuperclass() != null)
             c = c.getSuperclass();

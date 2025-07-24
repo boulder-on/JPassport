@@ -9,6 +9,7 @@ module test.passport {
     requires jmh.generator.annprocess;
 
     requires commons.csv;
+    requires java.desktop;
 
     exports jpassport.test;
     exports jpassport.test.performance;
