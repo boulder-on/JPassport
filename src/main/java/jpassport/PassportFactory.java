@@ -41,14 +41,14 @@ public class PassportFactory
      * @param <T> Any interface that extends Passport
      * @return A class linked to call into a DLL or SO using the Foreign Linker.
      */
-    public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass) throws Throwable
+    public synchronized static <T extends Passport> T link_written(String libraryName, Class<T> interfaceClass) throws Throwable
     {
         if (!Passport.class.isAssignableFrom(interfaceClass)) {
             throw new IllegalArgumentException(
                     String.format("Interface (%s) of library=%s does not extend %s",
                             interfaceClass.getSimpleName(), libraryName, Passport.class.getSimpleName()));
         } else {
-            return buildClass(libraryName, interfaceClass);
+            return writeClass(libraryName, interfaceClass);
         }
     }
 
@@ -65,14 +65,14 @@ public class PassportFactory
      * @param <T> Any interface that extends Passport
      * @return A class linked to call into a DLL or SO using the Foreign Linker.
      */
-    public synchronized static <T extends Passport> T link_experimental(String libraryName, Class<T> interfaceClass) throws Throwable
+    public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass) throws Throwable
     {
         if (!Passport.class.isAssignableFrom(interfaceClass)) {
             throw new IllegalArgumentException(
                     String.format("Interface (%s) of library=%s does not extend %s",
                             interfaceClass.getSimpleName(), libraryName, Passport.class.getSimpleName()));
         } else {
-            return buildClassExperimental(libraryName, interfaceClass);
+            return buildClass(libraryName, interfaceClass);
         }
     }
 
@@ -101,7 +101,7 @@ public class PassportFactory
                 handler);
     }
 
-    private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable
+    private static <T extends Passport> T writeClass(String libName, Class<T> interfaceClass) throws Throwable
     {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
         PassportWriter<T> classWriter = new PassportWriter<>(interfaceClass);
@@ -109,7 +109,7 @@ public class PassportFactory
         return classWriter.build(handles);
     }
 
-    private static <T extends Passport> T buildClassExperimental(String libName, Class<T> interfaceClass) throws Throwable {
+    private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
         PassportBuilder<T> classWriter = new PassportBuilder<>(interfaceClass);
 

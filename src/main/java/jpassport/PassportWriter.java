@@ -712,11 +712,22 @@ public class PassportWriter<T extends Passport>
         return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(RefArg.class::equals);
     }
 
-    static boolean isRefArgReadBackOnly(Parameter methodArg)
+    public static boolean isRefArgReadBackOnly(Parameter methodArg)
     {
         var ref = methodArg.getAnnotationsByType(RefArg.class);
         if (ref.length > 0)
             return ref[0].read_back_only();
+        return false;
+    }
+    public static boolean isRefArgReadBackOnly(Annotation[] annotations)
+    {
+        for (var a : annotations)
+        {
+            if (a.annotationType().equals(RefArg.class))
+            {
+                return ((RefArg)a).read_back_only();
+            }
+        }
         return false;
     }
 

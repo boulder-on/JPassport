@@ -36,9 +36,9 @@ public class PerformanceTest
     {
         System.setProperty("jpassport.build.home", "out/testing");
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
-        testFL = PassportFactory.link("libpassport_test", PerfTest.class);
+        testFL = PassportFactory.link_written("libpassport_test", PerfTest.class);
         testFLP = PassportFactory.proxy("libpassport_test", PerfTest.class);
-        testBC = PassportFactory.link_experimental("libpassport_test", PerfTest.class);
+        testBC = PassportFactory.link("libpassport_test", PerfTest.class);
         testJNA =  Native.load("passport_test", PerfTest.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();

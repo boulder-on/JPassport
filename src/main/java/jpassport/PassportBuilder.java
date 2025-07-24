@@ -267,16 +267,22 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
         clb.withMethod(iMethod.getName(), methodSig, ClassFile.ACC_PUBLIC,
                 mb -> mb.withCode(cob -> {
                             List<ParamKeeper> keepers = classifyParams(cob, iMethod);
+                            var passedArena = keepers.stream().filter(ParamKeeper::isArena).findFirst();
+                            keepers = keepers.stream().filter(k -> !k.isArena()).toList();
+
                             int used = Arrays.stream(iMethod.getParameterTypes()).mapToInt(this::paramSize).sum();
                             used += 1;
-                            int arenaSlot = used++;
+
+                            int arenaSlot = passedArena.isPresent() ? passedArena.get().stored : used++;
                             var start = cob.newLabel();
                             cob.labelBinding(start);
-                            var iv = getCodeTemplate();
-                            //I could not get arena creation to work. So I coded it in another class
-                            //read that class, take that byte code and insert it here.
-                            iv.ifPresent(cob::accept);
-                            cob.astore(arenaSlot);
+                            if (passedArena.isEmpty()) {
+                                var iv = getCodeTemplate();
+                                //I could not get arena creation to work. So I coded it in another class
+                                //read that class, take that byte code and insert it here.
+                                iv.ifPresent(cob::accept);
+                                cob.astore(arenaSlot);
+                            }
                             var startAutoClose = cob.newLabel();
                             cob.labelBinding(startAutoClose);
 
@@ -295,7 +301,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
                                     }
                                     else if (isGenericPtr(t.getComponentType()))
                                     {
-                                        cob.aload(arenaSlot).aload(keepers.get(ii).stored).iconst_0();
+                                        cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        if (isRefArgReadBackOnly(keepers.get(ii).annotations))
+                                            cob.iconst_1();
+                                        else
+                                            cob.iconst_0();
                                         cob.invokestatic(toDesc(Utils.class), "toMS",
                                                 MethodTypeDesc.of(MemorySegment,
                                                         toDesc(SegmentAllocator.class), toDesc(GenericPointer.class).arrayType(1), ConstantDescs.CD_boolean));
@@ -319,7 +329,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
                                             }
                                             else {
                                                 //assumes an array of primitives
-                                                cob.aload(arenaSlot).aload(keepers.get(ii).stored).iconst_0();
+                                                cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                                if (isRefArgReadBackOnly(keepers.get(ii).annotations))
+                                                    cob.iconst_1();
+                                                else
+                                                    cob.iconst_0();
                                                 cob.invokestatic(toDesc(Utils.class), "toMS",
                                                         MethodTypeDesc.of(MemorySegment,
                                                                 toDesc(SegmentAllocator.class), ParamKeeper.classify(t).typeForInterfaceMethod(), ConstantDescs.CD_boolean));
@@ -443,8 +457,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
 
                             }
 
-                            cob.aload(arenaSlot);
-                            cob.invokeinterface(toDesc(Arena.class), "close", MethodTypeDesc.of(ConstantDescs.CD_void));
+                            if (passedArena.isEmpty()) {
+                                cob.aload(arenaSlot);
+                                cob.invokeinterface(toDesc(Arena.class), "close", MethodTypeDesc.of(ConstantDescs.CD_void));
+                            }
+
                             loadParam(cob, used, iMethod.getReturnType());
                             used = newUsed;
                             returnParam(cob, iMethod.getReturnType());

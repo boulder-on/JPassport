@@ -11,9 +11,9 @@ is available. Given a header file JExtract will build the classes needed to acce
 a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
-**Java 22 and later** are required to use this library. There are separate branches for Java 17 to 22.
+**Java 24 and later** are required to use this library. There are separate branches for Java 17 to 22.
 
-The Foreign Linker API is final in Java 22.
+The Foreign Linker API is final in Java 22. The Classfile API is final in Java 24.
 
 # Getting Started
 
@@ -72,12 +72,17 @@ Once the class is compiled, to use it:
 Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
 ```
 
-In order to use this library you will need to provide the VM these arguments:
+In order to use this library, you will need to provide the VM these arguments:
 
 __-Djava.library.path=[path to lib] --enable-native-access jpassport__
 
-JPassport works by writing a class that implements your interface, compiling it and passing it back to you.
-By default, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
+JPassport works in one of 3 modes:
+
+1. Using the Classfile API to build a class that implements the given interface.
+2. Writing a class that implements your interface, compiling it and passing it back to you.
+3. Creating a proxy object that implements the given interface.
+
+If you use the class writing method, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
 If you provide the system property __"jpassport.build.home"__ then the classes will be written and
 compiled there.
 
@@ -106,7 +111,7 @@ CallbackNative cbn = PassportFactory.link("libforeign", CallbackNative.class);
 cbn.passMethod(functionPtr);
 ```
 
-At the moment this does not work for static methods.
+At the moment, this does not work for static methods.
 
 __NOTE:__ If your callback method uses Java synchronization, or interacts with object member variables
 then the thread must be a Java thread. In testing I've done, if a callback is called from a 
@@ -330,7 +335,7 @@ double[] testReturnPointer(int count) {
 ```
 # Dependencies
 
-JPassport itself only requires **Java 22 or later** to build and run. There are separate Java 17-20 branches. 
+JPassport itself only requires **Java 24 or later** to build and run. There are separate Java 17-22 branches. 
 
 
 # Work To-Do
@@ -339,9 +344,10 @@ Roughly in order of importance
 1. Support arrays of Records 
 2. Support returning a Record
 3. Use the Java Micro-benchmarking harness.
-4. Use the new Classfile API to build the class in memory
 
 # Release Notes
+- 1.1.0-24
+  - Add support for building classes with the Classfile API
 - 1.0.1-22
   - Fixed an issue where System libraries could not be loaded (ex. malloc).
 - 1.0.0-22
