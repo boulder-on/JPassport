@@ -977,10 +977,14 @@ public class Utils {
             return memStruct;
         }
 
-        private Object fromNative(MemorySegment memStruct, Object rec) {
+        private Object fromNative(MemorySegment memStruct, Object recArr) {
             memStruct = Utils.resize(memStruct, layout.byteSize());
             List args = new ArrayList();
             long offset = 0;
+
+            Object rec = recArr;
+            if (rec.getClass().isArray())
+                rec = ((Object[])recArr)[0];
 
             for (var f : fields)
             {

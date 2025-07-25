@@ -18,6 +18,8 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 import static jpassport.PassportWriter.*;
@@ -131,10 +133,19 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
                 }
             }
 
-            System.out.println();
         }
         );
 
+        if (System.getProperties().containsKey("jpassport.build.home"))
+        {
+            var dest = Path.of(System.getProperty("jpassport.build.home"));
+            var destFile = dest.resolve(className + ".class");
+            try {
+                Files.write(destFile, classBytes);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         fullName = packageName + "." + className;
     }
 
@@ -189,6 +200,14 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
                                     cob.aload(k.stored).aload(arenaSlot.getAsInt());
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
                                             MethodTypeDesc.of(toDesc(MemorySegment.class), toDesc(Arena.class)));
+                                    used++;
+                                    cob.astore(used);
+                                    k.stored = used;
+                                    k.type = ParamType.addressType;
+                                } else if (isGenericPtr(k.classtype)) {
+                                    cob.aload(k.stored);
+                                    cob.invokevirtual(toDesc(GenericPointer.class), "getPtr",
+                                            MethodTypeDesc.of(toDesc(MemorySegment.class)));
                                     used++;
                                     cob.astore(used);
                                     k.stored = used;
@@ -358,6 +377,10 @@ public class PassportBuilder<T extends Passport> extends ClassLoader{
                                     cob.aload(keepers.get(ii).stored).aload(arenaSlot);
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
                                             MethodTypeDesc.of(MemorySegment, arenaDesc));
+                                } else if (isGenericPtr(t)) {
+                                    cob.aload(keepers.get(ii).stored);
+                                    cob.invokevirtual(toDesc(GenericPointer.class), "getPtr",
+                                            MethodTypeDesc.of(MemorySegment));
                                 } else //is primitive
                                     continue;
 

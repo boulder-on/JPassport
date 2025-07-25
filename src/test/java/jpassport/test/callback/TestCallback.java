@@ -12,6 +12,7 @@ public class TestCallback {
 
     @Test
     public void testCallback() throws Throwable {
+        System.setProperty("jpassport.build.home", "out");
         var callBack = PassportFactory.link(getLibName(), CallbackNative.class);
 
         var myCB = new CallbackObj();
