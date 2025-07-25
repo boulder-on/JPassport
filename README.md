@@ -24,7 +24,7 @@ Download the source and run the maven build.
         <dependency>
             <groupId>io.github.boulder-on</groupId>
             <artifactId>JPassport</artifactId>
-            <version>1.0.1-22</version>
+            <version>1.1.0-24</version>
         </dependency>
 
 
