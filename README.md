@@ -3,12 +3,12 @@
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
 Similar to JNA, you declare a Java interface that is bound to the external C library using method names.  
-The goal of this project is to a) start working with the Foreign Linker, b) provide a drop in replacement
+The goal of this project is to a) start working with the Foreign Linker, b) provide a drop-in replacement
 for JNA in simple applications.
 
-As part of the Foreign Linker API a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
-is available. Given a header file JExtract will build the classes needed to access a C library. If you have
-a large header file then JExtract is likely an easier tool for you to use if you don't already have interfaces
+As part of the Foreign Linker API, a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
+is available. Given a header file, JExtract will build the classes needed to access a C library. If you have
+a large header file, then JExtract is likely an easier tool for you to use if you don't already have interfaces
 defined for JNA.
 
 **Java 24 and later** are required to use this library. There are separate branches for Java 17 to 22.
@@ -30,7 +30,7 @@ Download the source and run the maven build.
 
 # Calling a native library example
 
-The native api refers to these a "down calls".
+The native api refers to these as "down calls".
 
 C, compiled into libforeign.dll or libforeign.so:
 ```
@@ -55,7 +55,7 @@ public interface Linked extends Passport {
    double sumArrD(double[] arr, int count);
 }
 ```
-Standard usage - writes a .java file to disk, compiles and loads:
+Standard usage - creates a class in memory using the Classfile API:
 ```Java
 Linked L = PassportFactory.link("libforeign", Linked.class); 
 int n = L.string_length("hello");
@@ -72,15 +72,26 @@ Once the class is compiled, to use it:
 Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
 ```
 
-In order to use this library, you will need to provide the VM these arguments:
+To use this library, you will need to provide the VM these arguments:
 
 __-Djava.library.path=[path to lib] --enable-native-access jpassport__
 
 JPassport works in one of 3 modes:
 
-1. Using the Classfile API to build a class that implements the given interface.
-2. Writing a class that implements your interface, compiling it and passing it back to you.
-3. Creating a proxy object that implements the given interface.
+1. Using the Classfile API to build a class that implements the given interface. 
+   1. PassportFactory.link()
+   3. This is a fast method that creates generally fast code (in my example code it takes about 20ms to generate the class)
+   4. The biggest problem with this method is that it is currently slower at working with structs
+2. Writing a class that implements your interface, compiling it and passing it back to you. 
+   1PassportFactory.link_written()
+   4. The process to write, compile and load the class is relatively slow, but that is a one-time cost. (in my example code it takes about 2s to generate the class)
+   4. This method creates code you can see and hand optimize (see jpassport.build.home)
+   5. This creates the overall fastest implementation currently
+3. Creating a proxy object that implements the given interface. 
+   1. PassportFactory.proxy()
+   5. The fastest way to create a class
+   6. Only works with simple cases at the moment (primitives and arrays of primitives)
+   7. Very slow implemenaton, Java proxy classes are not known to be fast, extensive use of reflection while running keeps it slow)
 
 If you use the class writing method, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
 If you provide the system property __"jpassport.build.home"__ then the classes will be written and
@@ -111,7 +122,7 @@ CallbackNative cbn = PassportFactory.link("libforeign", CallbackNative.class);
 cbn.passMethod(functionPtr);
 ```
 
-At the moment, this does not work for static methods.
+At the moment, this does not work for static java methods.
 
 __NOTE:__ If your callback method uses Java synchronization, or interacts with object member variables
 then the thread must be a Java thread. In testing I've done, if a callback is called from a 
@@ -260,7 +271,7 @@ public interface PerfTest extends Passport {
 }
 ```
 The @StructPadding annotation here is optional and maintained for legacy reasons (and in case my
-calculations for padding a wrong on some platforms). Also, I guess it's possible that you have a 
+calculations for padding are wrong on some platforms). Also, I guess it's possible that you have a 
 very strange struct where you need bespoke padding. In general, the library will automatically 
 add the padding that it thinks is required. If you use @StructPadding that tells JPassport 
 how much padding to put before or after a struct member (negative numbers indicate pre-member 
@@ -274,13 +285,19 @@ Arrays of Records can only be 1 element long. Longer arrays of Records are not s
 Records can contain primitives, arrays of primitives, pointers to arrays of primitives, Strings, or pointers
 to other Records.
 
+Records are used to model structs mainly for convenience in the library. Records have a 
+well-defined constructor and set of automatically generated methods. This means that the 
+library can make assumptions about how to pull data out of the class and how to pull data
+out of memory and create a new class. Without these built in assumptions, the complexity 
+of the code would be terrible, and using MiscUnsafe might be required.
+
 # Annotations
 JPassport uses annotations as code generation hints. The available annotations are:
 
 | Annotation                   | Usage          | Meaning                                                                                                                                                                |
 |------------------------------|----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Array                        | Record members | If a C Struct takes a pointer to a primative array, this allows you to say what the size of the primative array is for RefArgs.                                        |
-| NotRequired                  | Methods | If a function could not be found in the native library then no exception will be thrown. Use hasMethod("") to determine if the function was found.                     |                    |
+| NotRequired                  | Methods | If a function could not be found in the native library then no exception will be thrown. Use Passport.hasMethod("") to determine if the function was found.            |                    |
 | Ptr                          | Record members | If a C Struct takes a pointer to a primative or another struct then use this annotation.                                                                               |
 | PtrPtrArg                    | Function argument| Any C function that takes a **<arg> must be annotated with this.                                                                                                       |
 | RefArg                       | Function argument | Any C function that changes the contents of a pointer must be annotated with this to force the read back of the parameter                                              |
@@ -294,13 +311,13 @@ JPassport uses annotations as code generation hints. The available annotations a
 * The interface file passed to PassportFactory and all required Records must be exported by your module.
 
 Pointers as function returns only work in a limited fashion. Based on a C 
-function declaration there isn't a way to tell exactly what a method is returning.
+function declaration, there isn't a way to tell exactly what a method is returning.
 For example, returning int* could return any number of ints. There is
 little a library like JPassport can do to handle returned pointers automatically. 
 The work-around is for your interface function to return MemorySegment. From there
 it would be up to you to decipher the return. 
 
-Declaring your interface method to take MemorySegment objects allow you to
+Declaring your interface method to take MemorySegment objects allows you to
 manage all the data yourself (like JExtract).
 
 ```
