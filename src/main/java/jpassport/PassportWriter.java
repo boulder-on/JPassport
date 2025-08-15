@@ -726,7 +726,7 @@ public class PassportWriter<T extends Passport>
         return false;
     }
 
-    static boolean isPtrPtrArg(Annotation[] paramAnnotations)
+    public static boolean isPtrPtrArg(Annotation[] paramAnnotations)
     {
         return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
     }

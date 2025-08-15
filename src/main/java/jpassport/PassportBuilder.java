@@ -1,9 +1,6 @@
 package jpassport;
 
-import jpassport.codebuilder.CBConstants;
-import jpassport.codebuilder.ParamKeeper;
-import jpassport.codebuilder.ParamType;
-import jpassport.codebuilder.StructRWBuilder;
+import jpassport.codebuilder.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -319,15 +316,62 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             for (Class<?> t : iMethod.getParameterTypes()) {
                                 ii++;
 
-                                if (t.isArray()) {
-                                    if (t.getComponentType().isRecord())
-                                    {
+                                var varHandling = ArgClassification.classify(t, keepers.get(ii).annotations);
+
+                                switch (varHandling)
+                                {
+                                    case primitive, memsegment -> {
+                                        continue;
+                                    }
+                                    case primitive_array, primitive_array2D -> {
+                                        cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        if (isRefArgReadBackOnly(keepers.get(ii).annotations))
+                                            cob.iconst_1();
+                                        else
+                                            cob.iconst_0();
+                                        cob.invokestatic(CD_Utils, "toMS",
+                                                MethodTypeDesc.of(CD_MemorySegment,
+                                                        CD_SegmentAllocator, ParamKeeper.classify(t).typeForInterfaceMethod(), ConstantDescs.CD_boolean));
+                                    }
+                                    case primitive_array2D_ptr2ptrs -> {
+                                        cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        cob.invokestatic(CD_Utils, "toPtrPTrMS",
+                                                MethodTypeDesc.of(CD_MemorySegment,
+                                                        CD_SegmentAllocator, ParamKeeper.classify(t).typeForInterfaceMethod()));
+                                    }
+                                    case record_ -> {
+                                        cob.aload(0).aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        cob.invokevirtual(thisClassDesc, "store" + t.getSimpleName(),
+                                                MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(t)));
+                                    }
+                                    case record_array -> {
                                         cob.aload(0).aload(arenaSlot).aload(keepers.get(ii).stored);
                                         cob.invokevirtual(thisClassDesc, "store" + t.getComponentType().getSimpleName(),
                                                 MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(t.getComponentType()).arrayType()));
                                     }
-                                    else if (isGenericPtr(t.getComponentType()))
-                                    {
+                                    case string_ -> {
+                                        cob.aload(keepers.get(ii).stored).aload(arenaSlot);
+                                        cob.invokestatic(CD_Utils, "toCString",
+                                                MethodTypeDesc.of(CD_MemorySegment,
+                                                        ConstantDescs.CD_String, CD_Arena));
+                                    }
+                                    case string_array -> {
+                                        cob.aload(keepers.get(ii).stored).aload(arenaSlot);
+                                        cob.invokestatic(CD_Utils, "toCString",
+                                                MethodTypeDesc.of(CD_MemorySegment,
+                                                        ConstantDescs.CD_String.arrayType(), CD_Arena));
+                                    }
+                                    case memory_block -> {
+                                        cob.aload(keepers.get(ii).stored).aload(arenaSlot);
+                                        cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
+                                                MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
+                                    }
+                                    case generic_ptr -> {
+                                        cob.aload(keepers.get(ii).stored);
+                                        cob.invokevirtual(toDesc(GenericPointer.class), "getPtr",
+                                                MethodTypeDesc.of(CD_MemorySegment));
+                                    }
+                                    case generic_ptr_array -> {
                                         cob.aload(arenaSlot).aload(keepers.get(ii).stored);
                                         if (isRefArgReadBackOnly(keepers.get(ii).annotations))
                                             cob.iconst_1();
@@ -337,59 +381,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                                 MethodTypeDesc.of(CD_MemorySegment,
                                                         CD_SegmentAllocator, toDesc(GenericPointer.class).arrayType(1), ConstantDescs.CD_boolean));
                                     }
-                                    else if (t.getComponentType().equals(String.class))
-                                    {
-                                        cob.aload(keepers.get(ii).stored).aload(arenaSlot);
-                                        cob.invokestatic(CD_Utils, "toCString",
-                                                MethodTypeDesc.of(CD_MemorySegment,
-                                                        ConstantDescs.CD_String.arrayType(), CD_Arena));
-                                    }
-                                    else {
-                                        if (isArrayOfPrimitives(t) || is2DArrayOfPrimitives(t))
-                                        {
-                                            if (isPtrPtrArg(keepers.get(ii).annotations))
-                                            {
-                                                cob.aload(arenaSlot).aload(keepers.get(ii).stored);
-                                                cob.invokestatic(CD_Utils, "toPtrPTrMS",
-                                                        MethodTypeDesc.of(CD_MemorySegment,
-                                                                CD_SegmentAllocator, ParamKeeper.classify(t).typeForInterfaceMethod()));
-                                            }
-                                            else {
-                                                //assumes an array of primitives
-                                                cob.aload(arenaSlot).aload(keepers.get(ii).stored);
-                                                if (isRefArgReadBackOnly(keepers.get(ii).annotations))
-                                                    cob.iconst_1();
-                                                else
-                                                    cob.iconst_0();
-                                                cob.invokestatic(CD_Utils, "toMS",
-                                                        MethodTypeDesc.of(CD_MemorySegment,
-                                                                CD_SegmentAllocator, ParamKeeper.classify(t).typeForInterfaceMethod(), ConstantDescs.CD_boolean));
-                                            }
-                                        }
-                                    }
+                                    default ->
+                                        throw new PassportException(varHandling + " not supported as an argument");
                                 }
-                                else if (t.isRecord())
-                                {
-                                    cob.aload(0).aload(arenaSlot).aload(keepers.get(ii).stored);
-                                    cob.invokevirtual(thisClassDesc, "store" + t.getSimpleName(),
-                                            MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(t)));
-                                }
-                                else if (t.equals(String.class))
-                                {
-                                    cob.aload(keepers.get(ii).stored).aload(arenaSlot);
-                                    cob.invokestatic(CD_Utils, "toCString",
-                                            MethodTypeDesc.of(CD_MemorySegment,
-                                                    ConstantDescs.CD_String, CD_Arena));
-                                } else if (t.equals(MemoryBlock.class)) {
-                                    cob.aload(keepers.get(ii).stored).aload(arenaSlot);
-                                    cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
-                                            MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
-                                } else if (isGenericPtr(t)) {
-                                    cob.aload(keepers.get(ii).stored);
-                                    cob.invokevirtual(toDesc(GenericPointer.class), "getPtr",
-                                            MethodTypeDesc.of(CD_MemorySegment));
-                                } else //is primitive
-                                    continue;
 
                                 //update all the stored locations of parameters after they've been converted to MemorySegments
                                 used++;

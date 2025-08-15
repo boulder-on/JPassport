@@ -4,10 +4,12 @@ import jpassport.MemoryBlock;
 import jpassport.PassportException;
 import jpassport.annotations.Ptr;
 
+import java.lang.annotation.Annotation;
 import java.lang.foreign.MemorySegment;
 import java.lang.reflect.Field;
 
 import static jpassport.PassportWriter.*;
+import static jpassport.PassportWriter.isPtrPtrArg;
 
 public enum ArgClassification {
     primitive,
@@ -21,18 +23,25 @@ public enum ArgClassification {
     record_array_ptr,
     memsegment,
     string_,
+    string_array,
     generic_ptr,
-    memory_block,
-    function_ptr;
+    generic_ptr_array,
+    memory_block;
 
-    static ArgClassification classify(Class<?> arg)
+    public static ArgClassification classify(Class<?> arg, Annotation[] paramAnnotations)
     {
         if (arg.isPrimitive())
             return primitive;
         if (isArrayOfPrimitives(arg))
             return primitive_array;
+        if (is2DArrayOfPrimitives(arg) && isPtrPtrArg(paramAnnotations))
+            return primitive_array2D_ptr2ptrs;
         if (is2DArrayOfPrimitives(arg))
             return primitive_array2D;
+        if (arg.isArray() && isGenericPtr(arg.getComponentType()))
+            return generic_ptr_array;
+        if (arg.isArray() && String.class.equals(arg.getComponentType()))
+            return string_array;
 
         if (arg.isRecord())
             return record_;
