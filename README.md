@@ -80,18 +80,18 @@ JPassport works in one of 3 modes:
 
 1. Using the Classfile API to build a class that implements the given interface. 
    1. PassportFactory.link()
-   3. This is a fast method that creates generally fast code (in my example code it takes about 20ms to generate the class)
-   4. The biggest problem with this method is that it is currently slower at working with structs
+   2. This is a fast method that creates generally fast code (in my example code it takes about 20ms to generate the class)
+   3. More difficult to debug since the generated code must be decompiled to understand
 2. Writing a class that implements your interface, compiling it and passing it back to you. 
-   1PassportFactory.link_written()
-   4. The process to write, compile and load the class is relatively slow, but that is a one-time cost. (in my example code it takes about 2s to generate the class)
-   4. This method creates code you can see and hand optimize (see jpassport.build.home)
-   5. This creates the overall fastest implementation currently
-3. Creating a proxy object that implements the given interface. 
+   1. PassportFactory.link_written()
+   2. The process to write, compile and load the class is relatively slow, but that is a one-time cost. (in my example code it takes about 2s to generate the class)
+   3. This method creates code you can see and hand optimize (see jpassport.build.home)
+4. Creating a proxy object that implements the given interface. 
    1. PassportFactory.proxy()
    5. The fastest way to create a class
    6. Only works with simple cases at the moment (primitives and arrays of primitives)
    7. Very slow implemenaton, Java proxy classes are not known to be fast, extensive use of reflection while running keeps it slow)
+   8. Debuggable since you can step through each line of code.
 
 If you use the class writing method, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
 If you provide the system property __"jpassport.build.home"__ then the classes will be written and

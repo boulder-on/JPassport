@@ -20,6 +20,8 @@ import java.lang.annotation.Annotation;
 import java.lang.constant.ClassDesc;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -767,7 +769,7 @@ public class Utils {
         }
     };
 
-    record StructField(Field field, Method accessor, String name, Class<?> type, MemoryLayout layout, long offset, boolean isPtr){
+    record StructField(Field field, Method accessor, MethodHandle mhandle, String name, Class<?> type, MemoryLayout layout, long offset, boolean isPtr){
         public Object get(Object rec)
         {
             try {
@@ -826,8 +828,8 @@ public class Utils {
 
     static class StructConversionDetails
     {
-        Class<?>  recordType;
-        GroupLayout layout;
+        final Class<?>  recordType;
+        final GroupLayout layout;
         List<StructField> fields = new ArrayList<>();
         Constructor<?> constructor = null;
 
@@ -893,13 +895,22 @@ public class Utils {
                     memLayout.add(MemoryLayout.paddingLayout(paddingBytes));
 
                 var accessor = Arrays.stream(recordType.getDeclaredMethods()).filter(m -> m.getName().equals(f.getName())).findFirst();
-                fields.add(new StructField(f, accessor.orElseGet(null), f.getName(), f.getType(), layoutType, 0, isPtr));
+                MethodHandle mh = null;
+                try {
+                    mh = MethodHandles.publicLookup().findVirtual(recordType, f.getName(), MethodType.methodType(f.getType()));
+                } catch (NoSuchMethodException e) {
+                    throw new RuntimeException(e);
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                }
+
+                fields.add(new StructField(f, accessor.orElseGet(null), mh, f.getName(), f.getType(), layoutType, 0, isPtr));
             }
             layout = makeStruct(memLayout.toArray(new MemoryLayout[0]));
 
             List<StructField> cpy = new ArrayList<>();
             for (var f : fields)
-                cpy.add(new StructField(f.field(), f.accessor(), f.name(), f.type(), f.layout(), layout.byteOffset(groupElement(f.name())), f.isPtr()));
+                cpy.add(new StructField(f.field(), f.accessor(), f.mhandle(), f.name(), f.type(), f.layout(), layout.byteOffset(groupElement(f.name())), f.isPtr()));
             fields = cpy;
         }
         MemorySegment toNative(SegmentAllocator scope, Object rec)
@@ -915,25 +926,26 @@ public class Utils {
             for (Object rec : recs) {
                 for (var f : fields)
                 {
-                    try {
+//                    try
+                    {
                         if (f.type().isPrimitive()) {
                             try {
                                 if (f.type.equals(byte.class))
-                                    memStruct.set(ValueLayout.JAVA_BYTE, f.offset + offset, (byte)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_BYTE, f.offset + offset, (byte)f.mhandle.invoke(rec));
                                 else if (f.type.equals(short.class))
-                                    memStruct.set(ValueLayout.JAVA_SHORT, f.offset + offset, (short)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_SHORT, f.offset + offset, (short)f.mhandle.invoke(rec));
                                 else if (f.type.equals(int.class))
-                                    memStruct.set(ValueLayout.JAVA_INT, f.offset + offset, (int)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_INT, f.offset + offset, (int)f.mhandle.invoke(rec));
                                 else if (f.type.equals(long.class))
-                                    memStruct.set(ValueLayout.JAVA_LONG, f.offset + offset, (long)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_LONG, f.offset + offset, (long)f.mhandle.invoke(rec));
                                 else if (f.type.equals(float.class))
-                                    memStruct.set(ValueLayout.JAVA_FLOAT, f.offset + offset, (float)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_FLOAT, f.offset + offset, (float)f.mhandle.invoke(rec));
                                 else if (f.type.equals(double.class))
-                                    memStruct.set(ValueLayout.JAVA_DOUBLE, f.offset + offset, (double)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_DOUBLE, f.offset + offset, (double)f.mhandle.invoke(rec));
                                 else if (f.type.equals(boolean.class))
-                                    memStruct.set(ValueLayout.JAVA_BOOLEAN, f.offset + offset, (boolean)f.accessor.invoke(rec));
+                                    memStruct.set(ValueLayout.JAVA_BOOLEAN, f.offset + offset, (boolean)f.mhandle.invoke(rec));
                             }
-                            catch (InvocationTargetException ex)
+                            catch (Throwable ex)
                             {
                                 throw new RuntimeException(ex);
                             }
@@ -968,9 +980,10 @@ public class Utils {
                             }
 
                         }
-                    } catch (IllegalAccessException e) {
-                        throw new RuntimeException(e);
                     }
+//                    catch (IllegalAccessException e) {
+//                        throw new RuntimeException(e);
+//                    }
                 }
                 offset += size;
             }

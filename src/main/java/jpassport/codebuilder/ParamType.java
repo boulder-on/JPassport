@@ -29,6 +29,11 @@ public enum ParamType {
         desc = cd;
     }
 
+    public int requiredSlots()
+    {
+        return slot_count;
+    }
+
     public Optional<ClassDesc> toDesc()
     {
         return desc == null ? Optional.empty() : Optional.of(desc);

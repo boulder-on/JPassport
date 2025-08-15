@@ -753,7 +753,7 @@ public class PassportWriter<T extends Passport>
      * @param interfaceMethods All of the methods in the interfacee
      * @return The list of Record types that should be imported.
      */
-    private static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
+    static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
         Set<Class<?>> extraImports = new HashSet<>();
         for (Method m : interfaceMethods) {
             Class<?> retType = m.getReturnType();
