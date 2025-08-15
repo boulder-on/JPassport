@@ -259,7 +259,7 @@ public class PassportFactory
         }
     }
 
-    static List<Method> getDeclaredMethods(Class<?> interfaceClass) {
+    public static List<Method> getDeclaredMethods(Class<?> interfaceClass) {
         Method[] methods = interfaceClass.getDeclaredMethods();
         return Arrays.stream(methods).
                 filter(method -> !Modifier.isStatic(method.getModifiers())).

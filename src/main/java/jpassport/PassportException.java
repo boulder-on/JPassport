@@ -16,4 +16,8 @@ public class PassportException extends Error
     public PassportException(String msg) {
         super(msg);
     }
+
+    public PassportException(String msg, Throwable parent) {
+        super(msg, parent);
+    }
 }

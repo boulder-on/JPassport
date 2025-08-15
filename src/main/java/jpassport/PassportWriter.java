@@ -26,16 +26,11 @@ import static jpassport.Utils.Platform.Windows;
 /***
  * Given an interface class that extends Passport this class will generate a class that implements the interface
  * and allows calls through to a native library.
- *
  * This class can dynamically create, compile, and hand back the class, or just create the source code so you
  * can compile later. If you use the PassportFactory then you do not need to use this class at all.
- *
  * In order to write out a class you will:
- *
  * new PassportWriter(MyInterface.class).writeModule(Path.of("out/testing"));
- *
  * At this point your class is written, so you can compile it yourself. The created class still required JPassport to run.
- *
  * MyInterface mi = new MyInterface_impl(PassportFactory.loadMethodHandles(libName, MyInterface.class));
  *
  * @param <T> A class that extends Passport
@@ -753,7 +748,7 @@ public class PassportWriter<T extends Passport>
      * @param interfaceMethods All of the methods in the interfacee
      * @return The list of Record types that should be imported.
      */
-    static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
+    public static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
         Set<Class<?>> extraImports = new HashSet<>();
         for (Method m : interfaceMethods) {
             Class<?> retType = m.getReturnType();
