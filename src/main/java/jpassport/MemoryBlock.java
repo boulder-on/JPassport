@@ -22,6 +22,24 @@ public class MemoryBlock {
         sizeInBytes = bytes;
     }
 
+    public MemoryBlock(byte[] data)
+    {
+        buffer = data;
+        sizeInBytes = data.length;
+    }
+
+    public static MemoryBlock recreate(MemorySegment ptr, MemoryBlock orig)
+    {
+        return new MemoryBlock(ptr, orig.size());
+    }
+
+    public MemoryBlock(MemorySegment ptr, long bytes)
+    {
+        sizeInBytes = bytes;
+        this.ptr = ptr.reinterpret(bytes);
+        readBack();
+    }
+
     public long size()
     {
         return sizeInBytes;
@@ -30,7 +48,12 @@ public class MemoryBlock {
     public MemorySegment toPtr(Arena scope)
     {
         if (ptr == null)
-            ptr = scope.allocate(sizeInBytes);
+        {
+            if (buffer != null)
+                ptr = Utils.toMS(scope, buffer, false);
+            else
+                ptr = scope.allocate(sizeInBytes);
+        }
         return ptr;
     }
 

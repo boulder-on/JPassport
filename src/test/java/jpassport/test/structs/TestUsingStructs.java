@@ -1,5 +1,6 @@
 package jpassport.test.structs;
 
+import jpassport.MemoryBlock;
 import jpassport.PassportFactory;
 import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
@@ -68,5 +69,20 @@ public class TestUsingStructs {
         assertArrayEquals(new long[] {6,7,8,9}, regArg[0].s_longPtr());
         assertArrayEquals(longArr, regArg[0].s_long());
         assertArrayEquals(doublePtr, regArg[0].s_doublePtr());
+    }
+
+    @Test
+    public void testMemoryBlockMember()
+    {
+        var mb = new MemoryBlock(1024);
+        var mbs = new PassMemoryBlockStruct[] { new PassMemoryBlockStruct(mb, (int)mb.size())};
+
+        PassingStructs.passMemoryBlock(mbs);
+
+        byte[] expected = new byte[1024];
+        for (int n = 0; n < expected.length; ++n)
+            expected[n] = (byte)(n % 10);
+
+        assertArrayEquals(expected, mbs[0].mem().getBytes());
     }
 }

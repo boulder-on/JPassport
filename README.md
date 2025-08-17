@@ -360,9 +360,11 @@ Roughly in order of importance
 
 1. Support arrays of Records 
 2. Support returning a Record
-3. Use the Java Micro-benchmarking harness.
 
 # Release Notes
+- 1.1.1-24
+  - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
+  - Added MemoryBlock as a valid struct member
 - 1.1.0-24
   - Add support for building classes with the Classfile API
 - 1.0.1-22

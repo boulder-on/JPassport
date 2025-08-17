@@ -10,4 +10,6 @@ public interface TestStructCalls extends Passport {
     double passStructWithArrays(@RefArg PassingArrays[] arrays);
     @NotRequired
     void testAddrCall(StructWithPrt test);
+
+    void passMemoryBlock(@RefArg PassMemoryBlockStruct[] memoryBlock);
 }

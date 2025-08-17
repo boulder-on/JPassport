@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class TestJPassport
 {
-    static TestLink testClass[];
+    static TestLink[] testClass;
 
     @BeforeAll
     public static void startup() throws Throwable

@@ -81,9 +81,16 @@ struct PassingArrays
     long long* s_longPtr;
 };
 
+struct PassMemoryBlock
+{
+    char *data;
+    int data_size;
+};
+
 extern double passStruct(struct PassingData* data);
 extern double passComplex(struct ComplexPassing* complex);
 extern double passStructWithArrays(struct PassingArrays* structWithArrays);
+extern void passMemoryBlock(struct PassMemoryBlock* memoryBlock);
 
 typedef int (*callbackFN) (int, double);
 extern int call_CB(callbackFN fn, int, double);

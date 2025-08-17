@@ -17,6 +17,7 @@ public class ParamKeeper {
     public ParamType type;
     public int storedOrig, stored;
     public Annotation[] annotations;
+    public ArgClassification classification;
 
     public ParamKeeper(Class<?> c, ParamType t, int slot, Annotation[] a) {
         classtype = c;
@@ -24,6 +25,7 @@ public class ParamKeeper {
         storedOrig = slot;
         stored = slot;
         annotations = a;
+        classification = ArgClassification.classify(c, a);
     }
 
     public String toString() {

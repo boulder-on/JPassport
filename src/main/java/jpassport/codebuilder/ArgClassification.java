@@ -5,6 +5,7 @@ import jpassport.PassportException;
 import jpassport.annotations.Ptr;
 
 import java.lang.annotation.Annotation;
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.reflect.Field;
 
@@ -21,12 +22,13 @@ public enum ArgClassification {
     record_ptr,
     record_array,
     record_array_ptr,
-    memsegment,
+    mem_segment,
     string_,
     string_array,
     generic_ptr,
     generic_ptr_array,
-    memory_block;
+    memory_block,
+    arena;
 
     public static ArgClassification classify(Class<?> arg, Annotation[] paramAnnotations)
     {
@@ -34,7 +36,7 @@ public enum ArgClassification {
             return primitive;
         if (isArrayOfPrimitives(arg))
             return primitive_array;
-        if (is2DArrayOfPrimitives(arg) && isPtrPtrArg(paramAnnotations))
+        if (is2DArrayOfPrimitives(arg) && paramAnnotations != null && isPtrPtrArg(paramAnnotations))
             return primitive_array2D_ptr2ptrs;
         if (is2DArrayOfPrimitives(arg))
             return primitive_array2D;
@@ -48,14 +50,15 @@ public enum ArgClassification {
         if (arg.isArray() && arg.getComponentType().isRecord())
             return record_array;
         if (MemorySegment.class.equals(arg))
-            return memsegment;
+            return mem_segment;
         if (MemoryBlock.class.equals(arg))
             return memory_block;
         if (String.class.equals(arg))
             return string_;
         if (isGenericPtr(arg))
             return generic_ptr;
-
+        if (Arena.class.equals(arg))
+            return arena;
         throw new PassportException("Unhandled type: " + arg.getName());
 
     }
@@ -78,7 +81,7 @@ public enum ArgClassification {
             return isPointer ? record_array_ptr : record_array;
 
         if (MemorySegment.class.equals(arg))
-            return memsegment;
+            return mem_segment;
         if (MemoryBlock.class.equals(arg))
             return memory_block;
         if (String.class.equals(arg))

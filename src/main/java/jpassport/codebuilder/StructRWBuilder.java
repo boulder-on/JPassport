@@ -2,7 +2,6 @@ package jpassport.codebuilder;
 
 import jpassport.*;
 import jpassport.annotations.Array;
-import jpassport.annotations.Ptr;
 
 import java.lang.annotation.Annotation;
 import java.lang.classfile.ClassBuilder;
@@ -112,79 +111,54 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                 cob.aastore();
             }
 
-            if (ftype.isPrimitive()) {
-                ClassDesc prim = primativeToVLDescMap.get(ftype);
-                String constName = primitiveToConstName.get(ftype);
+            var varHandling = ArgClassification.classify(f);
 
-                cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
-                cob.getstatic(CD_ValueLayout, constName, prim);
-                cob.loadConstant(f.getName());
-                cob.invokeinterface(prim, "withName",
-                        MethodTypeDesc.of(CD_MemoryLayout, ConstantDescs.CD_String));
-                cob.aastore();
-            } else if (ftype.isArray()) {
-                int layoutSlot = firstAvailableSlot++;
+            switch (varHandling)
+            {
+                case primitive -> {
+                    ClassDesc prim = primativeToVLDescMap.get(ftype);
+                    String constName = primitiveToConstName.get(ftype);
 
-                if (ftype.getComponentType().isPrimitive()) {
+                    cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
+                    cob.getstatic(CD_ValueLayout, constName, prim);
+                    cob.loadConstant(f.getName());
+                    cob.invokeinterface(prim, "withName",
+                            MethodTypeDesc.of(CD_MemoryLayout, ConstantDescs.CD_String));
+                    cob.aastore();
+                }
+                case primitive_array -> {
+                    int layoutSlot = firstAvailableSlot++;
                     var ptype = ftype.getComponentType();
                     Annotation[] arrays = f.getAnnotationsByType(Array.class);
-                    boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
-
-                    if (arrays.length > 0) {
-                        int length = ((Array) arrays[0]).length();
-                        cob.loadConstant((long)length);
-                        cob.getstatic(CD_ValueLayout, primitiveToConstName.get(ptype), primativeToVLDescMap.get(ptype));
-                        cob.invokestatic(CD_MemoryLayout, "sequenceLayout",
-                                MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_long, CD_MemoryLayout), true);
-                        cob.loadConstant(f.getName());
-                        cob.invokeinterface(toDesc(SequenceLayout.class), "withName",
-                                MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_String));
-                        cob.astore(layoutSlot);
-                    } else if (isPointer) {
-                        cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
-                        cob.loadConstant(f.getName());
-                        cob.invokeinterface(CD_AddressLayout, "withName",
-                                MethodTypeDesc.of(CD_AddressLayout, ConstantDescs.CD_String));
-                        cob.astore(layoutSlot);
-                    }
+                    int length = ((Array) arrays[0]).length();
+                    cob.loadConstant((long)length);
+                    cob.getstatic(CD_ValueLayout, primitiveToConstName.get(ptype), primativeToVLDescMap.get(ptype));
+                    cob.invokestatic(CD_MemoryLayout, "sequenceLayout",
+                            MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_long, CD_MemoryLayout), true);
+                    cob.loadConstant(f.getName());
+                    cob.invokeinterface(toDesc(SequenceLayout.class), "withName",
+                            MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_String));
+                    cob.astore(layoutSlot);
+                    cob.aload(memLayoutArrSlot).loadConstant(idx++).aload(layoutSlot); //for the later array store
+                    cob.aastore();
                 }
-
-                cob.aload(memLayoutArrSlot).loadConstant(idx++).aload(layoutSlot); //for the later array store
-                cob.aastore();
-            }
-            else if (ftype.isRecord())
-            {
-                boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
-                cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
-
-                if (isPointer)
-                {
+                case record_ -> {
+                    cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
+                    cob.getstatic(groupLayouts.get(ftype).layout).loadConstant(f.getName());
+                    cob.invokeinterface(toDesc(GroupLayout.class), "withName", MethodTypeDesc.of(toDesc(GroupLayout.class), ConstantDescs.CD_String));
+                    cob.aastore();
+                }
+                case primitive_array_ptr, record_ptr, string_, mem_segment, memory_block -> {
+                    cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                     cob.loadConstant(f.getName());
                     cob.invokeinterface(CD_AddressLayout, "withName",
                             MethodTypeDesc.of(CD_AddressLayout, ConstantDescs.CD_String));
+                    cob.aastore();
                 }
-                else
-                {
-                    cob.getstatic(groupLayouts.get(ftype).layout).loadConstant(f.getName());
-                    cob.invokeinterface(toDesc(GroupLayout.class), "withName", MethodTypeDesc.of(toDesc(GroupLayout.class), ConstantDescs.CD_String));
-//                    TestStructLayout.withName("ts")
-                }
-                cob.aastore();
-            }
-            else if (ftype.equals(String.class) || MemorySegment.class.equals(ftype))
-            {
-                cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
-                cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
-                cob.loadConstant(f.getName());
-                cob.invokeinterface(CD_AddressLayout, "withName",
-                        MethodTypeDesc.of(CD_AddressLayout, ConstantDescs.CD_String));
-                cob.aastore();
-            }
-            else if (isGenericPtr(ftype) || MemoryBlock.class.equals(ftype))
-            {
-                throw new PassportException("Memory blocks and pointers in structs are not supported yet");
-                //todo
+                default ->
+                    throw new PassportException(varHandling + " is not supported in structs are not supported yet");
+
             }
 
 
@@ -394,7 +368,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                             MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
 
                                 }
-                                case memsegment -> {
+                                case mem_segment -> {
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int addrSlot = slots;
@@ -409,6 +383,25 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 //                                memStruct.set(ADDRESS, StructWithPrtLayoutOffsets[1] + offset, rec.addr());
 
                                 }
+                                case memory_block -> {
+                                    cob.aload(inputRecSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
+                                    int addrSlot = slots;
+                                    slots = storeParam(cob, addrSlot, ftype);
+
+                                    cob.aload(addrSlot).aload(arenaSlot);
+                                    cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr", MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
+                                    addrSlot = slots;
+                                    slots = storeParam(cob, addrSlot, MemorySegment.class);
+
+                                    cob.aload(memSegSlot);
+                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
+                                    cob.aload(addrSlot);
+                                    cob.invokeinterface(CD_MemorySegment, "set",
+                                            MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
+                                }
+
                                 case string_ -> {
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
@@ -428,10 +421,6 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                             MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
 //                                memStruct.set(ADDRESS, ComplexStructLayoutOffsets[3] + offset, Utils.toCString(rec.string(), scope));
                                 }
-                                case primitive_array2D, primitive_array2D_ptr2ptrs,record_array , record_array_ptr,
-                                     generic_ptr, memory_block ->
-                                        throw new PassportException(varHandling + " not implemented");
-
                                 default ->
                                     throw new PassportException(varHandling + " not implemented");
                             }
@@ -631,7 +620,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 //var tsPtr = readTestStruct(Utils.slice(memStruct, memStruct.get(ADDRESS, ComplexStructLayoutOffsets[2]), TestStructLayout.byteSize()), rec.tsPtr());
 
                                 }
-                                case memsegment -> {
+                                case mem_segment -> {
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
@@ -641,7 +630,6 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 //                                var addr = memStruct.get(ADDRESS, StructWithPrtLayoutOffsets[1]);
 
                                 }
-
                                 case string_ -> {
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -655,10 +643,24 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     storeParam(cob, fieldSlots[ii], ftype);
 //                                var string = Utils.readString(memStruct.get(ADDRESS, ComplexStructLayoutOffsets[3]));
                                 }
-                                case primitive_array2D, primitive_array2D_ptr2ptrs,record_array , record_array_ptr,
-                                     generic_ptr, memory_block ->
-                                        throw new PassportException(varHandling + " not supported");
+                                case memory_block -> {
+                                    cob.aload(memStructSlot);
+                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
+                                    cob.invokeinterface(CD_MemorySegment, "get",
+                                            MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
+                                    int msegmentSlot = slots;
+                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
 
+                                    cob.aload(recordTypeSlot);
+                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(toDesc(ftype)));
+                                    int origBlockSlot = slots;
+                                    slots = storeParam(cob, origBlockSlot, MemoryBlock.class);
+
+                                    cob.aload(msegmentSlot).aload(origBlockSlot);
+                                    cob.invokestatic(toDesc(MemoryBlock.class), "recreate", MethodTypeDesc.of(toDesc(MemoryBlock.class), CD_MemorySegment, toDesc(MemoryBlock.class)));
+                                    storeParam(cob, fieldSlots[ii], ftype);
+                                }
                                 default ->
                                     throw new PassportException(varHandling + " not supported");
                             };

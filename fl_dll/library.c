@@ -407,6 +407,14 @@ double passStructWithArrays(struct PassingArrays* structWithArrays)
     return ret;
 }
 
+void passMemoryBlock(struct PassMemoryBlock* memoryBlock)
+{
+    for (int n =0; n < memoryBlock->data_size; ++n)
+    {
+        memoryBlock->data[n] = n % 10;
+    }
+}
+
 int call_CB(callbackFN fn, int v, double v2)
 {
     int sum = 0;

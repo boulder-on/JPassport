@@ -22,6 +22,7 @@ import java.util.*;
 
 import static jpassport.PassportWriter.*;
 
+import static jpassport.codebuilder.ArgClassification.*;
 import static jpassport.codebuilder.CBConstants.storeParam;
 import static jpassport.codebuilder.CBConstants.loadParam;
 import static jpassport.codebuilder.CBConstants.toDesc;
@@ -214,11 +215,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                             int used = keepers.stream().mapToInt(ParamKeeper::getSlotCount).sum();
                             used += 1;
-                            var arenaSlot = keepers.stream().filter(k -> k.classtype.equals(Arena.class)).mapToInt(k->k.stored).findFirst();
-                            keepers = keepers.stream().filter(k -> !k.classtype.equals(Arena.class)).toList();
+                            var arenaSlot = keepers.stream().filter(k -> k.classification == arena).mapToInt(k->k.stored).findFirst();
+                            keepers = keepers.stream().filter(k -> k.classification != arena).toList();
 
                             for (var k : keepers) {
-                                if (k.classtype.equals(MemoryBlock.class) && arenaSlot.isPresent()) {
+                                if (k.classification == memory_block && arenaSlot.isPresent()) {
                                     cob.aload(k.stored).aload(arenaSlot.getAsInt());
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
@@ -226,7 +227,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     cob.astore(used);
                                     k.stored = used;
                                     k.type = ParamType.addressType;
-                                } else if (isGenericPtr(k.classtype)) {
+                                } else if (k.classification == generic_ptr) {
                                     cob.aload(k.stored);
                                     cob.invokevirtual(toDesc(GenericPointer.class), "getPtr",
                                             MethodTypeDesc.of(CD_MemorySegment));
@@ -250,7 +251,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             loadParam(cob, idx, iMethod.getReturnType());
 
                             for (var k : keepers) {
-                                if (k.classtype.equals(MemoryBlock.class)) {
+                                //Memory blocks should always be read back there's no need to say @RegArg
+                                if (k.classification == memory_block) {
                                     cob.aload(k.storedOrig);
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "readBack", ConstantDescs.MTD_void);
                                 }
@@ -320,7 +322,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                                 switch (varHandling)
                                 {
-                                    case primitive, memsegment -> {
+                                    case primitive, mem_segment -> {
                                         continue;
                                     }
                                     case primitive_array, primitive_array2D -> {
@@ -417,70 +419,73 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             var virtMethodRetType = iMethod.getReturnType();
                             storeParam(cob, used, virtMethodRetType);
 
-                            if (iMethod.getReturnType().equals(String.class))
+                            var argHandler = ArgClassification.classify(iMethod.getReturnType(), null);
+                            switch(argHandler)
                             {
-                                var cdescString = ClassDesc.of(String.class.getName());
-                                var mtd = MethodTypeDesc.of(cdescString, CD_MemorySegment);
-                                loadParam(cob, used, iMethod.getReturnType());
-                                cob.invokestatic(CD_Utils, "readString", mtd);
-                                used++;
-                                storeParam(cob, used, iMethod.getReturnType());
-                            } else if (isGenericPtr(iMethod.getReturnType())) {
+                                case string_ -> {
+                                    var cdescString = ClassDesc.of(String.class.getName());
+                                    var mtd = MethodTypeDesc.of(cdescString, CD_MemorySegment);
+                                    loadParam(cob, used, iMethod.getReturnType());
+                                    cob.invokestatic(CD_Utils, "readString", mtd);
+                                    used++;
+                                    storeParam(cob, used, iMethod.getReturnType());
+                                }
+                                case generic_ptr -> {
+                                    var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
+                                    cob.new_(toDesc(Pointer.class)).dup();
 
-                                var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
-                                cob.new_(toDesc(Pointer.class)).dup();
-
-                                loadParam(cob, used,  virtMethodRetType);
-                                cob.invokespecial(toDesc(Pointer.class), ConstantDescs.INIT_NAME, sig);
-                                used++;
-                                storeParam(cob, used, iMethod.getReturnType());
+                                    loadParam(cob, used,  virtMethodRetType);
+                                    cob.invokespecial(toDesc(Pointer.class), ConstantDescs.INIT_NAME, sig);
+                                    used++;
+                                    storeParam(cob, used, iMethod.getReturnType());
+                                }
                             }
-
 
                             //Read back any parameters that were changed by the native method
                             for (ParamKeeper k : keepers)
                             {
                                 //Only things annotated with @RefArg need to be read back
-                                if (!isRefArg(k.annotations) || !k.classtype.isArray())
+                                //Memory blocks should always be read back there's no need to say @RegArg
+                                if (!(isRefArg(k.annotations) || k.classification == memory_block))
                                     continue;
 
-                                if (k.classtype.getComponentType().isRecord()) {
-                                    cob.aload(k.storedOrig).loadConstant(0);
-                                    cob.aload(0).aload(k.stored).aload(k.storedOrig).loadConstant(0).aaload();
-                                    var recType = k.classtype.getComponentType();
-                                    cob.invokevirtual(thisClassDesc, "read" + recType.getSimpleName(),
-                                            MethodTypeDesc.of(toDesc(recType), CD_MemorySegment, toDesc(recType)));
-                                    cob.aastore();
-                                }
-                                else if (k.classtype.getComponentType().equals(String.class))
+                                switch (k.classification)
                                 {
-                                    cob.aload(k.stored).aload(k.storedOrig);
-                                    cob.invokestatic(CD_Utils, "fromCString",
-                                            MethodTypeDesc.of(ConstantDescs.CD_void,
-                                                    CD_MemorySegment, ConstantDescs.CD_String.arrayType()));
+                                    case record_array -> {
+                                        cob.aload(k.storedOrig).loadConstant(0);
+                                        cob.aload(0).aload(k.stored).aload(k.storedOrig).loadConstant(0).aaload();
+                                        var recType = k.classtype.getComponentType();
+                                        cob.invokevirtual(thisClassDesc, "read" + recType.getSimpleName(),
+                                                MethodTypeDesc.of(toDesc(recType), CD_MemorySegment, toDesc(recType)));
+                                        cob.aastore();
+                                    }
+                                    case string_array -> {
+                                        cob.aload(k.stored).aload(k.storedOrig);
+                                        cob.invokestatic(CD_Utils, "fromCString",
+                                                MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                        CD_MemorySegment, ConstantDescs.CD_String.arrayType()));
+                                    }
+                                    case memory_block -> {
+                                        cob.aload(k.storedOrig);
+                                        cob.invokevirtual(toDesc(MemoryBlock.class), "readBack",
+                                                ConstantDescs.MTD_void);
 
-                                }
-                                else if (k.classtype.equals(MemoryBlock.class)) {
-                                    cob.aload(k.storedOrig);
-                                    cob.invokevirtual(toDesc(MemoryBlock.class), "readBack",
-                                            ConstantDescs.MTD_void);
-                                }
-                                else if (isGenericPtr(k.classtype.getComponentType()))
-                                {
-                                    cob.aload(k.storedOrig).aload(k.stored);
-                                    cob.invokestatic(CD_Utils, "toArr",
-                                            MethodTypeDesc.of(ConstantDescs.CD_void,
-                                                    toDesc(GenericPointer.class).arrayType(), CD_MemorySegment));
+                                    }
+                                    case generic_ptr_array -> {
+                                        cob.aload(k.storedOrig).aload(k.stored);
+                                        cob.invokestatic(CD_Utils, "toArr",
+                                                MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                        toDesc(GenericPointer.class).arrayType(), CD_MemorySegment));
 
+                                    }
+                                    case primitive_array -> {
+                                        //Loads the arguments for toMS()
+                                        cob.aload(k.storedOrig).aload(k.stored);
+                                        cob.invokestatic(CD_Utils, "toArr",
+                                                MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                        k.typeForInterfaceMethod(), CD_MemorySegment));
+                                    }
                                 }
-                                else {//primitive array
-                                    //Loads the arguments for toMS()
-                                    cob.aload(k.storedOrig).aload(k.stored);
-                                    cob.invokestatic(CD_Utils, "toArr",
-                                            MethodTypeDesc.of(ConstantDescs.CD_void,
-                                                    k.typeForInterfaceMethod(), CD_MemorySegment));
-                                }
-
                             }
 
                             if (passedArena.isEmpty()) {
@@ -543,7 +548,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         if (primitiveToDescMap.containsKey(c))
             return primitiveToDescMap.get(c);
 
-        if (c.isRecord())
+        if (c.isRecord() || MemoryBlock.class.equals(c))
             return toDesc(c);
         if (c.equals(String.class))
             return ConstantDescs.CD_String;
