@@ -443,3 +443,8 @@ extern int passChars(char* fillThis, int sizemax)
 
     return s;
 }
+
+void* PassPointers(void* hMem)
+{
+    return hMem;
+}

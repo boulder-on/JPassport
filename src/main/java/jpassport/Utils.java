@@ -14,18 +14,15 @@ package jpassport;
 
 import jpassport.annotations.Array;
 import jpassport.annotations.Ptr;
+import jpassport.pointers.GenericPointer;
+import jpassport.pointers.MemoryBlock;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.constant.ClassDesc;
 import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,11 +30,11 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
-import static java.lang.foreign.MemoryLayout.PathElement.groupElement;
-import static jpassport.PassportWriter.getPaddingBytes;
-import static jpassport.PassportWriter.isGenericPtr;
+import static jpassport.codebuilder.CBConstants.getPaddingBytes;
 
-
+/**
+ * A set of methods for converting Java entities to native memory (mostly).
+ */
 public class Utils {
 
     public static MemorySegment toAddr(MemorySegment seg) {
@@ -657,9 +654,11 @@ public class Utils {
     private static long typeToSize(Class<?> type)
     {
 
-        if (type.equals(byte.class)) return ValueLayout.JAVA_CHAR.byteSize();
+        if (type.equals(byte.class)) return ValueLayout.JAVA_BYTE.byteSize();
+        if (type.equals(char.class)) return ValueLayout.JAVA_CHAR.byteSize();
         if (type.equals(short.class)) return ValueLayout.JAVA_SHORT.byteSize();
         if (type.equals(int.class)) return ValueLayout.JAVA_INT.byteSize();
+        if (type.equals(boolean.class)) return ValueLayout.JAVA_BOOLEAN.byteSize();
         if (type.equals(long.class)) return ValueLayout.JAVA_LONG.byteSize();
         if (type.equals(float.class)) return ValueLayout.JAVA_FLOAT.byteSize();
         if (type.equals(double.class)) return ValueLayout.JAVA_DOUBLE.byteSize();
@@ -672,7 +671,7 @@ public class Utils {
         if (!c.isRecord())
             throw new IllegalArgumentException("Can only get size of records, not " + c.getName());
 
-        int size = 0;
+        long size = 0;
         for (Field f : c.getDeclaredFields())
         {
             size += getPaddingBytes(f);
@@ -688,7 +687,7 @@ public class Utils {
                 else
                     size += size_of(type);
             }
-            else if (String.class.equals(type))
+            else if (String.class.equals(type) || MemoryBlock.class.equals(type))
                 size += ValueLayout.ADDRESS.byteSize();
             else if (type.isArray())
             {
@@ -706,7 +705,20 @@ public class Utils {
         }
         return size;
     }
-    
+
+    public static MemorySegment toPtr(Arena arena, MemoryBlock mb)
+    {
+        if (mb == null)
+            return MemorySegment.NULL;
+        return mb.toPtr(arena);
+    }
+
+    public static void readBack(MemoryBlock mb)
+    {
+        if (mb != null)
+            mb.readBack();
+    }
+
 //    public static MemorySegment toMS(Passport passport, Object ob, Arena scope)
 //    {
 //        Class<?> c = ob.getClass();
@@ -757,389 +769,389 @@ public class Utils {
         return MemoryLayout.structLayout(memLayout.toArray(new MemoryLayout[0]));
     }
 
-    private static final Map<Class<?>, MemoryLayout> typeToCName = new HashMap<>()
-    {
-        {
-            put(byte.class, ValueLayout.JAVA_CHAR);
-            put(short.class, ValueLayout.JAVA_SHORT);
-            put(int.class, ValueLayout.JAVA_INT);
-            put(long.class, ValueLayout.JAVA_LONG);
-            put(float.class, ValueLayout.JAVA_FLOAT);
-            put(double.class, ValueLayout.JAVA_DOUBLE);
-        }
-    };
+//    private static final Map<Class<?>, MemoryLayout> typeToCName = new HashMap<>()
+//    {
+//        {
+//            put(byte.class, ValueLayout.JAVA_CHAR);
+//            put(short.class, ValueLayout.JAVA_SHORT);
+//            put(int.class, ValueLayout.JAVA_INT);
+//            put(long.class, ValueLayout.JAVA_LONG);
+//            put(float.class, ValueLayout.JAVA_FLOAT);
+//            put(double.class, ValueLayout.JAVA_DOUBLE);
+//        }
+//    };
 
-    record StructField(Field field, Method accessor, MethodHandle mhandle, String name, Class<?> type, MemoryLayout layout, long offset, boolean isPtr){
-        public Object get(Object rec)
-        {
-            try {
-                return accessor.invoke(rec);
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        public MemorySegment ofArray(Object rec)
-        {
-            if (!type.isArray())
-                throw new IllegalArgumentException("Field is not an array");
-
-            Class<?> arrType = type.getComponentType();
-
-           if (arrType.equals(byte.class))
-               return MemorySegment.ofArray((byte[])get(rec));
-           else if (arrType.equals(short.class))
-                return MemorySegment.ofArray((short[])get(rec));
-           else if (arrType.equals(int.class))
-               return MemorySegment.ofArray((int[])get(rec));
-           else if (arrType.equals(long.class))
-               return MemorySegment.ofArray((long[])get(rec));
-           else if (arrType.equals(float.class))
-               return MemorySegment.ofArray((float[])get(rec));
-           else if (arrType.equals(double.class))
-               return MemorySegment.ofArray((double[])get(rec));
-
-           throw new IllegalArgumentException("Unknown array type for conversion.");
-        }
-
-        public MemorySegment toPointer(SegmentAllocator scope, Object rec)
-        {
-            if (!type.isArray())
-                throw new IllegalArgumentException("Field is not an array");
-
-            Class<?> arrType = type.getComponentType();
-
-            if (arrType.equals(byte.class))
-                return Utils.toMS(scope, (byte[])get(rec), false);
-            else if (arrType.equals(short.class))
-                return Utils.toMS(scope, (short[])get(rec), false);
-            else if (arrType.equals(int.class))
-                return Utils.toMS(scope, (int[])get(rec), false);
-            else if (arrType.equals(long.class))
-                return Utils.toMS(scope, (long[])get(rec), false);
-            else if (arrType.equals(float.class))
-                return Utils.toMS(scope, (float[])get(rec), false);
-            else if (arrType.equals(double.class))
-                return Utils.toMS(scope, (double[])get(rec), false);
-
-            throw new IllegalArgumentException("Unknown array type for conversion.");
-        }
-    }
-
-    static class StructConversionDetails
-    {
-        final Class<?>  recordType;
-        final GroupLayout layout;
-        List<StructField> fields = new ArrayList<>();
-        Constructor<?> constructor = null;
-
-        StructConversionDetails(Class<?> t)
-        {
-            recordType = t;
-
-            List<MemoryLayout> memLayout = new ArrayList<>();
-            for (Field f : recordType.getDeclaredFields()) {
-                MemoryLayout layoutType = null;
-                boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
-
-                int paddingBytes = getPaddingBytes(f);
-                if (paddingBytes < 0)
-                    memLayout.add(MemoryLayout.paddingLayout(paddingBytes));
-
-                Class<?> type = f.getType();
-                if (type.isPrimitive())
-                {
-                    layoutType = typeToCName.get(type).withName(f.getName());
-                    memLayout.add(layoutType);
-                }
-                else if (type.isRecord())
-                {
-                    var subStruct = getStructDetails(type);
-                    if (isPtr)
-                    {
-                        layoutType = ValueLayout.ADDRESS.withName(f.getName());
-                        memLayout.add(layoutType);
-                    }
-                    else
-                    {
-                        layoutType = subStruct.layout.withName(f.getName());
-                        memLayout.add(layoutType);
-                    }
-                }
-                else if (String.class.equals(type) || MemorySegment.class.equals(type) || isGenericPtr(type))
-                {
-                    layoutType = ValueLayout.ADDRESS.withName(f.getName());
-                    memLayout.add(layoutType);
-                }
-                else if (type.isArray())
-                {
-                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
-
-                    if (arrays.length > 0)
-                    {
-                        int length = ((Array) arrays[0]).length();
-                        Class<?> arrType = type.getComponentType();
-                        layoutType = MemoryLayout.sequenceLayout(length, typeToCName.get(arrType)).withName(f.getName());
-                        memLayout.add(layoutType);
-                    }
-                    else if (isPtr)
-                    {
-                        layoutType = ValueLayout.ADDRESS.withName(f.getName());
-                        memLayout.add(layoutType);
-                    }
-                    else
-                        throw new PassportException("Record arrays must be defined with either an Array or Ptr annotation");
-                }
-
-                if (paddingBytes > 0)
-                    memLayout.add(MemoryLayout.paddingLayout(paddingBytes));
-
-                var accessor = Arrays.stream(recordType.getDeclaredMethods()).filter(m -> m.getName().equals(f.getName())).findFirst();
-                MethodHandle mh = null;
-                try {
-                    mh = MethodHandles.publicLookup().findVirtual(recordType, f.getName(), MethodType.methodType(f.getType()));
-                } catch (NoSuchMethodException e) {
-                    throw new RuntimeException(e);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                }
-
-                fields.add(new StructField(f, accessor.orElseGet(null), mh, f.getName(), f.getType(), layoutType, 0, isPtr));
-            }
-            layout = makeStruct(memLayout.toArray(new MemoryLayout[0]));
-
-            List<StructField> cpy = new ArrayList<>();
-            for (var f : fields)
-                cpy.add(new StructField(f.field(), f.accessor(), f.mhandle(), f.name(), f.type(), f.layout(), layout.byteOffset(groupElement(f.name())), f.isPtr()));
-            fields = cpy;
-        }
-        MemorySegment toNative(SegmentAllocator scope, Object rec)
-        {
-            return toNative(scope, new Object[]{rec});
-        }
-
-        MemorySegment toNative(SegmentAllocator scope, Object[] recs)
-        {
-            long size = layout.byteSize();
-            MemorySegment memStruct = scope.allocate(size * recs.length);
-            long offset = 0;
-            for (Object rec : recs) {
-                for (var f : fields)
-                {
-//                    try
-                    {
-                        if (f.type().isPrimitive()) {
-                            try {
-                                if (f.type.equals(byte.class))
-                                    memStruct.set(ValueLayout.JAVA_BYTE, f.offset + offset, (byte)f.mhandle.invoke(rec));
-                                else if (f.type.equals(short.class))
-                                    memStruct.set(ValueLayout.JAVA_SHORT, f.offset + offset, (short)f.mhandle.invoke(rec));
-                                else if (f.type.equals(int.class))
-                                    memStruct.set(ValueLayout.JAVA_INT, f.offset + offset, (int)f.mhandle.invoke(rec));
-                                else if (f.type.equals(long.class))
-                                    memStruct.set(ValueLayout.JAVA_LONG, f.offset + offset, (long)f.mhandle.invoke(rec));
-                                else if (f.type.equals(float.class))
-                                    memStruct.set(ValueLayout.JAVA_FLOAT, f.offset + offset, (float)f.mhandle.invoke(rec));
-                                else if (f.type.equals(double.class))
-                                    memStruct.set(ValueLayout.JAVA_DOUBLE, f.offset + offset, (double)f.mhandle.invoke(rec));
-                                else if (f.type.equals(boolean.class))
-                                    memStruct.set(ValueLayout.JAVA_BOOLEAN, f.offset + offset, (boolean)f.mhandle.invoke(rec));
-                            }
-                            catch (Throwable ex)
-                            {
-                                throw new RuntimeException(ex);
-                            }
-                        }
-                        else if (f.type().isRecord())
-                        {
-                            if (f.isPtr())
-                                memStruct.set(ValueLayout.ADDRESS, f.offset + offset, getStructDetails(f.type()).toNative(scope, f.get(rec)));
-                            else
-                                memStruct.asSlice(f.offset + offset).copyFrom(getStructDetails(f.type()).toNative(scope, f.get(rec)));
-                        }
-                        else if (MemorySegment.class.equals(f.type()))
-                            memStruct.set(ValueLayout.ADDRESS,f.offset + offset, (MemorySegment) f.get(rec));
-                        else if (String.class.equals(f.type()))
-                            memStruct.set(ValueLayout.ADDRESS, f.offset + offset, Utils.toCString((String)f.get(rec), scope));
-                        else if (f.type().isArray())
-                        {
-                            Class<?> arrType = f.type().getComponentType();
-                            Annotation[] arrays = f.field().getAnnotationsByType(Array.class);
-                            boolean isPointer = f.field().getAnnotationsByType(Ptr.class).length > 0;
-
-                            if (arrType.isPrimitive())
-                            {
-                                if (arrays.length > 0)
-                                    memStruct.asSlice(f.offset + offset).copyFrom(f.ofArray(rec));
-                                else if (isPointer)
-                                    memStruct.set(ValueLayout.ADDRESS, f.offset + offset, f.toPointer(scope, rec));
-                            }
-                            else if (arrType.isRecord())
-                            {
-                                //todo: implement array records
-                            }
-
-                        }
-                    }
-//                    catch (IllegalAccessException e) {
-//                        throw new RuntimeException(e);
+//    record StructField(Field field, Method accessor, MethodHandle mhandle, String name, Class<?> type, MemoryLayout layout, long offset, boolean isPtr){
+//        public Object get(Object rec)
+//        {
+//            try {
+//                return accessor.invoke(rec);
+//            } catch (IllegalAccessException | InvocationTargetException e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+//
+//        public MemorySegment ofArray(Object rec)
+//        {
+//            if (!type.isArray())
+//                throw new IllegalArgumentException("Field is not an array");
+//
+//            Class<?> arrType = type.getComponentType();
+//
+//           if (arrType.equals(byte.class))
+//               return MemorySegment.ofArray((byte[])get(rec));
+//           else if (arrType.equals(short.class))
+//                return MemorySegment.ofArray((short[])get(rec));
+//           else if (arrType.equals(int.class))
+//               return MemorySegment.ofArray((int[])get(rec));
+//           else if (arrType.equals(long.class))
+//               return MemorySegment.ofArray((long[])get(rec));
+//           else if (arrType.equals(float.class))
+//               return MemorySegment.ofArray((float[])get(rec));
+//           else if (arrType.equals(double.class))
+//               return MemorySegment.ofArray((double[])get(rec));
+//
+//           throw new IllegalArgumentException("Unknown array type for conversion.");
+//        }
+//
+//        public MemorySegment toPointer(SegmentAllocator scope, Object rec)
+//        {
+//            if (!type.isArray())
+//                throw new IllegalArgumentException("Field is not an array");
+//
+//            Class<?> arrType = type.getComponentType();
+//
+//            if (arrType.equals(byte.class))
+//                return Utils.toMS(scope, (byte[])get(rec), false);
+//            else if (arrType.equals(short.class))
+//                return Utils.toMS(scope, (short[])get(rec), false);
+//            else if (arrType.equals(int.class))
+//                return Utils.toMS(scope, (int[])get(rec), false);
+//            else if (arrType.equals(long.class))
+//                return Utils.toMS(scope, (long[])get(rec), false);
+//            else if (arrType.equals(float.class))
+//                return Utils.toMS(scope, (float[])get(rec), false);
+//            else if (arrType.equals(double.class))
+//                return Utils.toMS(scope, (double[])get(rec), false);
+//
+//            throw new IllegalArgumentException("Unknown array type for conversion.");
+//        }
+//    }
+//
+//    static class StructConversionDetails
+//    {
+//        final Class<?>  recordType;
+//        final GroupLayout layout;
+//        List<StructField> fields = new ArrayList<>();
+//        Constructor<?> constructor = null;
+//
+//        StructConversionDetails(Class<?> t)
+//        {
+//            recordType = t;
+//
+//            List<MemoryLayout> memLayout = new ArrayList<>();
+//            for (Field f : recordType.getDeclaredFields()) {
+//                MemoryLayout layoutType = null;
+//                boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
+//
+//                int paddingBytes = getPaddingBytes(f);
+//                if (paddingBytes < 0)
+//                    memLayout.add(MemoryLayout.paddingLayout(paddingBytes));
+//
+//                Class<?> type = f.getType();
+//                if (type.isPrimitive())
+//                {
+//                    layoutType = typeToCName.get(type).withName(f.getName());
+//                    memLayout.add(layoutType);
+//                }
+//                else if (type.isRecord())
+//                {
+//                    var subStruct = getStructDetails(type);
+//                    if (isPtr)
+//                    {
+//                        layoutType = ValueLayout.ADDRESS.withName(f.getName());
+//                        memLayout.add(layoutType);
 //                    }
-                }
-                offset += size;
-            }
-            return memStruct;
-        }
-
-        private Object fromNative(MemorySegment memStruct, Object recArr) {
-            memStruct = Utils.resize(memStruct, layout.byteSize());
-            List args = new ArrayList();
-            long offset = 0;
-
-            Object rec = recArr;
-            if (rec.getClass().isArray())
-                rec = ((Object[])recArr)[0];
-
-            for (var f : fields)
-            {
-                if (f.type().isPrimitive()) {
-                    if (f.type.equals(byte.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_BYTE, f.offset + offset));
-                    else if (f.type.equals(short.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_SHORT, f.offset + offset));
-                    else if (f.type.equals(int.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_INT, f.offset + offset));
-                    else if (f.type.equals(long.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_LONG, f.offset + offset));
-                    else if (f.type.equals(float.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_FLOAT, f.offset + offset));
-                    else if (f.type.equals(double.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_DOUBLE, f.offset + offset));
-                    else if (f.type.equals(boolean.class))
-                        args.add(memStruct.get(ValueLayout.JAVA_BOOLEAN, f.offset + offset));
-                }
-                else if (f.type.isRecord())
-                {
-                    var subStruct = getStructDetails(f.type());
-                    if (f.isPtr())
-                        args.add(subStruct.fromNative(Utils.slice(memStruct, memStruct.get(ValueLayout.ADDRESS,f.offset + offset), subStruct.layout.byteSize()), subStruct.recordType));
-                    else
-                        args.add(subStruct.fromNative(memStruct.asSlice(f.offset + offset), subStruct.recordType));
-                }
-                else if (MemorySegment.class.equals(f.type))
-                    args.add(memStruct.get(ValueLayout.ADDRESS,f.offset + offset));
-                else if (isGenericPtr(f.type))
-                {
-                    var mem = memStruct.get(ValueLayout.ADDRESS,f.offset + offset);
-                    //todo: WTF?
-//                    sb.append(String.format("\t\tvar %1$s = new %2$s(mem_%1$s);\n", f.getName(), type.getName()));
-                }
-                else if (String.class.equals(f.type))
-                    args.add(Utils.readString(memStruct.get(ValueLayout.ADDRESS,f.offset + offset)));
-                else if (f.type.isArray())
-                {
-                    Class<?> arrType = f.type.getComponentType();
-                    Annotation[] arrays = f.field.getAnnotationsByType(Array.class);
-
-                    if (arrType.isPrimitive())
-                    {
-                        if (arrays.length > 0) {
-                            int length = ((Array) arrays[0]).length();
-                            if (arrType.equals(byte.class))
-                                args.add(memStruct.asSlice(f.offset + offset, length * Integer.BYTES).toArray(ValueLayout.JAVA_BYTE));
-                            else if (arrType.equals(short.class))
-                                args.add(memStruct.asSlice(f.offset + offset, length * Short.BYTES).toArray(ValueLayout.JAVA_SHORT));
-                            else if (arrType.equals(int.class))
-                                args.add(memStruct.asSlice(f.offset + offset, length * Integer.BYTES).toArray(ValueLayout.JAVA_INT));
-                            else if (arrType.equals(long.class))
-                                args.add(memStruct.asSlice(f.offset + offset, length * Long.BYTES).toArray(ValueLayout.JAVA_LONG));
-                            else if (arrType.equals(float.class))
-                                args.add(memStruct.asSlice(f.offset + offset, length * Float.BYTES).toArray(ValueLayout.JAVA_FLOAT));
-                            else if (arrType.equals(double.class))
-                                args.add(memStruct.asSlice(f.offset + offset, length * Double.BYTES).toArray(ValueLayout.JAVA_DOUBLE));
-                        }
-                        else if (f.isPtr())
-                        {
-                            if (arrType.equals(byte.class)) {
-                                int size = ((byte[])f.get(rec)).length;
-                                args.add(Utils.toArr(ValueLayout.JAVA_BYTE, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
-                            }
-                            else if (arrType.equals(short.class))
-                            {
-                                int size = ((short[])f.get(rec)).length;
-                                args.add(Utils.toArr(ValueLayout.JAVA_SHORT, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
-                            }
-                            else if (arrType.equals(int.class))
-                            {
-                                int size = ((int[])f.get(rec)).length;
-                                args.add(Utils.toArr(ValueLayout.JAVA_INT, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
-                            }
-                            else if (arrType.equals(long.class))
-                            {
-                                int size = ((long[])f.get(rec)).length;
-                                args.add(Utils.toArr(ValueLayout.JAVA_LONG, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
-                            }
-                            else if (arrType.equals(float.class))
-                            {
-                                int size = ((float[])f.get(rec)).length;
-                                args.add(Utils.toArr(ValueLayout.JAVA_FLOAT, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
-                            }
-                            else if (arrType.equals(double.class))
-                            {
-                                int size = ((double[])f.get(rec)).length;
-                                args.add(Utils.toArr(ValueLayout.JAVA_DOUBLE, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
-                            }
-                        }
-                    }
-                }
-            }
-
-            //caching the constructor saves significant time
-            if (constructor == null) {
-                try {
-                    Class<?>[] argList = new Class[fields.size()];
-                    for (int n = 0; n < argList.length; ++n)
-                        argList[n] = fields.get(n).type();
-                    constructor = recordType.getConstructor(argList);
-                }
-                catch (NoSuchMethodException ex)
-                {
-                    throw new RuntimeException(ex);
-                }
-            }
-
-            try {
-                return constructor.newInstance(args.toArray());
-            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-
-        }
-
-    }
-
-    static final HashMap<Class<?>, StructConversionDetails> StructDetails = new HashMap<>();
-
-    private static StructConversionDetails getStructDetails(Class<?> rec)
-    {
-        return StructDetails.computeIfAbsent(rec, k -> new StructConversionDetails(rec));
-    }
-
-    public static MemorySegment storeStruct(Arena scope, Object rec)
-    {
-        return storeStruct(scope, new Object[] {rec});
-    }
-
-    public static MemorySegment storeStruct(Arena scope, Object[] rec)
-    {
-        var sd = getStructDetails(rec[0].getClass());
-        return sd.toNative(scope, rec);
-    }
-
-    public static void readBackStruct(MemorySegment memorySegment, Object[] rec)
-    {
-        var sd = getStructDetails(rec[0].getClass());
-        rec[0] =  sd.fromNative(memorySegment, rec);
-    }
+//                    else
+//                    {
+//                        layoutType = subStruct.layout.withName(f.getName());
+//                        memLayout.add(layoutType);
+//                    }
+//                }
+//                else if (String.class.equals(type) || MemorySegment.class.equals(type) || isGenericPtr(type))
+//                {
+//                    layoutType = ValueLayout.ADDRESS.withName(f.getName());
+//                    memLayout.add(layoutType);
+//                }
+//                else if (type.isArray())
+//                {
+//                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
+//
+//                    if (arrays.length > 0)
+//                    {
+//                        int length = ((Array) arrays[0]).length();
+//                        Class<?> arrType = type.getComponentType();
+//                        layoutType = MemoryLayout.sequenceLayout(length, typeToCName.get(arrType)).withName(f.getName());
+//                        memLayout.add(layoutType);
+//                    }
+//                    else if (isPtr)
+//                    {
+//                        layoutType = ValueLayout.ADDRESS.withName(f.getName());
+//                        memLayout.add(layoutType);
+//                    }
+//                    else
+//                        throw new PassportException("Record arrays must be defined with either an Array or Ptr annotation");
+//                }
+//
+//                if (paddingBytes > 0)
+//                    memLayout.add(MemoryLayout.paddingLayout(paddingBytes));
+//
+//                var accessor = Arrays.stream(recordType.getDeclaredMethods()).filter(m -> m.getName().equals(f.getName())).findFirst();
+//                MethodHandle mh = null;
+//                try {
+//                    mh = MethodHandles.publicLookup().findVirtual(recordType, f.getName(), MethodType.methodType(f.getType()));
+//                } catch (NoSuchMethodException e) {
+//                    throw new RuntimeException(e);
+//                } catch (IllegalAccessException e) {
+//                    throw new RuntimeException(e);
+//                }
+//
+//                fields.add(new StructField(f, accessor.orElseGet(null), mh, f.getName(), f.getType(), layoutType, 0, isPtr));
+//            }
+//            layout = makeStruct(memLayout.toArray(new MemoryLayout[0]));
+//
+//            List<StructField> cpy = new ArrayList<>();
+//            for (var f : fields)
+//                cpy.add(new StructField(f.field(), f.accessor(), f.mhandle(), f.name(), f.type(), f.layout(), layout.byteOffset(groupElement(f.name())), f.isPtr()));
+//            fields = cpy;
+//        }
+//        MemorySegment toNative(SegmentAllocator scope, Object rec)
+//        {
+//            return toNative(scope, new Object[]{rec});
+//        }
+//
+//        MemorySegment toNative(SegmentAllocator scope, Object[] recs)
+//        {
+//            long size = layout.byteSize();
+//            MemorySegment memStruct = scope.allocate(size * recs.length);
+//            long offset = 0;
+//            for (Object rec : recs) {
+//                for (var f : fields)
+//                {
+////                    try
+//                    {
+//                        if (f.type().isPrimitive()) {
+//                            try {
+//                                if (f.type.equals(byte.class))
+//                                    memStruct.set(ValueLayout.JAVA_BYTE, f.offset + offset, (byte)f.mhandle.invoke(rec));
+//                                else if (f.type.equals(short.class))
+//                                    memStruct.set(ValueLayout.JAVA_SHORT, f.offset + offset, (short)f.mhandle.invoke(rec));
+//                                else if (f.type.equals(int.class))
+//                                    memStruct.set(ValueLayout.JAVA_INT, f.offset + offset, (int)f.mhandle.invoke(rec));
+//                                else if (f.type.equals(long.class))
+//                                    memStruct.set(ValueLayout.JAVA_LONG, f.offset + offset, (long)f.mhandle.invoke(rec));
+//                                else if (f.type.equals(float.class))
+//                                    memStruct.set(ValueLayout.JAVA_FLOAT, f.offset + offset, (float)f.mhandle.invoke(rec));
+//                                else if (f.type.equals(double.class))
+//                                    memStruct.set(ValueLayout.JAVA_DOUBLE, f.offset + offset, (double)f.mhandle.invoke(rec));
+//                                else if (f.type.equals(boolean.class))
+//                                    memStruct.set(ValueLayout.JAVA_BOOLEAN, f.offset + offset, (boolean)f.mhandle.invoke(rec));
+//                            }
+//                            catch (Throwable ex)
+//                            {
+//                                throw new RuntimeException(ex);
+//                            }
+//                        }
+//                        else if (f.type().isRecord())
+//                        {
+//                            if (f.isPtr())
+//                                memStruct.set(ValueLayout.ADDRESS, f.offset + offset, getStructDetails(f.type()).toNative(scope, f.get(rec)));
+//                            else
+//                                memStruct.asSlice(f.offset + offset).copyFrom(getStructDetails(f.type()).toNative(scope, f.get(rec)));
+//                        }
+//                        else if (MemorySegment.class.equals(f.type()))
+//                            memStruct.set(ValueLayout.ADDRESS,f.offset + offset, (MemorySegment) f.get(rec));
+//                        else if (String.class.equals(f.type()))
+//                            memStruct.set(ValueLayout.ADDRESS, f.offset + offset, Utils.toCString((String)f.get(rec), scope));
+//                        else if (f.type().isArray())
+//                        {
+//                            Class<?> arrType = f.type().getComponentType();
+//                            Annotation[] arrays = f.field().getAnnotationsByType(Array.class);
+//                            boolean isPointer = f.field().getAnnotationsByType(Ptr.class).length > 0;
+//
+//                            if (arrType.isPrimitive())
+//                            {
+//                                if (arrays.length > 0)
+//                                    memStruct.asSlice(f.offset + offset).copyFrom(f.ofArray(rec));
+//                                else if (isPointer)
+//                                    memStruct.set(ValueLayout.ADDRESS, f.offset + offset, f.toPointer(scope, rec));
+//                            }
+//                            else if (arrType.isRecord())
+//                            {
+//                                //todo: implement array records
+//                            }
+//
+//                        }
+//                    }
+////                    catch (IllegalAccessException e) {
+////                        throw new RuntimeException(e);
+////                    }
+//                }
+//                offset += size;
+//            }
+//            return memStruct;
+//        }
+//
+//        private Object fromNative(MemorySegment memStruct, Object recArr) {
+//            memStruct = Utils.resize(memStruct, layout.byteSize());
+//            List args = new ArrayList();
+//            long offset = 0;
+//
+//            Object rec = recArr;
+//            if (rec.getClass().isArray())
+//                rec = ((Object[])recArr)[0];
+//
+//            for (var f : fields)
+//            {
+//                if (f.type().isPrimitive()) {
+//                    if (f.type.equals(byte.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_BYTE, f.offset + offset));
+//                    else if (f.type.equals(short.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_SHORT, f.offset + offset));
+//                    else if (f.type.equals(int.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_INT, f.offset + offset));
+//                    else if (f.type.equals(long.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_LONG, f.offset + offset));
+//                    else if (f.type.equals(float.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_FLOAT, f.offset + offset));
+//                    else if (f.type.equals(double.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_DOUBLE, f.offset + offset));
+//                    else if (f.type.equals(boolean.class))
+//                        args.add(memStruct.get(ValueLayout.JAVA_BOOLEAN, f.offset + offset));
+//                }
+//                else if (f.type.isRecord())
+//                {
+//                    var subStruct = getStructDetails(f.type());
+//                    if (f.isPtr())
+//                        args.add(subStruct.fromNative(Utils.slice(memStruct, memStruct.get(ValueLayout.ADDRESS,f.offset + offset), subStruct.layout.byteSize()), subStruct.recordType));
+//                    else
+//                        args.add(subStruct.fromNative(memStruct.asSlice(f.offset + offset), subStruct.recordType));
+//                }
+//                else if (MemorySegment.class.equals(f.type))
+//                    args.add(memStruct.get(ValueLayout.ADDRESS,f.offset + offset));
+//                else if (isGenericPtr(f.type))
+//                {
+//                    var mem = memStruct.get(ValueLayout.ADDRESS,f.offset + offset);
+//                    //todo: WTF?
+////                    sb.append(String.format("\t\tvar %1$s = new %2$s(mem_%1$s);\n", f.getName(), type.getName()));
+//                }
+//                else if (String.class.equals(f.type))
+//                    args.add(Utils.readString(memStruct.get(ValueLayout.ADDRESS,f.offset + offset)));
+//                else if (f.type.isArray())
+//                {
+//                    Class<?> arrType = f.type.getComponentType();
+//                    Annotation[] arrays = f.field.getAnnotationsByType(Array.class);
+//
+//                    if (arrType.isPrimitive())
+//                    {
+//                        if (arrays.length > 0) {
+//                            int length = ((Array) arrays[0]).length();
+//                            if (arrType.equals(byte.class))
+//                                args.add(memStruct.asSlice(f.offset + offset, length * Integer.BYTES).toArray(ValueLayout.JAVA_BYTE));
+//                            else if (arrType.equals(short.class))
+//                                args.add(memStruct.asSlice(f.offset + offset, length * Short.BYTES).toArray(ValueLayout.JAVA_SHORT));
+//                            else if (arrType.equals(int.class))
+//                                args.add(memStruct.asSlice(f.offset + offset, length * Integer.BYTES).toArray(ValueLayout.JAVA_INT));
+//                            else if (arrType.equals(long.class))
+//                                args.add(memStruct.asSlice(f.offset + offset, length * Long.BYTES).toArray(ValueLayout.JAVA_LONG));
+//                            else if (arrType.equals(float.class))
+//                                args.add(memStruct.asSlice(f.offset + offset, length * Float.BYTES).toArray(ValueLayout.JAVA_FLOAT));
+//                            else if (arrType.equals(double.class))
+//                                args.add(memStruct.asSlice(f.offset + offset, length * Double.BYTES).toArray(ValueLayout.JAVA_DOUBLE));
+//                        }
+//                        else if (f.isPtr())
+//                        {
+//                            if (arrType.equals(byte.class)) {
+//                                int size = ((byte[])f.get(rec)).length;
+//                                args.add(Utils.toArr(ValueLayout.JAVA_BYTE, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
+//                            }
+//                            else if (arrType.equals(short.class))
+//                            {
+//                                int size = ((short[])f.get(rec)).length;
+//                                args.add(Utils.toArr(ValueLayout.JAVA_SHORT, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
+//                            }
+//                            else if (arrType.equals(int.class))
+//                            {
+//                                int size = ((int[])f.get(rec)).length;
+//                                args.add(Utils.toArr(ValueLayout.JAVA_INT, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
+//                            }
+//                            else if (arrType.equals(long.class))
+//                            {
+//                                int size = ((long[])f.get(rec)).length;
+//                                args.add(Utils.toArr(ValueLayout.JAVA_LONG, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
+//                            }
+//                            else if (arrType.equals(float.class))
+//                            {
+//                                int size = ((float[])f.get(rec)).length;
+//                                args.add(Utils.toArr(ValueLayout.JAVA_FLOAT, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
+//                            }
+//                            else if (arrType.equals(double.class))
+//                            {
+//                                int size = ((double[])f.get(rec)).length;
+//                                args.add(Utils.toArr(ValueLayout.JAVA_DOUBLE, memStruct, memStruct.get(ValueLayout.ADDRESS, f.offset + offset), size));
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//
+//            //caching the constructor saves significant time
+//            if (constructor == null) {
+//                try {
+//                    Class<?>[] argList = new Class[fields.size()];
+//                    for (int n = 0; n < argList.length; ++n)
+//                        argList[n] = fields.get(n).type();
+//                    constructor = recordType.getConstructor(argList);
+//                }
+//                catch (NoSuchMethodException ex)
+//                {
+//                    throw new RuntimeException(ex);
+//                }
+//            }
+//
+//            try {
+//                return constructor.newInstance(args.toArray());
+//            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
+//                throw new RuntimeException(e);
+//            }
+//
+//        }
+//
+//    }
+//
+//    static final HashMap<Class<?>, StructConversionDetails> StructDetails = new HashMap<>();
+//
+//    private static StructConversionDetails getStructDetails(Class<?> rec)
+//    {
+//        return StructDetails.computeIfAbsent(rec, k -> new StructConversionDetails(rec));
+//    }
+//
+//    public static MemorySegment storeStruct(Arena scope, Object rec)
+//    {
+//        return storeStruct(scope, new Object[] {rec});
+//    }
+//
+//    public static MemorySegment storeStruct(Arena scope, Object[] rec)
+//    {
+//        var sd = getStructDetails(rec[0].getClass());
+//        return sd.toNative(scope, rec);
+//    }
+//
+//    public static void readBackStruct(MemorySegment memorySegment, Object[] rec)
+//    {
+//        var sd = getStructDetails(rec[0].getClass());
+//        rec[0] =  sd.fromNative(memorySegment, rec);
+//    }
 
     public static ClassDesc toDesc(Class<?> c)
     {

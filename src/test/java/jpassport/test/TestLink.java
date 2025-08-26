@@ -12,9 +12,10 @@
 package jpassport.test;
 
 import com.sun.jna.Library;
-import jpassport.MemoryBlock;
+import jpassport.pointers.MemoryBlock;
+import jpassport.pointers.NamedLookup;
 import jpassport.Passport;
-import jpassport.Pointer;
+import jpassport.pointers.Pointer;
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
@@ -24,6 +25,10 @@ import java.lang.foreign.MemorySegment;
 
 
 public interface TestLink extends Passport, Library {
+
+    NamedLookup named = new NamedLookup("sumD");
+    @NotRequired
+    NamedLookup namedNotFound = new NamedLookup("not_in_lib");
 
     default double SUMD(double d, double d2)
     {
@@ -81,6 +86,7 @@ public interface TestLink extends Passport, Library {
     int fillChars(Arena a, MemoryBlock fillThis, int sizemax);
     int passChars(char[] fillThis, int sizemax);
 
+    Pointer PassPointers(Pointer hMem);
 //    static void calling(TestLink tl)
 //    {
 //        double[] values = new double[5];

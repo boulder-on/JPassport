@@ -1,6 +1,10 @@
-package jpassport;
+package jpassport.codebuilder;
 
-import jpassport.codebuilder.*;
+import jpassport.*;
+import jpassport.Utils;
+import jpassport.pointers.GenericPointer;
+import jpassport.pointers.MemoryBlock;
+import jpassport.pointers.Pointer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -20,12 +24,8 @@ import java.nio.file.Path;
 
 import java.util.*;
 
-import static jpassport.PassportWriter.*;
-
 import static jpassport.codebuilder.ArgClassification.*;
-import static jpassport.codebuilder.CBConstants.storeParam;
-import static jpassport.codebuilder.CBConstants.loadParam;
-import static jpassport.codebuilder.CBConstants.toDesc;
+import static jpassport.codebuilder.CBConstants.*;
 
 public class PassportBuilder<T extends Passport> extends ClassLoader implements CBConstants {
 
@@ -47,6 +47,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         primativeToVLDescMap.put(byte.class, toDesc(ValueLayout.OfByte.class));
         primativeToVLDescMap.put(double.class, toDesc(ValueLayout.OfDouble.class));
         primativeToVLDescMap.put(float.class, toDesc(ValueLayout.OfFloat.class));
+        primativeToVLDescMap.put(boolean.class, toDesc(ValueLayout.OfBoolean.class));
+        primativeToVLDescMap.put(char.class, toDesc(ValueLayout.OfChar.class));
 
         primitiveToConstName.put(int.class, "JAVA_INT");
         primitiveToConstName.put(long.class, "JAVA_LONG");
@@ -54,6 +56,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         primitiveToConstName.put(byte.class, "JAVA_BYTE");
         primitiveToConstName.put(double.class, "JAVA_DOUBLE");
         primitiveToConstName.put(float.class, "JAVA_FLOAT");
+        primitiveToConstName.put(boolean.class, "JAVA_BOOLEAN");
+        primitiveToConstName.put(char.class, "JAVA_CHAR");
 
         primitiveToDescMap.put(int.class, ConstantDescs.CD_int);
         primitiveToDescMap.put(long.class, ConstantDescs.CD_long);
@@ -61,6 +65,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         primitiveToDescMap.put(byte.class, ConstantDescs.CD_byte);
         primitiveToDescMap.put(double.class, ConstantDescs.CD_double);
         primitiveToDescMap.put(float.class, ConstantDescs.CD_float);
+        primitiveToDescMap.put(boolean.class, ConstantDescs.CD_boolean);
+        primitiveToDescMap.put(char.class, ConstantDescs.CD_char);
     }
 
     private final ClassDesc thisClassDesc;
@@ -185,12 +191,16 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
     public T build(Map<String, MethodHandle> methods) throws Throwable
     {
-        Class<? extends T> foreignImpl = (Class<? extends T>)defineClass(fullName, classBytes, 0, classBytes.length);
 
         try {
+            Class<? extends T> foreignImpl = (Class<? extends T>)defineClass(fullName, classBytes, 0, classBytes.length);
             return foreignImpl.getDeclaredConstructor(methods.getClass()).newInstance(methods);
         }
-        catch (Throwable ve)
+        catch (IllegalAccessError iaEx)
+        {
+            throw new PassportException("Does your module export all required interfaces and records?", iaEx);
+        }
+        catch (VerifyError ve)
         {
             parseClass();
             throw ve;
@@ -247,8 +257,31 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             }
 
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
-                            storeParam(cob, idx, iMethod.getReturnType());
-                            loadParam(cob, idx, iMethod.getReturnType());
+                            int returnSlot = used + 1;
+                            var virtMethodRetType = iMethod.getReturnType();
+                            used = storeParam(cob, returnSlot, virtMethodRetType);
+
+                            var argHandler = ArgClassification.classify(iMethod.getReturnType(), null);
+                            switch(argHandler)
+                            {
+                                case string_ -> {
+                                    var cdescString = ClassDesc.of(String.class.getName());
+                                    var mtd = MethodTypeDesc.of(cdescString, CD_MemorySegment);
+                                    loadParam(cob, returnSlot, iMethod.getReturnType());
+                                    cob.invokestatic(CD_Utils, "readString", mtd);
+                                    returnSlot = used;
+                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
+                                }
+                                case generic_ptr -> {
+                                    var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
+                                    cob.new_(toDesc(iMethod.getReturnType())).dup();
+
+                                    loadParam(cob, returnSlot,  virtMethodRetType);
+                                    cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
+                                    returnSlot = used+1;
+                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
+                                }
+                            }
 
                             for (var k : keepers) {
                                 //Memory blocks should always be read back there's no need to say @RegArg
@@ -259,6 +292,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             }
 
 
+                            loadParam(cob, returnSlot, iMethod.getReturnType());
                             returnParam(cob, iMethod.getReturnType());
                             var error = toDesc(Error.class);
                             var end = cob.newLabel();
@@ -364,9 +398,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                                         ConstantDescs.CD_String.arrayType(), CD_Arena));
                                     }
                                     case memory_block -> {
-                                        cob.aload(keepers.get(ii).stored).aload(arenaSlot);
-                                        cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
-                                                MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
+                                        cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        cob.invokestatic(CD_Utils, "toPtr",
+                                                MethodTypeDesc.of(CD_MemorySegment, CD_Arena, toDesc(MemoryBlock.class)));
                                     }
                                     case generic_ptr -> {
                                         cob.aload(keepers.get(ii).stored);
@@ -415,9 +449,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             //call the native method
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
                             //capture the return of the native method
-                            used++;
+                            int returnSlot = used + 1;
                             var virtMethodRetType = iMethod.getReturnType();
-                            storeParam(cob, used, virtMethodRetType);
+                            used = storeParam(cob, returnSlot, virtMethodRetType);
 
                             var argHandler = ArgClassification.classify(iMethod.getReturnType(), null);
                             switch(argHandler)
@@ -425,19 +459,19 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 case string_ -> {
                                     var cdescString = ClassDesc.of(String.class.getName());
                                     var mtd = MethodTypeDesc.of(cdescString, CD_MemorySegment);
-                                    loadParam(cob, used, iMethod.getReturnType());
+                                    loadParam(cob, returnSlot, iMethod.getReturnType());
                                     cob.invokestatic(CD_Utils, "readString", mtd);
-                                    used++;
-                                    storeParam(cob, used, iMethod.getReturnType());
+                                    returnSlot = used;
+                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
                                 }
                                 case generic_ptr -> {
                                     var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
-                                    cob.new_(toDesc(Pointer.class)).dup();
+                                    cob.new_(toDesc(iMethod.getReturnType())).dup();
 
-                                    loadParam(cob, used,  virtMethodRetType);
-                                    cob.invokespecial(toDesc(Pointer.class), ConstantDescs.INIT_NAME, sig);
-                                    used++;
-                                    storeParam(cob, used, iMethod.getReturnType());
+                                    loadParam(cob, returnSlot,  virtMethodRetType);
+                                    cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
+                                    returnSlot = used+1;
+                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
                                 }
                             }
 
@@ -467,9 +501,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     }
                                     case memory_block -> {
                                         cob.aload(k.storedOrig);
-                                        cob.invokevirtual(toDesc(MemoryBlock.class), "readBack",
-                                                ConstantDescs.MTD_void);
-
+                                        cob.invokestatic(CD_Utils, "readBack",
+                                                MethodTypeDesc.of(ConstantDescs.CD_void, toDesc(MemoryBlock.class)));
                                     }
                                     case generic_ptr_array -> {
                                         cob.aload(k.storedOrig).aload(k.stored);
@@ -493,7 +526,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 cob.invokeinterface(CD_Arena, "close", ConstantDescs.MTD_void);
                             }
 
-                            loadParam(cob, used, iMethod.getReturnType());
+                            loadParam(cob, returnSlot, iMethod.getReturnType());
                             returnParam(cob, iMethod.getReturnType());
                             var end = cob.newLabel();
                             cob.labelBinding(end);
@@ -525,51 +558,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         return keepers;
     }
 
-
-    private void returnParam(CodeBuilder cob, Class<?> c)
-    {
-        if (c.equals(void.class))
-            cob.return_();
-        else if (c.equals(double.class))
-            cob.dreturn();
-        else if (c.equals(long.class))
-            cob.lreturn();
-        else if (c.equals(float.class))
-            cob.freturn();
-        else if (c.equals(int.class) || c.equals(short.class) || c.equals(byte.class))
-            cob.ireturn();
-        else
-            cob.areturn();
-    }
-
-
-    public static ClassDesc toLocalVariableDesc(Class<?> c)
-    {
-        if (primitiveToDescMap.containsKey(c))
-            return primitiveToDescMap.get(c);
-
-        if (c.isRecord() || MemoryBlock.class.equals(c))
-            return toDesc(c);
-        if (c.equals(String.class))
-            return ConstantDescs.CD_String;
-        if (c.equals(MemorySegment.class))
-            return CD_MemorySegment;
-        if (isArrayOfPrimitives(c))
-            return primitiveToDescMap.get(c.getComponentType()).arrayType(1);
-        if (is2DArrayOfPrimitives(c))
-            return primitiveToDescMap.get(c.getComponentType()).arrayType(2);
-        if (c.isArray() && c.getComponentType().isRecord())
-            return toDesc(c).arrayType(1);
-
-        throw new PassportException("Record fields can only be primitive, records, or arrays of either. Not: " + c.getName());
-    }
-
-
     private Optional<CodeElement> getCodeTemplate()
     {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
         try {
-            InputStream in = PassportBuilder.class.getResourceAsStream("Utils.class");
+            InputStream in = Utils.class.getResourceAsStream("Utils.class");
             if (in == null)
                 throw new PassportException("Util class is missing from JPassport jar.");
 
@@ -622,6 +615,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         for (var mm : classModel.methods())
         {
+            if (!mm.methodName().stringValue().equals("ReadFile"))
+                continue;
             System.out.println("============================================");
             System.out.println(mm.methodName());
             System.out.println("Signature: " + mm.methodType());

@@ -2,6 +2,8 @@ package jpassport.codebuilder;
 
 import jpassport.*;
 import jpassport.annotations.Array;
+import jpassport.pointers.GenericPointer;
+import jpassport.pointers.MemoryBlock;
 
 import java.lang.annotation.Annotation;
 import java.lang.classfile.ClassBuilder;
@@ -17,13 +19,15 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 
-import static jpassport.PassportBuilder.*;
-import static jpassport.PassportWriter.*;
+import static jpassport.codebuilder.PassportBuilder.*;
 import static jpassport.Utils.toDesc;
-import static jpassport.codebuilder.CBConstants.storeParam;
-import static jpassport.codebuilder.CBConstants.loadParam;
-import static jpassport.codebuilder.CBConstants.byteSize;
+import static jpassport.codebuilder.CBConstants.*;
 
+/**
+ * This class builds the byte code required to translate records into structs and back.
+ *
+ * @param <T>
+ */
 public class StructRWBuilder<T extends Passport> implements CBConstants{
     record RecordVariables(FieldRefEntry layout, FieldRefEntry offsets) {}
 
@@ -130,6 +134,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                     int layoutSlot = firstAvailableSlot++;
                     var ptype = ftype.getComponentType();
                     Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                    if (arrays.length == 0)
+                        throw new PassportException("Struct members that are primitve arrays must either be @Ptr or @Array(length=n) - " + recordType.getSimpleName() + "." + f.getName());
                     int length = ((Array) arrays[0]).length();
                     cob.loadConstant((long)length);
                     cob.getstatic(CD_ValueLayout, primitiveToConstName.get(ptype), primativeToVLDescMap.get(ptype));
@@ -148,7 +154,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                     cob.invokeinterface(toDesc(GroupLayout.class), "withName", MethodTypeDesc.of(toDesc(GroupLayout.class), ConstantDescs.CD_String));
                     cob.aastore();
                 }
-                case primitive_array_ptr, record_ptr, string_, mem_segment, memory_block -> {
+                case primitive_array_ptr, record_ptr, string_, mem_segment, memory_block, generic_ptr -> {
                     cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                     cob.loadConstant(f.getName());
@@ -360,6 +366,25 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokevirtual(thisClassDesc, "store" + ftype.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(ftype)));
                                     int memorySlot = slots;
                                     slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    cob.aload(memSegSlot);
+                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
+                                    cob.aload(memorySlot);
+                                    cob.invokeinterface(CD_MemorySegment, "set",
+                                            MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
+
+                                }
+
+                                case generic_ptr -> {
+                                    cob.aload(inputRecSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
+                                    int gptr = slots;
+                                    slots = storeParam(cob, gptr, ftype);
+                                    cob.aload(gptr);
+                                    cob.invokevirtual(toDesc(GenericPointer.class), "getPtr", MethodTypeDesc.of(CD_MemorySegment));
+                                    int memorySlot = slots;
+                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
@@ -620,6 +645,24 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 //var tsPtr = readTestStruct(Utils.slice(memStruct, memStruct.get(ADDRESS, ComplexStructLayoutOffsets[2]), TestStructLayout.byteSize()), rec.tsPtr());
 
                                 }
+                                case generic_ptr -> {
+                                    cob.aload(memStructSlot);
+                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
+                                    cob.invokeinterface(CD_MemorySegment, "get",
+                                            MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
+                                    int memseg = slots;
+                                    slots = storeParam(cob, memseg, MemorySegment.class);
+
+                                    var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
+                                    cob.new_(CBConstants.toDesc(ftype)).dup();
+
+                                    cob.aload(memseg);
+                                    cob.invokespecial(CBConstants.toDesc(ftype), ConstantDescs.INIT_NAME, sig);
+                                    storeParam(cob, fieldSlots[ii], ftype);
+
+                                }
+
                                 case mem_segment -> {
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -697,7 +740,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
     }
 
 
-    record RecordDepends(Class<?> rec, List<Class<?>> depends)
+    private record RecordDepends(Class<?> rec, Set<Class<?>> depends)
     {
         boolean isSatisfied(List<Class<?>> orderedList)
         {
@@ -717,7 +760,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
      *
      * @return A list of all record types that we need to build structs for. Records that contain other records are sorted later in the list
      */
-    List<Class<?>> getOrderedListOfRecords()
+    private List<Class<?>> getOrderedListOfRecords()
     {
         List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
         Set<Class<?>> extraImports = findAllExtraImports(interfaceMethods);
@@ -726,7 +769,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
         List<RecordDepends> dependencies = new ArrayList<>();
         for (var c : recordList)
         {
-            List<Class<?>> depends = new ArrayList<>();
+            Set<Class<?>> depends = new HashSet<>();
             Arrays.stream(c.getDeclaredFields()).filter(f -> f.getType().isRecord()).forEach(f -> depends.add(f.getType()));
             dependencies.add(new RecordDepends(c, depends));
         }
@@ -741,6 +784,29 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
             }
         }
         return orderedRecords;
+    }
+
+    private static ClassDesc toLocalVariableDesc(Class<?> c)
+    {
+        if (primitiveToDescMap.containsKey(c))
+            return primitiveToDescMap.get(c);
+
+        if (c.isRecord() || MemoryBlock.class.equals(c))
+            return CBConstants.toDesc(c);
+        if (c.equals(String.class))
+            return ConstantDescs.CD_String;
+        if (c.equals(MemorySegment.class))
+            return CD_MemorySegment;
+        if (isGenericPtr(c))
+            return toDesc(c);
+        if (isArrayOfPrimitives(c))
+            return primitiveToDescMap.get(c.getComponentType()).arrayType(1);
+        if (is2DArrayOfPrimitives(c))
+            return primitiveToDescMap.get(c.getComponentType()).arrayType(2);
+        if (c.isArray() && c.getComponentType().isRecord())
+            return CBConstants.toDesc(c).arrayType(1);
+
+        throw new PassportException("Record fields can only be primitive, records, or arrays of either. Not: " + c.getName());
     }
 
 }

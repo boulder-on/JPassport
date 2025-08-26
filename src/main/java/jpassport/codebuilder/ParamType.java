@@ -1,11 +1,8 @@
 package jpassport.codebuilder;
 
-import jpassport.PassportBuilder;
-import jpassport.Utils;
 
 import java.lang.constant.ClassDesc;
 import java.lang.constant.ConstantDescs;
-import java.lang.foreign.MemorySegment;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -18,6 +15,7 @@ public enum ParamType {
     shortType(1, ConstantDescs.CD_short),
     byteType(1, ConstantDescs.CD_byte),
     charType(1, ConstantDescs.CD_char),
+    boolType(1, ConstantDescs.CD_boolean),
     addressType(1, null);
 
     final int slot_count;
@@ -50,6 +48,7 @@ public enum ParamType {
         classToType.put(short.class, ParamType.shortType);
         classToType.put(byte.class, ParamType.byteType);
         classToType.put(char.class, ParamType.charType);
+        classToType.put(boolean.class, ParamType.boolType);
     }
 
     public static ParamType toType(Class<?> c)

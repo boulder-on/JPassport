@@ -1,4 +1,6 @@
-package jpassport;
+package jpassport.pointers;
+
+import jpassport.Utils;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -12,10 +14,15 @@ import java.lang.foreign.MemorySegment;
  * read back after the native call.
  */
 public class MemoryBlock {
-    final private long sizeInBytes;
+    private long sizeInBytes;
     private MemorySegment ptr = null;
     private String readBack = null;
     private byte[] buffer = null;
+
+    /**
+     * Set the size in bytes to this value if you would like the returned pointer to be NULL.
+     */
+    private static final int NULL_SIZE = -1;
 
     public MemoryBlock(long bytes)
     {
@@ -26,6 +33,14 @@ public class MemoryBlock {
     {
         buffer = data;
         sizeInBytes = data.length;
+    }
+
+    /**
+     * IF you would like the pointer this creates to be NULL.
+     */
+    public void setToNull()
+    {
+        sizeInBytes = NULL_SIZE;
     }
 
     public static MemoryBlock recreate(MemorySegment ptr, MemoryBlock orig)
@@ -51,6 +66,8 @@ public class MemoryBlock {
         {
             if (buffer != null)
                 ptr = Utils.toMS(scope, buffer, false);
+            else if (sizeInBytes == NULL_SIZE)
+                ptr = MemorySegment.NULL;
             else
                 ptr = scope.allocate(sizeInBytes);
         }

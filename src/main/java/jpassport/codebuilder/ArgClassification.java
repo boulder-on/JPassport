@@ -1,6 +1,6 @@
 package jpassport.codebuilder;
 
-import jpassport.MemoryBlock;
+import jpassport.pointers.MemoryBlock;
 import jpassport.PassportException;
 import jpassport.annotations.Ptr;
 
@@ -9,8 +9,8 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.reflect.Field;
 
-import static jpassport.PassportWriter.*;
-import static jpassport.PassportWriter.isPtrPtrArg;
+import static jpassport.codebuilder.CBConstants.*;
+
 
 public enum ArgClassification {
     primitive,

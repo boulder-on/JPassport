@@ -19,5 +19,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.RECORD_COMPONENT, ElementType.FIELD})
 public @interface Array {
+    /** The length of the array stored contiguously in the struct. */
     int length() default 1;
 }

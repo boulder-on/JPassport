@@ -1,4 +1,4 @@
-package jpassport;
+package jpassport.pointers;
 
 import java.lang.foreign.MemorySegment;
 
@@ -23,7 +23,7 @@ public class NamedLookup {
         this.name = name;
     }
 
-    protected void setAddress(MemorySegment addr)
+    public void setAddress(MemorySegment addr)
     {
         this.addr = addr;
     }

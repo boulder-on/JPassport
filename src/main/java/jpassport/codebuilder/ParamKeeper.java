@@ -1,7 +1,7 @@
 package jpassport.codebuilder;
 
 
-import jpassport.MemoryBlock;
+import jpassport.pointers.MemoryBlock;
 import jpassport.Utils;
 
 import java.lang.annotation.Annotation;
@@ -10,7 +10,8 @@ import java.lang.constant.ClassDesc;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
-import static jpassport.PassportWriter.isGenericPtr;
+import static jpassport.codebuilder.CBConstants.isGenericPtr;
+
 
 public class ParamKeeper {
     public Class<?> classtype;
@@ -118,7 +119,7 @@ public class ParamKeeper {
             case floatType:
                 cob.fload(stored);
                 break;
-            case intType, shortType, byteType:
+            case intType, shortType, byteType, boolType:
                 cob.iload(stored);
                 break;
             case addressType:

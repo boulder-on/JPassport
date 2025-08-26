@@ -1,4 +1,8 @@
-package jpassport;
+package jpassport.util;
+
+import jpassport.pointers.GenericPointer;
+import jpassport.pointers.MemoryBlock;
+import jpassport.Utils;
 
 import java.lang.annotation.Annotation;
 import java.lang.foreign.Arena;
@@ -11,16 +15,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-import static jpassport.PassportWriter.isGenericPtr;
+import static jpassport.codebuilder.CBConstants.*;
 
 public class PassportInvocationHandler  implements InvocationHandler {
     HashMap<String, MethodHandle> handles;
     boolean allArraysAreReadBack = false;
 
-    PassportInvocationHandler( HashMap<String, MethodHandle> methods, Class interfaceClass)
+    public PassportInvocationHandler( HashMap<String, MethodHandle> methods, Class interfaceClass)
     {
         handles = methods;
-        allArraysAreReadBack = PassportWriter.isRefArg(interfaceClass.getAnnotations());
+        allArraysAreReadBack = isRefArg(interfaceClass.getAnnotations());
     }
 
     @Override
@@ -53,7 +57,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
 
             for (int i = 0; i < largs.size(); ++i)
             {
-                if (PassportWriter.isRefArg(paramAnnotations[i]) ||
+                if (isRefArg(paramAnnotations[i]) ||
                         MemoryBlock.class.equals(parameters[i]) ||
                         (parameters[i].isArray() && allArraysAreReadBack))
                     readBack(args[i], largs.get(i));
@@ -64,7 +68,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
             else if (isGenericPtr(retType))
             {
                 var cons = retType.getConstructor(MemorySegment.class);
-                return cons.newInstance((MemorySegment)ret);
+                return cons.newInstance(ret);
             }
             return ret;
         }
@@ -79,7 +83,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
         if (type.isPrimitive())
             return value;
 
-        if (PassportWriter.isPtrPtrArg(annotations))
+        if (isPtrPtrArg(annotations))
         {
             return switch (value)
             {
@@ -96,7 +100,7 @@ public class PassportInvocationHandler  implements InvocationHandler {
             };
         }
 
-        var readBack = PassportWriter.isRefArgReadBackOnly(p);
+        var readBack = isRefArgReadBackOnly(p);
         return switch (value)
         {
             case null -> MemorySegment.NULL;

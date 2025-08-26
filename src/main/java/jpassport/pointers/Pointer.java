@@ -1,8 +1,8 @@
-package jpassport;
+package jpassport.pointers;
 
 import java.lang.foreign.MemorySegment;
 
-public class Pointer extends GenericPointer{
+public class Pointer extends GenericPointer {
     public Pointer(MemorySegment addr) {
         super(addr);
     }

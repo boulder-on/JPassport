@@ -5,5 +5,5 @@ module jpassport {
 
     exports jpassport;
     exports jpassport.annotations;
-    exports jpassport.codebuilder;
+    exports jpassport.pointers;
 }

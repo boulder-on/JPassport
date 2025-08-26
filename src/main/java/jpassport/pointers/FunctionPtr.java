@@ -1,4 +1,4 @@
-package jpassport;
+package jpassport.pointers;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -12,11 +12,12 @@ public class FunctionPtr extends GenericPointer {
     private final Arena arena; //The arena that was used to allocate the function pointer
 
     /**
+     * Called by the Passport factory when creating a callback function.
      *
      * @param arena The arena used to allocate the function pointer
      * @param ptr The function pointer
      */
-    FunctionPtr(Arena arena, MemorySegment ptr)
+    public FunctionPtr(Arena arena, MemorySegment ptr)
     {
         super(ptr);
         this.arena = arena;

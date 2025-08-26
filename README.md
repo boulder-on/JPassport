@@ -3,8 +3,15 @@
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
 Similar to JNA, you declare a Java interface that is bound to the external C library using method names.  
-The goal of this project is to a) start working with the Foreign Linker, b) provide a drop-in replacement
-for JNA in simple applications.
+The goal of this project is to provide a JNA-like experience for anyone wanting to access native code.
+
+JNA is a much more mature project than this one and, it supports Java 8 and earlier. I am NOT a JNA expert.
+JPassport was able to build on new language features to make this library (hopefully) simpler to use 
+(ex. I think my struct support is cleaner because I could rely on the formal structure of records). 
+If you cannot use a recent Java version then JNA is your best bet. However, if you can use a recent JRE then 
+this library is much lighter weight than JNA (100 kb vs 3+ MB) and the programing should be simpler
+for many cases. I also hope that in many cases, changing to JPassport from existing JNA code shouldn't be
+an onerous task.
 
 As part of the Foreign Linker API, a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
 is available. Given a header file, JExtract will build the classes needed to access a C library. If you have
@@ -18,15 +25,42 @@ The Foreign Linker API is final in Java 22. The Classfile API is final in Java 2
 # Getting Started
 
 ### Source
-Download the source and run the maven build.
+Download the source and run the maven build, or use the maven dependency:
 
-### Maven
         <dependency>
             <groupId>io.github.boulder-on</groupId>
             <artifactId>JPassport</artifactId>
             <version>1.1.0-24</version>
         </dependency>
 
+If you would like to see the Java code or byte cod created use:
+```java
+System.setProperty("jpassport.build.home", [folder location]);
+```
+
+When using JPassport you will get a warning from the JVM like:
+
+```
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by jpassport.PassportFactory in an unnamed module
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+```
+
+In order to avoid this warning, start your java process with the command line argument:
+
+```
+--enable-native-access=ALL-UNNAMED
+
+or 
+
+--enable-native-access=jpassport
+```
+
+If you get an __java.lang.UnsatisfiedLinkError__ then you will need to provide the path to your library
+either as a command line argument or in your PassportFactory.link call.
+
+__-Djava.library.path=[path to lib]__
 
 # Calling a native library example
 
@@ -72,16 +106,11 @@ Once the class is compiled, to use it:
 Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
 ```
 
-To use this library, you will need to provide the VM these arguments:
-
-__-Djava.library.path=[path to lib] --enable-native-access jpassport__
-
 JPassport works in one of 3 modes:
 
 1. Using the Classfile API to build a class that implements the given interface. 
    1. PassportFactory.link()
    2. This is a fast method that creates generally fast code (in my example code it takes about 20ms to generate the class)
-   3. More difficult to debug since the generated code must be decompiled to understand
 2. Writing a class that implements your interface, compiling it and passing it back to you. 
    1. PassportFactory.link_written()
    2. The process to write, compile and load the class is relatively slow, but that is a one-time cost. (in my example code it takes about 2s to generate the class)
@@ -93,9 +122,6 @@ JPassport works in one of 3 modes:
    7. Very slow implemenaton, Java proxy classes are not known to be fast, extensive use of reflection while running keeps it slow)
    8. Debuggable since you can step through each line of code.
 
-If you use the class writing method, the classes are written to the folder specified by System.getProperty("java.io.tmpdir").
-If you provide the system property __"jpassport.build.home"__ then the classes will be written and
-compiled there.
 
 # Callback example
 
@@ -103,16 +129,16 @@ The native API refers to these as "up calls". It's common in native programming 
 as a pointer into another function. This technique is used to create call-backs.
 
 ```java
-import jpassport.FunctionPtr;
+import jpassport.pointers.FunctionPtr;
 
 public interface CallbackNative extends Passport {
-  void passMethod(FunctionPtr functionPtr);
+    void passMethod(FunctionPtr functionPtr);
 }
 
 public class MyCallback {
-  public void callbackMethod(int value, String name) {
-    System.out.println(value + ". " + name);
-  }
+    public void callbackMethod(int value, String name) {
+        System.out.println(value + ". " + name);
+    }
 }
 
 MyCallback cb = new MyCallback();
@@ -146,36 +172,38 @@ Performance of a method that passes an array of doubles. The gap here
 
 # C Data Types Handled Automatically
 
-| C Data Type       | Java Data Type        |
-|-------------------|-----------------------|
-| double            | double                |
-| double*, double[] | double[]              |
-| double**          | @PtrPtrArg double[][] |
-| double[][]        | double[][]            |
-| float             | float                 |
-| float*, float[]   | float[]               |
-| float**           | @PtrPtrArg float[][]  |
-| float[][]         | float[][]             |
-| long              | long                  |
-| long*, long[]     | long[]                |
-| long**            | @PtrPtrArg long[][]   |
-| long[][]          | long[][]              |
-| int               | int                   |
-| int*, int[]       | int[]                 |
-| int**             | @PtrPtrArg int[][]    |
-| int[][]           | int[][]               |
-| short             | short                 |
-| short*, short[]   | short[]               |
-| short**           | @PtrPtrArg short[][]  |
-| short[][]         | short[][]             |
-| char              | byte                  |
-| char*             | byte[] or String      |
-| char[]            | byte[] or String      |
-| char**            | @PtrPtrArg byte[][]   |
-| char[][]          | byte[][]              |
-| structs           | Records               |
-| char*, void *     | MemoryBlock           |
-| n/a               | Arena (see below)     |
+| C Data Type       | Java Data Type                                              |
+|-------------------|-------------------------------------------------------------|
+| double            | double                                                      |
+| double*, double[] | double[]                                                    |
+| double**          | @PtrPtrArg double[][]                                       |
+| double[][]        | double[][]                                                  |
+| float             | float                                                       |
+| float*, float[]   | float[]                                                     |
+| float**           | @PtrPtrArg float[][]                                        |
+| float[][]         | float[][]                                                   |
+| long              | long                                                        |
+| long*, long[]     | long[]                                                      |
+| long**            | @PtrPtrArg long[][]                                         |
+| long[][]          | long[][]                                                    |
+| int               | int                                                         |
+| int*, int[]       | int[]                                                       |
+| int**             | @PtrPtrArg int[][]                                          |
+| int[][]           | int[][]                                                     |
+| short             | short                                                       |
+| short*, short[]   | short[]                                                     |
+| short**           | @PtrPtrArg short[][]                                        |
+| short[][]         | short[][]                                                   |
+| char              | byte                                                        |
+| char*             | byte[] or String                                            |
+| char[]            | byte[] or String                                            |
+| char**            | @PtrPtrArg byte[][]                                         |
+| char[][]          | byte[][]                                                    |
+| structs           | Records                                                     |
+| char*, void *     | MemoryBlock                                                 |
+| char*, void *     | GenericPtr (Useful if a native method returns a pointer)    |
+| char*, void *     | MemorySegment (if you are doing your own memory magagement) |
+| n/a               | Arena (see below)                                           |
 
 Any C argument that is defined with ** must be annotated with @PTrPtrArg in your Java interface.
 
@@ -282,7 +310,7 @@ a pointer to another struct.
 
 Arrays of Records can only be 1 element long. Longer arrays of Records are not supported.
 
-Records can contain primitives, arrays of primitives, pointers to arrays of primitives, Strings, or pointers
+Records can contain primitives, arrays of primitives, GenericPtr, arrays of GenericPtr, pointers to arrays of primitives, Strings, or pointers
 to other Records.
 
 Records are used to model structs mainly for convenience in the library. Records have a 
@@ -362,9 +390,11 @@ Roughly in order of importance
 2. Support returning a Record
 
 # Release Notes
-- 1.1.1-24
+- 1.2.0-24 (not released yet)
   - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
   - Added MemoryBlock as a valid struct member
+  - Code reorganization to hide classes that are not part of the API that a programmer needs to care about.
+  - Fixed some issue passing booleans.
 - 1.1.0-24
   - Add support for building classes with the Classfile API
 - 1.0.1-22

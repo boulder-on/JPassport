@@ -1,4 +1,4 @@
-package jpassport;
+package jpassport.pointers;
 
 
 import java.lang.foreign.MemorySegment;
@@ -25,18 +25,26 @@ import java.lang.foreign.MemorySegment;
  * </pre>
  */
 public class GenericPointer {
-    protected MemorySegment ptr;
+    public MemorySegment ptr;
 
     public GenericPointer(MemorySegment addr)
     {
         ptr = addr;
     }
 
+    /**
+     * The native pointer to the underlying memory.
+     * @return
+     */
     public MemorySegment getPtr()
     {
         return ptr;
     }
 
+    /**
+     * IS the pointer this holds a C NUL?
+     * @return Is the pointer NULL?
+     */
     public boolean isNull()
     {
         return ptr.equals(MemorySegment.NULL);
@@ -44,6 +52,7 @@ public class GenericPointer {
 
     /**
      * A convenience method for a NULL value.
+     * @return a pointer that represents NULL in C.
      */
     public static GenericPointer NULL() {
         return new GenericPointer(MemorySegment.NULL);

@@ -1,6 +1,8 @@
 package jpassport;
 
 import jpassport.annotations.*;
+import jpassport.codebuilder.CBConstants;
+import jpassport.pointers.MemoryBlock;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
@@ -8,20 +10,18 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 
-//import static java.lang.StringTemplate.STR;
-//import static java.lang.foreign.ValueLayout.ADDRESS;
-//import static java.lang.foreign.ValueLayout.JAVA_LONG;
-import static jpassport.Utils.Platform.Windows;
+
+import static jpassport.codebuilder.CBConstants.*;
 
 /***
  * Given an interface class that extends Passport this class will generate a class that implements the interface
@@ -35,7 +35,7 @@ import static jpassport.Utils.Platform.Windows;
  *
  * @param <T> A class that extends Passport
  */
-public class PassportWriter<T extends Passport>
+public class PassportWriter<T extends Passport> implements CBConstants
 {
     private final StringBuilder m_source = new StringBuilder();
     private final StringBuilder m_moduleSource = new StringBuilder();
@@ -54,18 +54,22 @@ public class PassportWriter<T extends Passport>
             put(long.class, "Long");
             put(float.class, "Float");
             put(double.class, "Double");
+            put(boolean.class, "Boolean");
+            put(char.class, "Character");
         }
     };
 
     private static final Map<Class<?>, String> typeToCName = new HashMap<>()
     {
         {
-            put(byte.class, "JAVA_CHAR");
+            put(char.class, "JAVA_CHAR");
+            put(byte.class, "JAVA_BYTE");
             put(short.class, "JAVA_SHORT");
             put(int.class, "JAVA_INT");
             put(long.class, "JAVA_LONG");
             put(float.class, "JAVA_FLOAT");
             put(double.class, "JAVA_DOUBLE");
+            put(boolean.class, "JAVA_BOOLEAN");
         }
     };
 
@@ -97,9 +101,9 @@ public class PassportWriter<T extends Passport>
                     %s
                     import %s;
                     import jpassport.Utils;
-                    import jpassport.Pointer;
-                    import jpassport.GenericPointer;
-                    import jpassport.MemoryBlock;
+                    import jpassport.pointers.Pointer;
+                    import jpassport.pointers.GenericPointer;
+                    import jpassport.pointers.MemoryBlock;
                     import java.lang.invoke.MethodHandle;
                     import java.lang.foreign.*;
                     import java.util.HashMap;
@@ -168,7 +172,7 @@ public class PassportWriter<T extends Passport>
      * @param imports All of the record types.
      * @return The import statements for the records.
      */
-    public String buildExtraImports(Set<Class<?>> imports)
+    private String buildExtraImports(Set<Class<?>> imports)
     {
         StringBuilder strImports = new StringBuilder();
         for (Class<?> c : imports)
@@ -183,7 +187,7 @@ public class PassportWriter<T extends Passport>
      * @param records All of the record types that we need to handle.
      * @return The code to create all of the required MemoryLayouts
      */
-    public String buildStructLayouts(Set<Class<?>> records)
+    private String buildStructLayouts(Set<Class<?>> records)
     {
         //We need to build all of the MemoryLayouts separately and bundle them together later.
         //If any one record requires other records then we need to make sure the code is ordered
@@ -282,27 +286,6 @@ public class PassportWriter<T extends Passport>
         return allStructs.toString();
     }
 
-    public static int getPaddingBytes(Field field)
-    {
-        Annotation[] annotations = field.getAnnotationsByType(StructPadding.class);
-        int paddingBytes = 0;
-
-        if (annotations.length > 0)
-        {
-            StructPadding sp = ((StructPadding) annotations[0]);
-            paddingBytes = sp.bytes();
-
-            Utils.Platform p = Utils.getPlatform();
-            if (Windows.equals(p) && sp.windowsBytes() != StructPadding.NO_VALUE)
-                paddingBytes = sp.windowsBytes();
-            else if (Utils.Platform.Mac.equals(p) && sp.macBytes() != StructPadding.NO_VALUE)
-                paddingBytes = sp.macBytes();
-            else if (Utils.Platform.Linux.equals(p) && sp.linuxBytes() != StructPadding.NO_VALUE)
-                paddingBytes = sp.linuxBytes();
-        }
-
-        return paddingBytes;
-    }
 
     /**
      * This code is used to write the code that converts Record classes into MemorySegments that can be passed
@@ -311,7 +294,7 @@ public class PassportWriter<T extends Passport>
      * @param records all of the Record types we need to support.
      * @return The code that converts Records into MemorySegments
      */
-    public String buildStoreStructFunction(Set<Class<?>> records)
+    private String buildStoreStructFunction(Set<Class<?>> records)
     {
         StringBuilder sb = new StringBuilder();
 
@@ -493,7 +476,7 @@ public class PassportWriter<T extends Passport>
      * @param method The interface method to implement
      * @param retType The return type of the method.
      */
-    public void addMethod(Method method, Class<?> retType, Class<T> interfaceClass)
+    private void addMethod(Method method, Class<?> retType, Class<T> interfaceClass)
     {
         StringBuilder args = new StringBuilder();
         StringBuilder params = new StringBuilder();
@@ -702,133 +685,9 @@ public class PassportWriter<T extends Passport>
         return foreignImpl.getDeclaredConstructor(methods.getClass()).newInstance(methods);
     }
 
-    static boolean isRefArg(Annotation[] paramAnnotations)
-    {
-        return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(RefArg.class::equals);
-    }
 
-    public static boolean isRefArgReadBackOnly(Parameter methodArg)
-    {
-        var ref = methodArg.getAnnotationsByType(RefArg.class);
-        if (ref.length > 0)
-            return ref[0].read_back_only();
-        return false;
-    }
-    public static boolean isRefArgReadBackOnly(Annotation[] annotations)
-    {
-        for (var a : annotations)
-        {
-            if (a.annotationType().equals(RefArg.class))
-            {
-                return ((RefArg)a).read_back_only();
-            }
-        }
-        return false;
-    }
 
-    public static boolean isPtrPtrArg(Annotation[] paramAnnotations)
-    {
-        return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
-    }
 
-    public static boolean isArrayOfPrimitives(Class<?> c)
-    {
-        return c.isArray() && c.getComponentType().isPrimitive();
-    }
 
-    public static boolean is2DArrayOfPrimitives(Class<?> c)
-    {
-        return c.isArray() && c.getComponentType().isArray() && isArrayOfPrimitives(c.getComponentType());
-    }
-
-    /**
-     * This will search the interface method for return types and arguments that should be imported.
-     * These will all be Records.
-     *
-     * @param interfaceMethods All of the methods in the interfacee
-     * @return The list of Record types that should be imported.
-     */
-    public static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
-        Set<Class<?>> extraImports = new HashSet<>();
-        for (Method m : interfaceMethods) {
-            Class<?> retType = m.getReturnType();
-            Class<?>[] params = m.getParameterTypes();
-
-            if (!isValidArgType(retType))
-                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
-
-            List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).toList();
-            if (!invalid.isEmpty())
-                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
-
-            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
-                extraImports.add(retType);
-            Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
-            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
-            Arrays.stream(params).filter(PassportWriter::isGenericPtr).forEach(extraImports::add);
-        }
-
-        extraImports.remove(String.class);
-        extraImports.remove(MemorySegment.class);
-        //In case any of the Records are made up of Records then this will pick those up to
-        for (Class<?> c : extraImports)
-        {
-            if (c.isRecord())
-                extraImports.addAll(findSubRecords(c));
-        }
-
-        return extraImports;
-    }
-
-    /**
-     * Search all Record types recursively to make sure we import and handle all Record types needed.
-     * @param record A record class to search for other records
-     * @return All of the sub-Records.
-     */
-    static Set<Class<?>> findSubRecords(Class<?> record)
-    {
-        Set<Class<?>> subRecords = new HashSet<>();
-        for (Field f : record.getDeclaredFields()) {
-            if (f.getType().isRecord())
-            {
-                subRecords.add(f.getType());
-                subRecords.addAll(findSubRecords(f.getType()));
-            }
-        }
-        return subRecords;
-    }
-
-    /**
-     * At the moment the only argument types that are supported are:
-     * Primitive
-     * Primitive[]
-     * Primitive[][]
-     * Record
-     * String
-     * MemorySegment
-     *
-     * @param c The type to check
-     * @return Is the type something we can work with
-     */
-    private static boolean isValidArgType(Class<?> c)
-    {
-        if (c.isPrimitive())
-            return true;
-        if (c.isRecord())
-            return true;
-        if (c.isArray() && (c.componentType().isPrimitive() || c.getComponentType().isRecord()
-                || isGenericPtr(c.getComponentType()) || c.getComponentType().equals(String.class)))
-            return true;
-        if (MemorySegment.class.equals(c) || String.class.equals(c) || isGenericPtr(c) || MemoryBlock.class.equals(c) || Arena.class.equals(c))
-            return true;
-        return c.isArray() && c.getComponentType().isArray() && c.getComponentType().getComponentType().isPrimitive();
-    }
-
-    public static boolean isGenericPtr(Class<?> c)
-    {
-        while (!c.equals(GenericPointer.class) && c.getSuperclass() != null)
-            c = c.getSuperclass();
-        return c.equals(GenericPointer.class);
-    }
 
 }

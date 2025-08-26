@@ -1,9 +1,7 @@
 package jpassport.test.callback;
 
-import jpassport.FunctionPtr;
+import jpassport.pointers.FunctionPtr;
 import jpassport.Passport;
-
-import java.lang.foreign.MemorySegment;
 
 public interface CallbackNative extends Passport {
     int call_CB(FunctionPtr fn, int v, double v2);

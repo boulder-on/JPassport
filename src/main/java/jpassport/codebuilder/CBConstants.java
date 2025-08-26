@@ -1,10 +1,22 @@
 package jpassport.codebuilder;
 
+import jpassport.pointers.GenericPointer;
+import jpassport.PassportException;
 import jpassport.Utils;
+import jpassport.annotations.PtrPtrArg;
+import jpassport.annotations.RefArg;
+import jpassport.annotations.StructPadding;
 
+import java.lang.annotation.Annotation;
 import java.lang.classfile.CodeBuilder;
 import java.lang.constant.ClassDesc;
 import java.lang.foreign.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.util.*;
+
+import static jpassport.Utils.Platform.Windows;
 
 /**
  * A set of constants that are helpful when building code.
@@ -27,6 +39,9 @@ public interface CBConstants {
 
     static void loadParam(CodeBuilder cob, int idx, Class<?> c)
     {
+        if (c == null)
+            throw new IllegalArgumentException("When loading a value from the memory the type cannot be null");
+
         if (c.equals(void.class))
             return;
 
@@ -36,7 +51,7 @@ public interface CBConstants {
             cob.lload(idx);
         else if (c.equals(float.class))
             cob.fload(idx);
-        else if (c.equals(int.class) || c.equals(short.class) || c.equals(byte.class))
+        else if (c.isPrimitive()) //int, short, byte, boolean, char
             cob.iload(idx );
         else
             cob.aload(idx);
@@ -58,11 +73,30 @@ public interface CBConstants {
         }
         else if (c.equals(float.class))
             cob.fstore(idx);
-        else if (c.equals(int.class) || c.equals(short.class) || c.equals(byte.class))
+        else if (c.isPrimitive()) //int, short, byte, boolean, char
             cob.istore(idx);
         else
             cob.astore(idx);
         return idx+1;
+    }
+
+    static void returnParam(CodeBuilder cob, Class<?> c)
+    {
+        if (c == null)
+            throw new IllegalArgumentException("When returning a value from a function the type cannot be null");
+
+        if (c.equals(void.class))
+            cob.return_();
+        else if (c.equals(double.class))
+            cob.dreturn();
+        else if (c.equals(long.class))
+            cob.lreturn();
+        else if (c.equals(float.class))
+            cob.freturn();
+        else if (c.isPrimitive()) //int, short, byte, boolean, char
+            cob.ireturn();
+        else
+            cob.areturn();
     }
 
     static int byteSize(Class<?> c)
@@ -79,7 +113,170 @@ public interface CBConstants {
             return Short.BYTES;
         if (c.equals(byte.class))
             return Byte.BYTES;
+        if (c.equals(boolean.class))
+            return Integer.BYTES;
+        if (c.equals(char.class))
+            return Character.BYTES;
         return Integer.BYTES;
+    }
+
+    static boolean isRefArgReadBackOnly(Parameter methodArg)
+    {
+        var ref = methodArg.getAnnotationsByType(RefArg.class);
+        if (ref.length > 0)
+            return ref[0].read_back_only();
+        return false;
+    }
+
+    static boolean isRefArgReadBackOnly(Annotation[] annotations)
+    {
+        for (var a : annotations)
+        {
+            if (a.annotationType().equals(RefArg.class))
+            {
+                return ((RefArg)a).read_back_only();
+            }
+        }
+        return false;
+    }
+
+    static boolean isRefArg(Annotation[] paramAnnotations)
+    {
+        return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(RefArg.class::equals);
+    }
+
+    static boolean isPtrPtrArg(Annotation[] paramAnnotations)
+    {
+        return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
+    }
+
+    static boolean isArrayOfPrimitives(Class<?> c)
+    {
+        return c.isArray() && c.getComponentType().isPrimitive();
+    }
+
+    static boolean is2DArrayOfPrimitives(Class<?> c)
+    {
+        return c.isArray() && c.getComponentType().isArray() && isArrayOfPrimitives(c.getComponentType());
+    }
+
+    static boolean isGenericPtr(Class<?> c)
+    {
+        while (!c.equals(GenericPointer.class) && c.getSuperclass() != null)
+            c = c.getSuperclass();
+        return c.equals(GenericPointer.class);
+    }
+
+    static int getPaddingBytes(Field field)
+    {
+        Annotation[] annotations = field.getAnnotationsByType(StructPadding.class);
+        int paddingBytes = 0;
+
+        if (annotations.length > 0)
+        {
+            StructPadding sp = ((StructPadding) annotations[0]);
+            paddingBytes = sp.bytes();
+
+            Utils.Platform p = Utils.getPlatform();
+            if (Windows.equals(p) && sp.windowsBytes() != StructPadding.NO_VALUE)
+                paddingBytes = sp.windowsBytes();
+            else if (Utils.Platform.Mac.equals(p) && sp.macBytes() != StructPadding.NO_VALUE)
+                paddingBytes = sp.macBytes();
+            else if (Utils.Platform.Linux.equals(p) && sp.linuxBytes() != StructPadding.NO_VALUE)
+                paddingBytes = sp.linuxBytes();
+        }
+
+        return paddingBytes;
+    }
+
+    /**
+     * This will search the interface method for return types and arguments that should be imported.
+     * These will all be Records.
+     *
+     * @param interfaceMethods All of the methods in the interfacee
+     * @return The list of Record types that should be imported.
+     */
+    static Set<Class<?>> findAllExtraImports(List<Method> interfaceMethods) {
+        Set<Class<?>> extraImports = new HashSet<>();
+        for (Method m : interfaceMethods) {
+            Class<?> retType = m.getReturnType();
+            Class<?>[] params = m.getParameterTypes();
+
+            if (!isValidArgType(retType))
+                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
+
+            List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).toList();
+            if (!invalid.isEmpty())
+                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
+
+            if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
+                extraImports.add(retType);
+            Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(CBConstants::isGenericPtr).forEach(extraImports::add);
+        }
+
+        extraImports.remove(String.class);
+        extraImports.remove(MemorySegment.class);
+        List<Class<?>> importLst = new ArrayList<>(extraImports);
+
+        //In case any of the Records are made up of Records then this will pick those up to
+        for (int n = 0; n < importLst.size(); ++n)
+        {
+            Class<?> c = importLst.get(n);
+            if (c.isRecord())
+            {
+                var subset = findSubRecords(c);
+                importLst.addAll(subset);
+                extraImports.addAll(subset);
+            }
+        }
+
+        return extraImports;
+    }
+
+    /**
+     * Search all Record types recursively to make sure we import and handle all Record types needed.
+     * @param record A record class to search for other records
+     * @return All of the sub-Records.
+     */
+    static Set<Class<?>> findSubRecords(Class<?> record)
+    {
+        Set<Class<?>> subRecords = new HashSet<>();
+        for (Field f : record.getDeclaredFields()) {
+            if (f.getType().isRecord())
+            {
+                subRecords.add(f.getType());
+                subRecords.addAll(findSubRecords(f.getType()));
+            }
+        }
+        return subRecords;
+    }
+
+    /**
+     * At the moment the only argument types that are supported are:
+     * Primitive
+     * Primitive[]
+     * Primitive[][]
+     * Record
+     * String
+     * MemorySegment
+     *
+     * @param c The type to check
+     * @return Is the type something we can work with
+     */
+    private static boolean isValidArgType(Class<?> c)
+    {
+        try {
+            //any failure to classify the parameter type means that we don't support it.
+            ArgClassification.classify(c, null);
+            return true;
+
+        }
+        catch (PassportException ex)
+        {
+            return false;
+        }
     }
 
 }

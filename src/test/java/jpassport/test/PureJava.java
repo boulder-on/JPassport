@@ -12,8 +12,8 @@
 package jpassport.test;
 
 
-import jpassport.MemoryBlock;
-import jpassport.Pointer;
+import jpassport.pointers.MemoryBlock;
+import jpassport.pointers.Pointer;
 import jpassport.annotations.RefArg;
 
 import java.lang.foreign.Arena;
@@ -284,5 +284,10 @@ public class PureJava implements TestLink
         for (char c : fillThis)
             s += c;
         return s;
+    }
+
+    public Pointer PassPointers(Pointer hMem)
+    {
+        return hMem;
     }
 }

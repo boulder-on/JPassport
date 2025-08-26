@@ -12,11 +12,11 @@
 package jpassport.test;
 
 import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.util.stream.IntStream;
 
-import jpassport.MemoryBlock;
-import jpassport.PassportBuilder;
-import jpassport.Pointer;
+import jpassport.pointers.MemoryBlock;
+import jpassport.pointers.Pointer;
 import org.junit.jupiter.api.BeforeAll;
 import jpassport.PassportFactory;
 
@@ -40,6 +40,29 @@ public class TestJPassport
                                 PassportFactory.link(getLibName(), TestLink.class)};
 
 //        new PassportBuilder<TestLink>(TestLink.class, "none.none", "testlinkImpl");
+    }
+
+    @Test
+    public void testNamedLookup()
+    {
+        for (TestLink testLink : testClass) {
+            assertNotSame(testLink.named.addr(), MemorySegment.NULL);
+            assertEquals(testLink.namedNotFound.addr(), MemorySegment.NULL);
+        }
+    }
+
+    @Test
+    public void TestPointerReturn()
+    {
+        try (Arena a = Arena.ofConfined())
+        {
+            var m = a.allocate(100);
+            Pointer p = new Pointer(m);
+            for (TestLink testLink : testClass) {
+                var mp = testLink.PassPointers(p);
+                assertEquals(m.address(), mp.getPtr().address());
+            }
+        }
     }
 
     @Test

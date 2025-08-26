@@ -98,4 +98,5 @@ extern int call_CB(callbackFN fn, int, double);
 typedef int (*callbackFNArr) (int*, int);
 extern void call_CBArr(callbackFNArr fn, int*, int);
 
+void* PassPointers(void* hMem);
 #endif //FL_DLL_LIBRARY_H

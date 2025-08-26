@@ -1,6 +1,6 @@
 package jpassport.test.structs;
 
-import jpassport.MemoryBlock;
+import jpassport.pointers.MemoryBlock;
 import jpassport.PassportFactory;
 import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;

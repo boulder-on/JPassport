@@ -14,6 +14,10 @@ package jpassport;
 
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.Critical;
+import jpassport.codebuilder.PassportBuilder;
+import jpassport.pointers.FunctionPtr;
+import jpassport.pointers.NamedLookup;
+import jpassport.util.PassportInvocationHandler;
 
 import java.io.File;
 import java.lang.foreign.*;
@@ -26,6 +30,11 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.*;
 
+/**
+ * This is the main entry point for connecting your interface to native code.
+ *
+ *
+ */
 public class PassportFactory
 {
     /**
@@ -197,6 +206,8 @@ public class PassportFactory
                 var addr = lookup.find(named.name());
                 if (addr.isEmpty() && field.getAnnotation(NotRequired.class) == null)
                     throw new PassportException("Could not find field in library: " + named.name());
+                else if (addr.isEmpty())
+                    named.setAddress(MemorySegment.NULL);
                 addr.ifPresent(named::setAddress);
             } catch (IllegalAccessException e) {
                 throw new PassportException("Could not find field in library: " + field.getName());
@@ -289,6 +300,8 @@ public class PassportFactory
             return ValueLayout.JAVA_LONG;
         if (boolean.class.equals(type))
             return ValueLayout.JAVA_BOOLEAN;
+        if (char.class.equals(type))
+            return ValueLayout.JAVA_CHAR;
 
         return ValueLayout.ADDRESS;
     }
