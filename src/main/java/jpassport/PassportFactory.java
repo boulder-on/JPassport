@@ -179,7 +179,7 @@ public class PassportFactory
                 if (method.getAnnotation(Critical.class) == null)
                     methodHandle = cLinker.downcallHandle(addr, fd);
                 else
-                    methodHandle = cLinker.downcallHandle(addr, fd, Linker.Option.critical(false));
+                    methodHandle = cLinker.downcallHandle(addr, fd, Linker.Option.critical(true));
 
                 methodMap.put(method.getName(), methodHandle);
             }
