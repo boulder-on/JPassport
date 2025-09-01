@@ -12,6 +12,7 @@
 package jpassport.test;
 
 import com.sun.jna.Native;
+import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.Pointer;
 import jpassport.annotations.RefArg;
@@ -247,6 +248,12 @@ public class TestLinkJNADirect
         {
             return hMem;
         }
+
+        public void setAnError(ErrorCapture errs, int errval)
+        {
+
+        }
+
 
     }
 }

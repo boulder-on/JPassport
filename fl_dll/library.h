@@ -99,4 +99,6 @@ typedef int (*callbackFNArr) (int*, int);
 extern void call_CBArr(callbackFNArr fn, int*, int);
 
 void* PassPointers(void* hMem);
+
+extern void setAnError(int errval);
 #endif //FL_DLL_LIBRARY_H

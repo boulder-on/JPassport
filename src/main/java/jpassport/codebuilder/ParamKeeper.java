@@ -1,6 +1,7 @@
 package jpassport.codebuilder;
 
 
+import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.Utils;
 
@@ -10,6 +11,7 @@ import java.lang.constant.ClassDesc;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
+import static jpassport.codebuilder.CBConstants.CD_MemorySegment;
 import static jpassport.codebuilder.CBConstants.isGenericPtr;
 
 
@@ -70,9 +72,9 @@ public class ParamKeeper {
 
         if (c.isArray() || c.isRecord() ||
                 c.equals(MemorySegment.class) || c.equals(String.class) || c.equals(MemoryBlock.class) ||
-                isGenericPtr(c))
+                isGenericPtr(c) || c.equals(ErrorCapture.class))
         {
-            return Utils.toDesc(MemorySegment.class);
+            return CD_MemorySegment;
         }
         return type.desc;
 //
@@ -98,6 +100,7 @@ public class ParamKeeper {
 
     public boolean requiredForVirtualCall()
     {
+//        return !isArena() && !isErrorCapture();
         return !isArena();
     }
 

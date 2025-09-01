@@ -153,13 +153,21 @@ public class PassportFactory
         for (Method method : interfaceMethods) {
             Class<?> retType = method.getReturnType();
             Class<?>[] parameters = method.getParameterTypes();
+            boolean hasErrorCapture = parameters.length > 0 && parameters[0].equals(ErrorCapture.class);
+
+            for (int n = 1; n < parameters.length; ++n)
+            {
+                if (parameters[n].equals(ErrorCapture.class))
+                    throw new PassportException("ErrorCapture must be the first argument of an interface function: " + method.getName());
+            }
 
             for (int n = 0; n < parameters.length; ++n) {
-                if (!parameters[n].isPrimitive() && !Arena.class.equals(parameters[n]))
+                if (!parameters[n].isPrimitive() && !isSpecialClass(parameters[n]))
                     parameters[n] = MemorySegment.class;
             }
 
-            MemoryLayout[] memoryLayout = Arrays.stream(parameters).filter(p -> !Arena.class.equals(p)).
+            MemoryLayout[] memoryLayout = Arrays.stream(parameters)
+                    .filter(p -> !isSpecialClass(p)).
                     map(PassportFactory::classToMemory).toArray(MemoryLayout[]::new);
 
             FunctionDescriptor fd;
@@ -172,20 +180,34 @@ public class PassportFactory
             if (addr == null && method.getAnnotation(NotRequired.class) == null)
                 throw new PassportException("Could not find method in library: " + method.getName());
 
+
             if (addr != null) {
 
                 MethodHandle methodHandle;
 
-                if (method.getAnnotation(Critical.class) == null)
+                List<Linker.Option> options = new ArrayList<>();
+                if (method.getAnnotation(Critical.class) != null)
+                    options.add(Linker.Option.critical(true));
+
+                if (hasErrorCapture)
+                    options.add(Linker.Option.captureCallState(ErrorCapture.getErrNames()));
+
+                Linker.Option[] linkeroptions = options.toArray(new Linker.Option[0]);
+                if (linkeroptions.length == 0)
                     methodHandle = cLinker.downcallHandle(addr, fd);
                 else
-                    methodHandle = cLinker.downcallHandle(addr, fd, Linker.Option.critical(true));
+                    methodHandle = cLinker.downcallHandle(addr, fd, linkeroptions);
 
                 methodMap.put(method.getName(), methodHandle);
             }
         }
         loadNames(interfaceClass);
         return methodMap;
+    }
+
+    public static boolean isSpecialClass(Class<?> c)
+    {
+        return Arena.class.equals(c) || ErrorCapture.class.equals(c);
     }
 
     /**

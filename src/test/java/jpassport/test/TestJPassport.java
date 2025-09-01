@@ -15,6 +15,7 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.util.stream.IntStream;
 
+import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.Pointer;
 import org.junit.jupiter.api.BeforeAll;
@@ -311,5 +312,6 @@ public class TestJPassport
         }
 
     }
+
 
 }

@@ -319,6 +319,41 @@ library can make assumptions about how to pull data out of the class and how to 
 out of memory and create a new class. Without these built in assumptions, the complexity 
 of the code would be terrible, and using MiscUnsafe might be required.
 
+# Capturing Errors
+The FFM API has the ability to capture errors that occured during a call. For instance,
+some C methods will set "errno" during a call. Or in windows GetLastError() can contain 
+valuable information. Those values need to be collected by the JVM as soon as the native
+call is done. JPassport automates this for you with the ErrorCapture class.
+
+```Java
+import jpassport.ErrorCapture;
+
+import java.lang.foreign.MemorySegment;
+
+public interface ErrCapTest extends Passport {
+    MemorySegment malloc(ErrorCapture err, int size);
+}
+
+ErrCapTest errCapTest = ...
+ErrorCapture errors = new ErrorCapture();
+MemorySegment mem = errCapTest.malloc(errors, Integer.MAX_VALUE);
+
+if (mem.equals(MemorySegment.NULL)) {
+    System.out.println(errors);
+    int errno = errors.getError("errno");
+    if (errno != 0)
+        System.out.println("The error encountered was: " + errno);
+}
+
+```
+Notice that ErrorCapture is not a real argument of the malloc function.
+We just inject the ErrorCapture class here to grab the
+errors that the JVM found before returning from the native call.
+
+NOTE: The errors that are returned are done by name. Each platform will
+have different names available. Calling MemorySegment.toString() will show
+you all that are available.
+
 # Annotations
 JPassport uses annotations as code generation hints. The available annotations are:
 
@@ -395,6 +430,7 @@ Roughly in order of importance
   - Added MemoryBlock as a valid struct member
   - Code reorganization to hide classes that are not part of the API that a programmer needs to care about.
   - Fixed some issue passing booleans.
+  - Added ErrorCapture
 - 1.1.0-24
   - Add support for building classes with the Classfile API
 - 1.0.1-22

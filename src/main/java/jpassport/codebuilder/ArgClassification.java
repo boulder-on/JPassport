@@ -1,5 +1,6 @@
 package jpassport.codebuilder;
 
+import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.PassportException;
 import jpassport.annotations.Ptr;
@@ -28,7 +29,8 @@ public enum ArgClassification {
     generic_ptr,
     generic_ptr_array,
     memory_block,
-    arena;
+    arena,
+    error_capture;
 
     public static ArgClassification classify(Class<?> arg, Annotation[] paramAnnotations)
     {
@@ -59,6 +61,8 @@ public enum ArgClassification {
             return generic_ptr;
         if (Arena.class.equals(arg))
             return arena;
+        if (ErrorCapture.class.equals(arg))
+            return error_capture;
         throw new PassportException("Unhandled type: " + arg.getName());
 
     }

@@ -12,6 +12,7 @@
 package jpassport.test;
 
 import com.sun.jna.Library;
+import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.NamedLookup;
 import jpassport.Passport;
@@ -87,15 +88,4 @@ public interface TestLink extends Passport, Library {
     int passChars(char[] fillThis, int sizemax);
 
     Pointer PassPointers(Pointer hMem);
-//    static void calling(TestLink tl)
-//    {
-//        double[] values = new double[5];
-//        MemoryAddress address = tl.mallocDoubles(values.length);
-//        MemorySegment segment = address.asSegmentRestricted(values.length * Double.BYTES);
-//        Utils.toArr(values, segment);
-//
-//        assertArrayEquals(new double[] {0, 1, 2, 3, 4}, values);
-//
-//        tl.freeMemory(address);
-//    }
 }

@@ -10,6 +10,7 @@ module test.passport {
 
     requires commons.csv;
     requires java.desktop;
+    requires jdk.jdi;
 
     exports jpassport.test;
     exports jpassport.test.performance;

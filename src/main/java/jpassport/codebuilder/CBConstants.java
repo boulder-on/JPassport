@@ -1,5 +1,6 @@
 package jpassport.codebuilder;
 
+import jpassport.ErrorCapture;
 import jpassport.pointers.GenericPointer;
 import jpassport.PassportException;
 import jpassport.Utils;
@@ -29,6 +30,7 @@ public interface CBConstants {
     ClassDesc CD_Utils = toDesc(Utils.class);
     ClassDesc CD_ValueLayout = toDesc(ValueLayout.class);
     ClassDesc CD_AddressLayout = toDesc(AddressLayout.class);
+    ClassDesc CD_ErrorCapture = toDesc(ErrorCapture.class);
 
     String INIT_STRUCTS_METHOD_NAME = "initStructs";
 

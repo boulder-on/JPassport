@@ -4,7 +4,6 @@ import jpassport.*;
 import jpassport.Utils;
 import jpassport.pointers.GenericPointer;
 import jpassport.pointers.MemoryBlock;
-import jpassport.pointers.Pointer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -319,7 +318,10 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         var returnKeeper = ParamKeeper.classify(iMethod.getReturnType());
         var methodSig = MethodTypeDesc.of(returnKeeper.typeForInterfaceMethod(), params);
 
-        var paramsVirt = Arrays.stream(iMethod.getParameterTypes()).map(ParamKeeper::classify).filter(ParamKeeper::requiredForVirtualCall).map(ParamKeeper::typeForVirtualCall).toList();
+        var paramsVirt = Arrays.stream(iMethod.getParameterTypes())
+                .map(ParamKeeper::classify)
+                .filter(ParamKeeper::requiredForVirtualCall)
+                .map(ParamKeeper::typeForVirtualCall).toList();
         var methodSigVirt = MethodTypeDesc.of(returnKeeper.typeForVirtualCall(), paramsVirt);
 
         var methodTypeDesc = toDesc(MethodHandle.class);
@@ -417,6 +419,10 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                                 MethodTypeDesc.of(CD_MemorySegment,
                                                         CD_SegmentAllocator, toDesc(GenericPointer.class).arrayType(1), ConstantDescs.CD_boolean));
                                     }
+                                    case error_capture -> {
+                                        cob.aload(keepers.get(ii).stored).aload(arenaSlot);
+                                        cob.invokevirtual(CD_ErrorCapture, "alloc", MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
+                                    }
                                     default ->
                                         throw new PassportException(varHandling + " not supported as an argument");
                                 }
@@ -480,7 +486,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             {
                                 //Only things annotated with @RefArg need to be read back
                                 //Memory blocks should always be read back there's no need to say @RegArg
-                                if (!(isRefArg(k.annotations) || k.classification == memory_block))
+                                if (!(isRefArg(k.annotations) || k.classification == memory_block || k.classification == error_capture))
                                     continue;
 
                                 switch (k.classification)
@@ -517,6 +523,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                         cob.invokestatic(CD_Utils, "toArr",
                                                 MethodTypeDesc.of(ConstantDescs.CD_void,
                                                         k.typeForInterfaceMethod(), CD_MemorySegment));
+                                    }
+                                    case error_capture -> {
+                                        cob.aload(k.storedOrig).aload(k.stored);
+                                        cob.invokevirtual(CD_ErrorCapture, "readAfter",
+                                                MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment));
                                     }
                                 }
                             }
@@ -606,7 +617,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         {
             arena = a.getClass();
         }
-        return Arrays.stream(m.getParameterTypes()).anyMatch(c -> c.isArray() || c.isRecord() || c.equals(arena) || c.equals(String.class));
+        return Arrays.stream(m.getParameterTypes()).anyMatch(c -> c.isArray() || c.isRecord()
+                || c.equals(arena) || c.equals(String.class) || c.equals(ErrorCapture.class));
     }
 
     private void parseClass()
@@ -615,8 +627,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         for (var mm : classModel.methods())
         {
-            if (!mm.methodName().stringValue().equals("ReadFile"))
-                continue;
+//            if (!mm.methodName().stringValue().equals("ReadFile"))
+//                continue;
             System.out.println("============================================");
             System.out.println(mm.methodName());
             System.out.println("Signature: " + mm.methodType());

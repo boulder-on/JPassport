@@ -12,6 +12,7 @@
 package jpassport.test;
 
 
+import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.Pointer;
 import jpassport.annotations.RefArg;
@@ -290,4 +291,10 @@ public class PureJava implements TestLink
     {
         return hMem;
     }
+
+    public void setAnError(ErrorCapture errs, int errval)
+    {
+
+    }
+
 }
