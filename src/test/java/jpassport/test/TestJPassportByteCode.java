@@ -2,6 +2,7 @@ package jpassport.test;
 
 import jpassport.ErrorCapture;
 import jpassport.PassportFactory;
+import jpassport.Utils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -24,10 +25,11 @@ public class TestJPassportByteCode {
     @Test
     public void testErrorCapture()
     {
-//        ErrorCapture ec = new ErrorCapture();
-//        testClass.setAnError(ec, 10);
-//
-//        assertEquals(10, ec.getError("errno"));
+        ErrorCapture ec = new ErrorCapture();
+        testClass.setAnError(ec, 10);
+
+        if (Utils.getPlatform() != Utils.Platform.Windows)
+            assertEquals(10, ec.getError("errno"));
     }
 
 }

@@ -11,7 +11,7 @@
  */
 #include "library.h"
 
-
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
@@ -453,7 +453,6 @@ void* PassPointers(void* hMem)
 extern void setAnError(int errval)
 {
     printf("Setting error to: %d, %d\n", errval, errno);
-    _set_errno(0);
-    _set_errno(errval);
+    errno = errval;
     printf("2. Setting error to: %d, %d\n", errval, errno);
 }
