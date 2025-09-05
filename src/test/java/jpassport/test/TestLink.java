@@ -88,4 +88,6 @@ public interface TestLink extends Passport, Library {
     int passChars(char[] fillThis, int sizemax);
 
     Pointer PassPointers(Pointer hMem);
+
+    void setAnError(ErrorCapture errs, int errval);
 }

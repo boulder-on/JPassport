@@ -32,6 +32,10 @@ public enum ArgClassification {
     arena,
     error_capture;
 
+    public static ArgClassification classify(Class<?> arg) {
+        return classify(arg, new Annotation[0]);
+    }
+
     public static ArgClassification classify(Class<?> arg, Annotation[] paramAnnotations)
     {
         if (arg.isPrimitive())
@@ -67,7 +71,7 @@ public enum ArgClassification {
 
     }
 
-    static ArgClassification classify(Field f)
+    public static ArgClassification classify(Field f)
     {
         boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
         Class<?> arg = f.getType();

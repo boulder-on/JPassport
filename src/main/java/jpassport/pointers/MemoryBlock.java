@@ -2,8 +2,8 @@ package jpassport.pointers;
 
 import jpassport.Utils;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 
 /**
  * A very common idiom in C is to pass a pointer to some allocated memory
@@ -60,7 +60,7 @@ public class MemoryBlock {
         return sizeInBytes;
     }
 
-    public MemorySegment toPtr(Arena scope)
+    public MemorySegment toPtr(SegmentAllocator scope)
     {
         if (ptr == null)
         {

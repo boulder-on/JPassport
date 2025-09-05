@@ -24,9 +24,8 @@ import java.util.stream.IntStream;
 
 public class PerformanceTest
 {
-    static PerfTest testFL;
-    static PerfTest testFLP;
-    static PerfTest testBC;
+    static PerfTest testPassportWritten;
+    static PerfTest testPassportByteCode;
     static PerfTest testJNA;
     static PerfTest testJNADirect;
     static PerfTest testJava;
@@ -36,9 +35,8 @@ public class PerformanceTest
     {
         System.setProperty("jpassport.build.home", "out/testing");
         System.setProperty("jna.library.path", System.getProperty("java.library.path"));
-        testFL = PassportFactory.link_written("libpassport_test", PerfTest.class);
-        testFLP = PassportFactory.proxy("libpassport_test", PerfTest.class);
-        testBC = PassportFactory.link("libpassport_test", PerfTest.class);
+        testPassportByteCode = PassportFactory.link("libpassport_test", PerfTest.class);
+        testPassportWritten = PassportFactory.link_written("libpassport_test", PerfTest.class);
         testJNA =  Native.load("passport_test", PerfTest.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();
@@ -48,11 +46,11 @@ public class PerformanceTest
     {
         startup();
 
-        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testFL, testFLP, testBC};
+        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testPassportByteCode, testPassportWritten};
 
         try(var csv = new CSVOutput(Path.of("performance", "doubles_add_2.csv")))
         {
-            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy", "Byte Code").endLine();
+            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport Byte Code", "JPassport written").endLine();
 
             for (int loops = 1000; loops < 100000; loops += 1000) {
 
@@ -79,7 +77,7 @@ public class PerformanceTest
 
         try(var csv = new CSVOutput(Path.of("performance", "double_arr_add.csv")))
         {
-            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport", "Proxy", "Byte Code").endLine();
+            csv.add("array size", "pure java", "JNA", "JNA Direct", "Passport BC", "Passport written").endLine();
             for (int size = 1024; size <= 1024*256; size += 1024)
             {
                 double[][] results = new double[tests.length][5];

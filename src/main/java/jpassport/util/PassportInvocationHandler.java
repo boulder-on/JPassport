@@ -17,6 +17,11 @@ import java.util.HashMap;
 
 import static jpassport.codebuilder.CBConstants.*;
 
+/**
+ * @deprecated This method of building an implementation of your interface was always too
+ * slow and limited. It should not be used.
+ */
+@Deprecated
 public class PassportInvocationHandler  implements InvocationHandler {
     HashMap<String, MethodHandle> handles;
     boolean allArraysAreReadBack = false;

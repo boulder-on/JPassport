@@ -1,7 +1,7 @@
 # JPassport - Java 24
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
-[Foreign Linker API](https://openjdk.java.net/jeps/393) instead of JNI. 
+[Foreign Function and Memory API](https://openjdk.java.net/jeps/393) (FFM) instead of JNI. 
 Similar to JNA, you declare a Java interface that is bound to the external C library using method names.  
 The goal of this project is to provide a JNA-like experience for anyone wanting to access native code.
 
@@ -13,14 +13,17 @@ this library is much lighter weight than JNA (100 kb vs 3+ MB) and the programin
 for many cases. I also hope that in many cases, changing to JPassport from existing JNA code shouldn't be
 an onerous task.
 
-As part of the Foreign Linker API, a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md) 
-is available. Given a header file, JExtract will build the classes needed to access a C library. If you have
-a large header file, then JExtract is likely an easier tool for you to use if you don't already have interfaces
-defined for JNA.
+The FFM team maintain a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md). Given a header file (.h), JExtract will write the required
+Java code to access the native code described in the header. I haven't used JExtract much. In order
+to use the code it generates you need to be somewhat familiar with FFM and, if I understand correctly,
+for proper struct support you need to have it generate code for each platform you want to support. 
+Maybe for large header files JExtract is a quicker route. But if your goal is simple, easy to read Java code
+the JPassport is a better route.
 
 **Java 24 and later** are required to use this library. There are separate branches for Java 17 to 22.
 
-The Foreign Linker API is final in Java 22. The Classfile API is final in Java 24.
+[FFM](https://docs.oracle.com/en/java/javase/22/core/foreign-function-and-memory-api.html) is final in 
+Java 22. The [Class-file API](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/lang/classfile/package-summary.html) is final in Java 24.
 
 # Getting Started
 
@@ -106,22 +109,15 @@ Once the class is compiled, to use it:
 Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
 ```
 
-JPassport works in one of 3 modes:
+JPassport works in one of 2 modes:
 
-1. Using the Classfile API to build a class that implements the given interface. 
+1. Using the Class-file API to build a class that implements the given interface. 
    1. PassportFactory.link()
    2. This is a fast method that creates generally fast code (in my example code it takes about 20ms to generate the class)
 2. Writing a class that implements your interface, compiling it and passing it back to you. 
    1. PassportFactory.link_written()
    2. The process to write, compile and load the class is relatively slow, but that is a one-time cost. (in my example code it takes about 2s to generate the class)
    3. This method creates code you can see and hand optimize (see jpassport.build.home)
-4. Creating a proxy object that implements the given interface. 
-   1. PassportFactory.proxy()
-   5. The fastest way to create a class
-   6. Only works with simple cases at the moment (primitives and arrays of primitives)
-   7. Very slow implemenaton, Java proxy classes are not known to be fast, extensive use of reflection while running keeps it slow)
-   8. Debuggable since you can step through each line of code.
-
 
 # Callback example
 
@@ -246,6 +242,10 @@ lib.setInt(ref, 10);
 ```
 
 Without the @RefArg, when ref[] is returned it will not have been updated.
+
+@RefArg can be used to annotate your entire interface. In that case, all methods
+that use arrays will be handled as reference arguments.
+
 ## Structs and Records
 In order to handle C Structs you must make an equivalent Java Record. For example
 ```
@@ -280,14 +280,12 @@ double passComplex(struct ComplexPassing* complex)
 import jpassport.annotations.RefArg;
 
 public record PassingData(
-        @StructPadding(bytes = 4) int s_int,
         long s_long,
-        @StructPadding(bytes = 4) float s_float,
         double s_double) {
 }
 
 public record ComplexPassing(
-        @StructPadding(bytes = 4) int ID,
+        int ID,
         PassingData ts,
         @Ptr TestStruct tsPtr,
         String string) {
@@ -298,14 +296,8 @@ public interface PerfTest extends Passport {
     double passComplex(@RefArg ComplexPassing[] complexStruct);
 }
 ```
-The @StructPadding annotation here is optional and maintained for legacy reasons (and in case my
-calculations for padding are wrong on some platforms). Also, I guess it's possible that you have a 
-very strange struct where you need bespoke padding. In general, the library will automatically 
-add the padding that it thinks is required. If you use @StructPadding that tells JPassport 
-how much padding to put before or after a struct member (negative numbers indicate pre-member 
-padding). There are also separate annotation values for different platforms (windowsBytes, macBytes, linuxBytes). 
 
-The other important annotation is @Ptr, this lets JPassport know to treat the member of the struct as
+The @Ptr annotation lets JPassport know to treat the member of the struct as
 a pointer to another struct.
 
 Arrays of Records can only be 1 element long. Longer arrays of Records are not supported.
@@ -319,8 +311,13 @@ library can make assumptions about how to pull data out of the class and how to 
 out of memory and create a new class. Without these built in assumptions, the complexity 
 of the code would be terrible, and using MiscUnsafe might be required.
 
+Structs often require padding bytes to align on 4 or 8 byte boundaries. JPassport
+calculates this padding automatically based on your platform. However, if it's done
+wrong then you can use the  @StructPadding annotation to implement custom padding.
+You can also you this annotation to ignore sections of a struct you don't care about.
+
 # Capturing Errors
-The FFM API has the ability to capture errors that occured during a call. For instance,
+FFM has the ability to capture errors that occurred during a call. For instance,
 some C methods will set "errno" during a call. Or in windows GetLastError() can contain 
 valuable information. Those values need to be collected by the JVM as soon as the native
 call is done. JPassport automates this for you with the ErrorCapture class.
@@ -431,6 +428,8 @@ Roughly in order of importance
   - Code reorganization to hide classes that are not part of the API that a programmer needs to care about.
   - Fixed some issue passing booleans.
   - Added ErrorCapture
+  - Cleanup the code that writes a java class (PassportFactory.link_written())
+  - Deprecated the proxy implementation
 - 1.1.0-24
   - Add support for building classes with the Classfile API
 - 1.0.1-22

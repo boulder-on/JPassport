@@ -17,7 +17,6 @@ import jpassport.annotations.Critical;
 import jpassport.codebuilder.PassportBuilder;
 import jpassport.pointers.FunctionPtr;
 import jpassport.pointers.NamedLookup;
-import jpassport.util.PassportInvocationHandler;
 
 import java.io.File;
 import java.lang.foreign.*;
@@ -27,7 +26,6 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Proxy;
 import java.util.*;
 
 /**
@@ -39,10 +37,9 @@ public class PassportFactory
 {
     /**
      * Call this method to generate the library linkage. This version of the method will write the java file and compile
-     * it. As a result, the start-up is a bit slower than {@link #proxy(String, Class) proxy()}, but the implementation
-     * is a bit quicker.
-     *
-     * <p>This version also supports Record -> struct conversions.
+     * it. As a result, the start-up is significantly slower that {@link #link(String, Class) link()}, but the code
+     * can be written to disk for later optimization. To write the code to disk use:
+     * System.setProperty("jpassport.build.home", [location]);
      *
      * @param libraryName The library name (the file name of the shared library without extension on all platforms,
      *                    without lib prefix on Linux and Mac). Use null to load system method calls (ex. malloc)
@@ -62,11 +59,11 @@ public class PassportFactory
     }
 
     /**
-     * Call this method to generate the library linkage. This version of the method will write the java file and compile
-     * it. As a result, the start-up is a bit slower than {@link #proxy(String, Class) proxy()}, but the implementation
-     * is a bit quicker.
-     *
-     * <p>This version also supports Record -> struct conversions.
+     * Call this method to generate the library linkage. This will return a dynamically generated implementation
+     * of interfaceClass. The returned class is created using the Class file API, so it only exists in memory.
+     * This call creates the class significantly faster than
+     * {@link #link_written(String, Class)}. There should be little performance difference between the two
+     * returned classes.
      *
      * @param libraryName The library name (the file name of the shared library without extension on all platforms,
      *                    without lib prefix on Linux and Mac). Use null to load system method calls (ex. malloc)
@@ -83,31 +80,6 @@ public class PassportFactory
         } else {
             return buildClass(libraryName, interfaceClass);
         }
-    }
-
-    /**
-     * Call this method to generate the library linkage. This version of the method uses a dynamic proxy to handle native
-     * calls. As a result, the start-up is faster than {@link #link(String, Class) link()}, but the implementation is a bit slower.
-     *
-     * <p>This method does not support Record -> struct conversions.</p>
-     *
-     * @param libraryName The library name (the file name of the shared library without extension on all platforms,
-     *                    without lib prefix on Linux and Mac). Use null to load system method calls (ex. malloc)
-     * @param interfaceClass The class to wrap.
-     * @param <T> Any interface that extends Passport
-     * @return A class linked to call into a DLL or SO using the Foreign Linker.
-     */
-    public static <T extends Passport> T proxy(String libraryName, Class<T> interfaceClass) throws Throwable
-    {
-        if (!Passport.class.isAssignableFrom(interfaceClass)) {
-            throw new IllegalArgumentException("Interface (" + interfaceClass.getSimpleName() + ") of library=" + libraryName + " does not extend " + Passport.class.getSimpleName());
-        }
-
-        var methods = loadMethodHandles(libraryName, interfaceClass);
-        var handler = new PassportInvocationHandler(methods, interfaceClass);
-        return (T) Proxy.newProxyInstance(interfaceClass.getClassLoader(),
-                new Class[] { interfaceClass },
-                handler);
     }
 
     private static <T extends Passport> T writeClass(String libName, Class<T> interfaceClass) throws Throwable
@@ -129,7 +101,7 @@ public class PassportFactory
          * This method looks up the methods in the requested native library that match non-static
          * methods in the given interface class.
          *
-         * @param libName Name of the native library to load, of null if the methods will be system method (ex. malloc).
+         * @param libName Name of the native library to load, or null if the methods will be system method (ex. malloc).
          * @param interfaceClass The interface class to use as a reference for loading methods.
          * @return A map of Name to method handle pairs for the methods in the interface class.
          */
@@ -154,6 +126,9 @@ public class PassportFactory
             Class<?> retType = method.getReturnType();
             Class<?>[] parameters = method.getParameterTypes();
             boolean hasErrorCapture = parameters.length > 0 && parameters[0].equals(ErrorCapture.class);
+
+            if (!hasErrorCapture && Arrays.asList(parameters).contains(ErrorCapture.class))
+                throw new PassportException("ErrorCapture must be the first argument of the method: " + method.getName());
 
             for (int n = 1; n < parameters.length; ++n)
             {
@@ -205,14 +180,20 @@ public class PassportFactory
         return methodMap;
     }
 
-    public static boolean isSpecialClass(Class<?> c)
+    /**
+     * Special classes in this contect refers to method arguments that actually should not get
+     * pushed to the native method (Arena and ErrorCapture)
+     * @param c The Class to check.
+     * @return True if the given class type will be passed to the native method.
+     */
+    private static boolean isSpecialClass(Class<?> c)
     {
         return Arena.class.equals(c) || ErrorCapture.class.equals(c);
     }
 
     /**
-     * This methods looks up all of the methods in the requested native library that match non-static
-     * methods in the given interface class.
+     * This method looks up {@link NamedLookup} fields in the native library and sets their
+     * values to the appropriate address in the library.
      *
      * @param interfaceClass The interface class to use as a reference for loading methods.
      */
@@ -240,11 +221,12 @@ public class PassportFactory
     /**
      * Given an object and method name this will return a memory address that
      * corresponds to a method pointer that can be passed to native code.
-     * The method cannot be static.
+     * The method ob.methodName() cannot be static.
      *
      * @param ob The object that the method belongs to.
      * @param methodName The name of the method.
-     * @return A pointer to a method handle that can be passed to native code.
+     * @return A pointer to a method handle that can be passed to native code. When the native code calls the function
+     * pointer, ob.methodName() will be called.
      * @throws IllegalArgumentException if there is no method with the given name, or there is more
      * than 1 method with the given name.
      */
@@ -258,7 +240,7 @@ public class PassportFactory
         else if (methods.size() > 1)
             throw new IllegalArgumentException("Multiple overloads of method " + methodName + " in class " + ob.getClass().getName());
 
-        Method callbackMethod = methods.get(0);
+        Method callbackMethod = methods.getFirst();
 
         Class<?> retType = callbackMethod.getReturnType();
         Class<?>[] parameters = callbackMethod.getParameterTypes();

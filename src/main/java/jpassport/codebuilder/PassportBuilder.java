@@ -166,7 +166,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             for (Method m : interfaceMethods)
             {
                 if (needsArena(m))
-                    addMethodWithArena(clb, m);
+                    addMethodWithArena(clb, interfaceClass, m);
                 else
                     addMethod(clb, m);
             }
@@ -231,7 +231,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 if (k.classification == memory_block && arenaSlot.isPresent()) {
                                     cob.aload(k.stored).aload(arenaSlot.getAsInt());
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
-                                            MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
+                                            MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator));
                                     used++;
                                     cob.astore(used);
                                     k.stored = used;
@@ -248,12 +248,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             }
 
                             cob.aload(0).getfield(methodHandles.get("m_" + iMethod.getName()));
-                            int idx = 1; // slot 0 is the method handle
                             for (var k : keepers)
-                            {
                                 k.loadParam(cob);
-                                idx++;
-                            }
 
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
                             int returnSlot = used + 1;
@@ -269,7 +265,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     loadParam(cob, returnSlot, iMethod.getReturnType());
                                     cob.invokestatic(CD_Utils, "readString", mtd);
                                     returnSlot = used;
-                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    storeParam(cob, returnSlot, iMethod.getReturnType());
                                 }
                                 case generic_ptr -> {
                                     var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
@@ -278,7 +274,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     loadParam(cob, returnSlot,  virtMethodRetType);
                                     cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
                                     returnSlot = used+1;
-                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    storeParam(cob, returnSlot, iMethod.getReturnType());
                                 }
                             }
 
@@ -312,7 +308,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
     }
 
 
-    private void addMethodWithArena(ClassBuilder clb, Method iMethod)
+    private void addMethodWithArena(ClassBuilder clb, Class<?> interfaceClass, Method iMethod)
     {
         var params = Arrays.stream(iMethod.getParameterTypes()).map(ParamKeeper::classify).map(ParamKeeper::typeForInterfaceMethod).toList();
         var returnKeeper = ParamKeeper.classify(iMethod.getReturnType());
@@ -468,7 +464,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     loadParam(cob, returnSlot, iMethod.getReturnType());
                                     cob.invokestatic(CD_Utils, "readString", mtd);
                                     returnSlot = used;
-                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    storeParam(cob, returnSlot, iMethod.getReturnType());
                                 }
                                 case generic_ptr -> {
                                     var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
@@ -476,17 +472,19 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                                     loadParam(cob, returnSlot,  virtMethodRetType);
                                     cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
-                                    returnSlot = used+1;
-                                    used = storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    returnSlot = used;
+                                    storeParam(cob, returnSlot, iMethod.getReturnType());
                                 }
                             }
+
+                            boolean globalRefArg = isRefArg(interfaceClass.getAnnotations());
 
                             //Read back any parameters that were changed by the native method
                             for (ParamKeeper k : keepers)
                             {
                                 //Only things annotated with @RefArg need to be read back
                                 //Memory blocks should always be read back there's no need to say @RegArg
-                                if (!(isRefArg(k.annotations) || k.classification == memory_block || k.classification == error_capture))
+                                if (!(globalRefArg || isRefArg(k.annotations) || k.classification == memory_block || k.classification == error_capture))
                                     continue;
 
                                 switch (k.classification)

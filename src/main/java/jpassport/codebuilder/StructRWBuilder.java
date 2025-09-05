@@ -415,7 +415,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     slots = storeParam(cob, addrSlot, ftype);
 
                                     cob.aload(addrSlot).aload(arenaSlot);
-                                    cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr", MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
+                                    cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr", MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator));
                                     addrSlot = slots;
                                     slots = storeParam(cob, addrSlot, MemorySegment.class);
 
@@ -706,7 +706,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                 }
                                 default ->
                                     throw new PassportException(varHandling + " not supported");
-                            };
+                            }
 
                             ii++;
                         }
