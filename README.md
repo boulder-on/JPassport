@@ -36,7 +36,7 @@ Download the source and run the maven build, or use the maven dependency:
             <version>1.1.0-24</version>
         </dependency>
 
-If you would like to see the Java code or byte cod created use:
+If you would like to see the Java code or byte code created use:
 ```java
 System.setProperty("jpassport.build.home", [folder location]);
 ```
