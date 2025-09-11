@@ -179,6 +179,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             var dest = Path.of(System.getProperty("jpassport.build.home"));
             var destFile = dest.resolve(className + ".class");
             try {
+                Files.createDirectories(dest);
                 Files.write(destFile, classBytes);
             } catch (IOException e) {
                 System.err.println("Error writing class file to " + dest);
@@ -380,7 +381,12 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     }
                                     case record_array -> {
                                         cob.aload(0).aload(arenaSlot).aload(keepers.get(ii).stored);
-                                        cob.invokevirtual(thisClassDesc, "store" + t.getComponentType().getSimpleName(),
+                                        cob.invokevirtual(thisClassDesc, "storeArr" + t.getComponentType().getSimpleName(),
+                                                MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(t.getComponentType()).arrayType()));
+                                    }
+                                    case record_array_ptr -> {
+                                        cob.aload(0).aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        cob.invokevirtual(thisClassDesc, "storePtr" + t.getComponentType().getSimpleName(),
                                                 MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(t.getComponentType()).arrayType()));
                                     }
                                     case string_ -> {
@@ -491,11 +497,18 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 {
                                     case record_array -> {
                                         cob.aload(k.storedOrig).loadConstant(0);
-                                        cob.aload(0).aload(k.stored).aload(k.storedOrig).loadConstant(0).aaload();
+                                        cob.aload(0).aload(k.stored).aload(k.storedOrig);
                                         var recType = k.classtype.getComponentType();
-                                        cob.invokevirtual(thisClassDesc, "read" + recType.getSimpleName(),
-                                                MethodTypeDesc.of(toDesc(recType), CD_MemorySegment, toDesc(recType)));
-                                        cob.aastore();
+                                        cob.invokevirtual(thisClassDesc, "readArr" + recType.getSimpleName(),
+                                                MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment, toDesc(recType).arrayType(1)));
+                                    }
+                                    case record_array_ptr -> {
+                                        cob.aload(k.storedOrig).loadConstant(0);
+                                        cob.aload(0).aload(k.stored).aload(k.storedOrig);
+                                        var recType = k.classtype.getComponentType();
+                                        cob.invokevirtual(thisClassDesc, "readPtrs" + recType.getSimpleName(),
+                                                MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment, toDesc(recType).arrayType(1)));
+
                                     }
                                     case string_array -> {
                                         cob.aload(k.stored).aload(k.storedOrig);
@@ -625,8 +638,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         for (var mm : classModel.methods())
         {
-//            if (!mm.methodName().stringValue().equals("ReadFile"))
-//                continue;
+            if (!mm.methodName().stringValue().equals("initStructs"))
+                continue;
             System.out.println("============================================");
             System.out.println(mm.methodName());
             System.out.println("Signature: " + mm.methodType());

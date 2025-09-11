@@ -196,6 +196,8 @@ Performance of a method that passes an array of doubles. The gap here
 | char**            | @PtrPtrArg byte[][]                                         |
 | char[][]          | byte[][]                                                    |
 | structs           | Records                                                     |
+| structs[]         | Records[]                                                   |
+| structs**         | @PtrPtrArg Records[]                                        |
 | char*, void *     | MemoryBlock                                                 |
 | char*, void *     | GenericPtr (Useful if a native method returns a pointer)    |
 | char*, void *     | MemorySegment (if you are doing your own memory magagement) |
@@ -366,7 +368,6 @@ JPassport uses annotations as code generation hints. The available annotations a
 | Critical                     | Methods  | Removes some overhead for calling a native method. Cannot be used when callbacks are used. See the JDK's Linker.Option.critical for more details.                      |
 # Limitations
 
-* Only arrays of Records of length 1 work.
 * Only 1D and 2D arrays of primitives are supported, deeper nestings do not work.
 * The interface file passed to PassportFactory and all required Records must be exported by your module.
 
@@ -415,12 +416,6 @@ double[] testReturnPointer(int count) {
 JPassport itself only requires **Java 24 or later** to build and run. There are separate Java 17-22 branches. 
 
 
-# Work To-Do
-Roughly in order of importance
-
-1. Support arrays of Records 
-2. Support returning a Record
-
 # Release Notes
 - 1.2.0-24 (not released yet)
   - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
@@ -430,6 +425,8 @@ Roughly in order of importance
   - Added ErrorCapture
   - Cleanup the code that writes a java class (PassportFactory.link_written())
   - Deprecated the proxy implementation
+  - Added support for arrays of structs > length 1
+  - Added support for arrays of pointers to structs.
 - 1.1.0-24
   - Add support for building classes with the Classfile API
 - 1.0.1-22

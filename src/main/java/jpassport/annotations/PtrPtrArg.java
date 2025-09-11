@@ -26,6 +26,6 @@ import java.lang.annotation.Target;
  * This annotation is only observed for array arguments.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.PARAMETER)
+@Target({ElementType.PARAMETER, ElementType.RECORD_COMPONENT, ElementType.FIELD})
 public @interface PtrPtrArg {
 }

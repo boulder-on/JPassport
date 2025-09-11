@@ -1,6 +1,7 @@
 package jpassport.codebuilder;
 
 import jpassport.ErrorCapture;
+import jpassport.annotations.PtrPtrArg;
 import jpassport.pointers.MemoryBlock;
 import jpassport.PassportException;
 import jpassport.annotations.Ptr;
@@ -9,6 +10,7 @@ import java.lang.annotation.Annotation;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.reflect.Field;
+import java.util.Arrays;
 
 import static jpassport.codebuilder.CBConstants.*;
 
@@ -54,7 +56,11 @@ public enum ArgClassification {
         if (arg.isRecord())
             return record_;
         if (arg.isArray() && arg.getComponentType().isRecord())
-            return record_array;
+        {
+            boolean isPointer = paramAnnotations != null && Arrays.stream(paramAnnotations).anyMatch(annotation -> annotation.annotationType().equals(Ptr.class));
+            boolean isPtr2Ptr = paramAnnotations != null && Arrays.stream(paramAnnotations).anyMatch(annotation -> annotation.annotationType().equals(PtrPtrArg.class));
+            return isPointer || isPtr2Ptr ? record_array_ptr : record_array;
+        }
         if (MemorySegment.class.equals(arg))
             return mem_segment;
         if (MemoryBlock.class.equals(arg))
@@ -74,6 +80,7 @@ public enum ArgClassification {
     public static ArgClassification classify(Field f)
     {
         boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
+        boolean isPtr2Ptr = f.getAnnotationsByType(PtrPtrArg.class).length > 0;
         Class<?> arg = f.getType();
 
         if (arg.isPrimitive())
@@ -86,7 +93,7 @@ public enum ArgClassification {
         if (arg.isRecord())
             return isPointer ? record_ptr : record_;
         if (arg.isArray() && arg.getComponentType().isRecord())
-            return isPointer ? record_array_ptr : record_array;
+            return isPointer || isPtr2Ptr ? record_array_ptr : record_array;
 
         if (MemorySegment.class.equals(arg))
             return mem_segment;

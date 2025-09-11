@@ -71,6 +71,14 @@ struct ComplexPassing
     char* s_string;
 };
 
+struct PassingStructs
+{
+    struct PassingData s_simple;
+//    struct PassingData array_data[3];
+    int countofPtrs;
+    struct PassingData** s_ptrtoptr;
+};
+
 struct PassingArrays
 {
     double s_double[5];
@@ -101,4 +109,9 @@ extern void call_CBArr(callbackFNArr fn, int*, int);
 void* PassPointers(void* hMem);
 
 extern void setAnError(int errval);
+
+extern double passStructArrBlock(struct PassingData data[], int count, int multiply);
+extern double passStructArrPtr(struct PassingData** data, int count, int multiply);
+
+extern double passStructOfStructs(struct PassingStructs* data);
 #endif //FL_DLL_LIBRARY_H

@@ -77,7 +77,7 @@ public class PerformanceTest
 
         try(var csv = new CSVOutput(Path.of("performance", "double_arr_add.csv")))
         {
-            csv.add("array size", "pure java", "JNA", "JNA Direct", "Passport BC", "Passport written").endLine();
+            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport Byte Code", "JPassport written").endLine();
             for (int size = 1024; size <= 1024*256; size += 1024)
             {
                 double[][] results = new double[tests.length][5];

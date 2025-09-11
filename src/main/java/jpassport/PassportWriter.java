@@ -237,7 +237,13 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         requiresMap.get(c).add(type);
                         sbLayout.append(String.format("\t\tADDRESS.withName(\"%s\"),\n", f.getName()));
                     }
-                    case string_, mem_segment, generic_ptr, memory_block, primitive_array_ptr ->
+                    case record_array -> {
+                        Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                        requiresMap.get(c).add(type);
+                        int length = ((Array) arrays[0]).length();
+                        sbLayout.append(String.format("\t\tMemoryLayout.sequenceLayout(%d, %sLayout).withName(\"%s\"),\n", length, type.getComponentType().getSimpleName(), f.getName()));
+                    }
+                    case string_, mem_segment, generic_ptr, memory_block, primitive_array_ptr, record_array_ptr ->
                         sbLayout.append(String.format("\t\tADDRESS.withName(\"%s\"),\n", f.getName()));
 
                     case primitive_array -> {
@@ -304,10 +310,41 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         private MemorySegment store%1$s(SegmentAllocator scope, %1$s rec) {
                             return store%1$s(scope, new %1$s[] {rec});
                         };
+
+                        private MemorySegment storePtrs%1$s(SegmentAllocator scope, %1$s[] recs) {
+                            if (recs == null)
+                                return MemorySegment.NULL;
+                            
+                            long addressBytes = ValueLayout.ADDRESS.byteSize();
+                            MemorySegment ptr = scope.allocate(addressBytes * recs.length);
+                            for (int n = 0; n < recs.length; ++n)
+                            {
+                                MemorySegment struct = store%1$s(scope, recs[n]);
+                                ptr.set(ValueLayout.ADDRESS, addressBytes * n, struct);
+                            }
+                            return ptr;
+                        };
+
+                        private MemorySegment storeArr%1$s(SegmentAllocator scope, %1$s[] recs) {
+                            if (recs == null)
+                                return MemorySegment.NULL;
+ 
+                            long size = %1$sLayout.byteSize();
+                            MemorySegment ptr = scope.allocate(size * recs.length);
+                            for (int n = 0; n < recs.length; ++n)
+                            {
+                                MemorySegment struct = store%1$s(scope, recs[n]);
+                                ptr.asSlice(size*n).copyFrom(struct);
+                            }
+                            return ptr;
+                        };
                     
                         private MemorySegment store%1$s(SegmentAllocator scope, %1$s[] recs) {
+                            if (recs == null)
+                                return MemorySegment.NULL;
+
                             long size = %1$sLayout.byteSize();
-                            MemorySegment memStruct = scope.allocate(size);
+                            MemorySegment memStruct = scope.allocate(size * recs.length);
                     
                             long offset = 0;
                             for (%1$s rec : recs) {
@@ -338,6 +375,12 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     case record_ptr ->
                         sb.append(String.format("\t\tmemStruct.set(ADDRESS, %3$s, store%2$s(scope, rec.%1$s()));\n", f.getName(), type.getSimpleName(), offset));
 
+                    case record_array_ptr ->
+                        sb.append(String.format("\t\tmemStruct.set(ADDRESS, %3$s, storePtrs%2$s(scope, rec.%1$s()));\n", f.getName(), type.getComponentType().getSimpleName(), offset));
+
+                    case record_array ->
+                            sb.append(String.format("\t\tmemStruct.asSlice(%3$s).copyFrom(storeArr%2$s(scope, rec.%1$s()));\n", f.getName(), type.getComponentType().getSimpleName(), offset));
+
                     case mem_segment ->
                         sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s());\n", f.getName(), offset));
 
@@ -346,6 +389,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                     case memory_block ->
                             sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s().toPtr(scope));\n", f.getName(), offset));
+
+                    default -> throw new PassportException("Type not supported in a struct: " + f.getType() + ", " + c.getSimpleName() +"." + f.getName());
                 }
             }
             sb.append("\t\toffset += size;\n\t}\n");
@@ -371,7 +416,40 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 continue;
 
             sb.append(String.format("""
+                        private void readPtrs%1$s(MemorySegment mem, %1$s[] rec) {
+                            if (MemorySegment.NULL.equals(mem) || rec == null)
+                                return;
+ 
+                            GroupLayout layout = %1$sLayout;
+                            long addressBytes = ValueLayout.ADDRESS.byteSize();
+                            mem = mem.reinterpret(addressBytes * rec.length);
+            
+                            for (int n = 0; n < rec.length; ++n)
+                            {
+                                MemorySegment ptrToStruct = mem.get( ValueLayout.ADDRESS, n * addressBytes);
+                                ptrToStruct = ptrToStruct.reinterpret(layout.byteSize());
+                                rec[n] = read%1$s(ptrToStruct, rec[0]);
+                            }
+                        }
+
+                        private void readArr%1$s(MemorySegment mem, %1$s[] rec) {
+                            if (MemorySegment.NULL.equals(mem) || rec == null)
+                                return;
+ 
+                            GroupLayout layout = %1$sLayout;
+                            long byteSize = layout.byteSize();
+            
+                            for (int n = 0; n < rec.length; ++n)
+                            {
+                                MemorySegment ptrToStruct = mem.asSlice(n * byteSize, byteSize);
+                                rec[n] = read%1$s(ptrToStruct, rec[0]);
+                            }
+                        }
+                        
                         private %1$s read%1$s(MemorySegment memStruct, %1$s rec) {
+                            if (MemorySegment.NULL.equals(memStruct))
+                                return null;
+ 
                             GroupLayout layout = %1$sLayout;
                             memStruct = Utils.resize(memStruct, layout.byteSize());
                     """,
@@ -385,7 +463,6 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 String offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
                 Class<?> type = f.getType();
 
-                //todo convert to switch
                 switch (varHandling)
                 {
                     case primitive ->
@@ -396,6 +473,16 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                     case record_ptr ->
                         sb.append(String.format("\t\tvar %1$s = read%2$s(Utils.slice(memStruct, memStruct.get(ADDRESS, %3$s), %2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
+
+                    case record_array_ptr -> {
+                            sb.append(String.format("\t\tvar %1$s = new %2$s[rec.%1$s().length];\n", f.getName(), type.getComponentType().getSimpleName()));
+                            sb.append(String.format("\t\treadPtrs%2$s(memStruct.get(ADDRESS, %3$s), %1$s);\n", f.getName(), type.getComponentType().getSimpleName(), offset));
+                    }
+
+                    case record_array ->{
+                            sb.append(String.format("\t\tvar %1$s = new %2$s[rec.%1$s().length];\n", f.getName(), type.getComponentType().getSimpleName()));
+                            sb.append(String.format("\t\treadArr%2$s(memStruct.asSlice(%3$s, rec.%1$s().length * %2$sLayout.byteSize()), %1$s);\n", f.getName(), type.getComponentType().getSimpleName(), offset));
+                    }
 
                     case mem_segment ->
                         sb.append(String.format("\t\tvar %1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
@@ -422,6 +509,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         sb.append(String.format("\t\tvar %1$sMS = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
                         sb.append(String.format("\t\tvar %1$s = MemoryBlock.recreate(%1$sMS, rec.%1$s());\n", f.getName()));
                     }
+                    default -> throw new PassportException("Type not supported in a struct: " + f.getType() + ", " + c.getSimpleName() +"." + f.getName());
                 }
             }
 
@@ -567,11 +655,21 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 case record_array -> {
                     bHasAllocatedMemory = true;
                     Class<?> recordType = parameter.getComponentType();
-                    preCall.append(String.format("var vv%1$d =  store%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
+                    preCall.append(String.format("var vv%1$d =  storeArr%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
                     params.append("(MemorySegment)vv").append(v).append(",");
 
                     if (isRefArg)
-                        postCall.append(String.format("v%1$d[0] = read%2$s(vv%1d, v%1$d[0]);", v, recordType.getSimpleName()));
+                        postCall.append(String.format("readArr%2$s(vv%1d, v%1$d);", v, recordType.getSimpleName()));
+                }
+                case record_array_ptr -> {
+                    bHasAllocatedMemory = true;
+                    Class<?> recordType = parameter.getComponentType();
+                    preCall.append(String.format("var vv%1$d =  storePtrs%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
+                    params.append("(MemorySegment)vv").append(v).append(",");
+
+                    if (isRefArg)
+                        postCall.append(String.format("readPtrs%2$s(vv%1d, v%1$d);", v, recordType.getSimpleName()));
+
                 }
                 case generic_ptr ->
                     params.append("v").append(v).append(".getPtr(),");

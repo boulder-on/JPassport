@@ -9,6 +9,7 @@ import jpassport.test.TestLink;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.IO;
 import java.util.stream.IntStream;
 
 import static java.lang.foreign.MemoryLayout.PathElement.groupElement;
@@ -29,7 +30,13 @@ public class TestUsingStructs {
         PassingStructs = new Link[] {
                 new Link(PassType.written, PassportFactory.link_written(getLibName(), TestStructCalls.class)),
                 new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
+
         };
+
+//        PassingStructs = new Link[] {
+//                new Link(PassType.written, new TestStructCalls_impl(PassportFactory.loadMethodHandles(getLibName(), TestStructCalls.class))),
+//        };
+
     }
 
     @Test
@@ -100,4 +107,73 @@ public class TestUsingStructs {
             assertArrayEquals(expected, mbs[0].mem().getBytes(), "Comparison using implementation " + m);
         }
     }
+
+    @Test
+    public void testPassingArrayBlock()
+    {
+        for (int m = 0; m < PassingStructs.length; ++m) {
+
+            int ii = m;
+            TestStruct[]  pass = new TestStruct[5];
+            for (int n = 0; n < pass.length; ++n)
+            {
+                pass[n] = new TestStruct(ii++, ii++, ii++, ii++);
+            }
+
+            int expected = IntStream.range(m, ii).sum();
+            double answer = PassingStructs[m].link.passStructArrBlock(pass, pass.length, 2);
+
+            assertEquals(expected, answer);
+            assertEquals((ii-1) * 2, pass[pass.length - 1].s_double());
+        }
+    }
+
+    @Test
+    public void testPassingArrayPtr()
+    {
+        for (int m = 0; m < PassingStructs.length; ++m) {
+
+            int ii = m;
+            TestStruct[]  pass = new TestStruct[5];
+            for (int n = 0; n < pass.length; ++n)
+            {
+                pass[n] = new TestStruct(ii++, ii++, ii++, ii++);
+            }
+
+            int expected = IntStream.range(m, ii).sum();
+            double answer = PassingStructs[m].link.passStructArrPtr(pass, pass.length, 2);
+
+            assertEquals(expected, answer);
+            assertEquals((ii-1) * 2, pass[pass.length - 1].s_double());
+        }
+    }
+
+    @Test
+    public void testPassingStructWithArrays()
+    {
+        for (int m = 0; m < PassingStructs.length; ++m) {
+
+            int ii = m;
+            var arg1 = new TestStruct(ii++, ii++, ii++, ii++);
+
+            TestStruct[]  arg2 = new TestStruct[4];
+            for (int n = 0; n < arg2.length; ++n)
+                arg2[n] = new TestStruct(ii++, ii++, ii++, ii++);
+
+//            TestStruct[]  arg3 = new TestStruct[3];
+//            for (int n = 0; n < arg3.length; ++n)
+//                arg3[n] = new TestStruct(ii++, ii++, ii++, ii++);
+
+            jpassport.test.structs.PassingStructs p = new PassingStructs(arg1, arg2.length, arg2);
+
+            jpassport.test.structs.PassingStructs[] pass = new jpassport.test.structs.PassingStructs[1];
+            pass[0] = p;
+
+            int expected = IntStream.range(m, ii).sum();
+
+            double response = PassingStructs[m].link.passStructOfStructs(pass);
+            assertEquals(expected, response);
+        }
+    }
+
 }

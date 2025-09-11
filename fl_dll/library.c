@@ -452,7 +452,61 @@ void* PassPointers(void* hMem)
 
 extern void setAnError(int errval)
 {
-    printf("Setting error to: %d, %d\n", errval, errno);
+//    printf("Setting error to: %d, %d\n", errval, errno);
     errno = errval;
-    printf("2. Setting error to: %d, %d\n", errval, errno);
+//    printf("2. Setting error to: %d, %d\n", errval, errno);
+}
+
+extern double passStructArrBlock(struct PassingData data[], int count, int multiply)
+{
+    double sum = 0;
+
+    for (int n = 0; n < count; ++n)
+    {
+        sum += passStruct(&data[n]);
+        data[n].s_int = multiply * data[n].s_int;
+        data[n].s_long = multiply * data[n].s_long;
+        data[n].s_float = (float)multiply * data[n].s_float;
+        data[n].s_double = multiply * data[n].s_double;
+    }
+    return sum;
+}
+
+extern double passStructArrPtr(struct PassingData** data, int count, int multiply)
+{
+    double sum = 0;
+
+    for (int n = 0; n < count; ++n)
+    {
+        sum += passStruct(data[n]);
+        data[n]->s_int = multiply * data[n]->s_int;
+        data[n]->s_long = multiply * data[n]->s_long;
+        data[n]->s_float = (float)multiply * data[n]->s_float;
+        data[n]->s_double = multiply * data[n]->s_double;
+    }
+    return sum;
+}
+
+double printStruct(struct PassingData* data)
+{
+    double ret = (double)data->s_long + data->s_float + data->s_int + data->s_double;
+//    printf("%f = %d + %lld + %f + %f\n", ret, data->s_int, data->s_long, data->s_float, data->s_double);
+    return ret;
+}
+
+extern double passStructOfStructs(struct PassingStructs* data)
+{
+    double sum = printStruct(&data->s_simple);
+
+//    for (int n = 0; n < 3; ++n)
+//    {
+//        sum += printStruct(&data->array_data[n]);
+//    }
+
+    for (int n = 0; n < data->countofPtrs; ++n)
+    {
+        sum += printStruct(data->s_ptrtoptr[n]);
+    }
+
+    return sum;
 }
