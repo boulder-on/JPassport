@@ -487,25 +487,26 @@ extern double passStructArrPtr(struct PassingData** data, int count, int multipl
     return sum;
 }
 
-double printStruct(struct PassingData* data)
+double printStruct(struct PassingData* data, char* extra)
 {
     double ret = (double)data->s_long + data->s_float + data->s_int + data->s_double;
-//    printf("%f = %d + %lld + %f + %f\n", ret, data->s_int, data->s_long, data->s_float, data->s_double);
+//    printf("%s - %f = %d + %lld + %f + %f\n",extra, ret, data->s_int, data->s_long, data->s_float, data->s_double);
     return ret;
 }
 
 extern double passStructOfStructs(struct PassingStructs* data)
 {
-    double sum = printStruct(&data->s_simple);
+    double sum = printStruct(&data->s_simple, "no loop");
 
-//    for (int n = 0; n < 3; ++n)
-//    {
-//        sum += printStruct(&data->array_data[n]);
-//    }
+    for (int n = 0; n < 3; ++n)
+    {
+        sum += printStruct(&data->array_data[n], "loop 1");
+    }
 
+//    printf("Count of ptrs: %d\n", data->countofPtrs);
     for (int n = 0; n < data->countofPtrs; ++n)
     {
-        sum += printStruct(data->s_ptrtoptr[n]);
+        sum += printStruct(data->s_ptrtoptr[n], "loop 2");
     }
 
     return sum;

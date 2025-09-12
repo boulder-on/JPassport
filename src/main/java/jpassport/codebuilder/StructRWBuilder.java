@@ -155,23 +155,20 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                 }
                 case record_array -> {
 
-                    throw new PassportException("Arrays of records not supported in structs: " + f.getName());
-//                    cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
-//                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
-//                    if (arrays.length == 0)
-//                        throw new PassportException("Struct members that are primitive arrays must either be @Ptr or @Array(length=n) - " + recordType.getSimpleName() + "." + f.getName());
-//                    int length = ((Array) arrays[0]).length();
-//                    cob.loadConstant((long)length);
-//                    cob.getstatic(groupLayouts.get(ftype.getComponentType()).layout);
-//                    cob.invokestatic(CD_MemoryLayout, "sequenceLayout",
-//                            MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_long, CD_MemoryLayout), true);
-//                    cob.loadConstant(f.getName());
-//                    cob.invokeinterface(toDesc(SequenceLayout.class), "withName",
-//                            MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_String));
-//
-////                    MemoryLayout.sequenceLayout(3, TestStructLayout).withName("arr"),
-//
-//                      cob.aastore();
+                    cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
+                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                    if (arrays.length == 0)
+                        throw new PassportException("Struct members that are primitive arrays must either be @Ptr or @Array(length=n) - " + recordType.getSimpleName() + "." + f.getName());
+                    int length = ((Array) arrays[0]).length();
+                    cob.loadConstant((long)length);
+                    cob.getstatic(groupLayouts.get(ftype.getComponentType()).layout);
+                    cob.invokestatic(CD_MemoryLayout, "sequenceLayout",
+                            MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_long, CD_MemoryLayout), true);
+                    cob.loadConstant(f.getName());
+                    cob.invokeinterface(toDesc(SequenceLayout.class), "withName",
+                            MethodTypeDesc.of(toDesc(SequenceLayout.class), ConstantDescs.CD_String));
+
+                    cob.aastore();
                 }
                 case primitive_array_ptr, record_ptr, string_, mem_segment, memory_block, generic_ptr, record_array_ptr -> {
                     cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
@@ -413,12 +410,11 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     int memorySlot = slots;
                                     slots = storeParam(cob, memorySlot, MemorySegment.class);
                                     cob.aload(memSegSlot);
-                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
+                                    cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
                                     cob.aload(memorySlot);
-                                    cob.invokeinterface(CD_MemorySegment, "set",
-                                            MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
-
+                                    cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
+                                    cob.aload(memorySlot);
                                 }
                                 case record_array_ptr -> {
                                     cob.aload(inputRecSlot);
@@ -620,20 +616,15 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.labelBinding(methodStart);
                         var methodEnd = cob.newLabel();
 
-                        int groupLayoutSlot = slots++;
-                        cob.localVariable(groupLayoutSlot, "layout", toDesc(GroupLayout.class), methodStart, methodEnd);
                         int sizeSlot = slots;
-                        cob.localVariable(groupLayoutSlot, "struct_size", ConstantDescs.CD_long, methodStart, methodEnd);
+                        cob.localVariable(sizeSlot, "struct_size", ConstantDescs.CD_long, methodStart, methodEnd);
                         slots += 2;
                         cob.getstatic(groupLayouts.get(recordType).layout());
-                        cob.astore(groupLayoutSlot);
-
-                        cob.aload(groupLayoutSlot);
                         cob.invokeinterface(toDesc(GroupLayout.class), "byteSize", MethodTypeDesc.of(ConstantDescs.CD_long));
                         cob.lstore(sizeSlot);
 
                         int memStructSlot = cob.parameterSlot(0);
-                        int recordTypeSlot = cob.parameterSlot(1);
+                        int recordSlot = cob.parameterSlot(1);
                         cob.aload(memStructSlot).lload(sizeSlot);
                         cob.invokestatic(CD_Utils, "resize", MethodTypeDesc.of(CD_MemorySegment,CD_MemorySegment, ConstantDescs.CD_long));
                         cob.astore(memStructSlot);
@@ -686,7 +677,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                 case primitive_array_ptr -> {
                                     var c = ftype.getComponentType();
-                                    cob.aload(recordTypeSlot);
+                                    cob.aload(recordSlot);
                                     cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(c).arrayType()));
                                     cob.arraylength();
                                     int arrLenSlot = slots;
@@ -764,9 +755,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                 case record_array -> {
                                     var rec_type = ftype.getComponentType();
                                     var cd_rec_type = toDesc(rec_type);
-
-                                    cob.aload(recordTypeSlot);
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
+                                    cob.aload(recordSlot).invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().anewarray(cd_rec_type);
                                     int newArrSlot = slots;
                                     slots = storeParam(cob, newArrSlot, rec_type);
@@ -774,10 +763,11 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(memStructSlot);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
 
-                                    cob.aload(recordTypeSlot);
+                                    cob.aload(recordSlot);
                                     cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().i2l();
-                                    cob.getstatic(groupLayouts.get(recordType).layout).invokevirtual(toDesc(GroupLayout.class), "byteSize()", MethodTypeDesc.of(ConstantDescs.CD_long));
+
+                                    cob.getstatic(groupLayouts.get(rec_type).layout).invokeinterface(CD_MemoryLayout, "byteSize", MethodTypeDesc.of(ConstantDescs.CD_long));
                                     cob.lmul();
 
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long, ConstantDescs.CD_long));
@@ -788,15 +778,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokevirtual(thisClassDesc, "readArr" + rec_type.getSimpleName(), MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment, cd_rec_type.arrayType(1)));
                                     cob.aload(newArrSlot);
                                     storeParam(cob, fieldSlots[ii], ftype);
-//                                    var array_block = new TestStruct[rec.array_block().length];
-//                                    readArrTestStruct(memStruct.asSlice(PassingStructsLayoutOffsets[3], rec.array_block().length * TestStructLayout.byteSize()), array_block);
-
                                 }
                                 case record_array_ptr -> {
                                     var rec_type = ftype.getComponentType();
                                     var cd_rec_type = toDesc(rec_type);
 
-                                    cob.aload(recordTypeSlot);
+                                    cob.aload(recordSlot);
                                     cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().anewarray(cd_rec_type);
                                     int newArrSlot = slots;
@@ -868,7 +855,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     int msegmentSlot = slots;
                                     slots = storeParam(cob, msegmentSlot, MemorySegment.class);
 
-                                    cob.aload(recordTypeSlot);
+                                    cob.aload(recordSlot);
                                     cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int origBlockSlot = slots;
                                     slots = storeParam(cob, origBlockSlot, MemoryBlock.class);

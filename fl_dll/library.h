@@ -74,7 +74,7 @@ struct ComplexPassing
 struct PassingStructs
 {
     struct PassingData s_simple;
-//    struct PassingData array_data[3];
+    struct PassingData array_data[3];
     int countofPtrs;
     struct PassingData** s_ptrtoptr;
 };

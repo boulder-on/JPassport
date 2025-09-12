@@ -197,11 +197,13 @@ Performance of a method that passes an array of doubles. The gap here
 | char[][]          | byte[][]                                                    |
 | structs           | Records                                                     |
 | structs[]         | Records[]                                                   |
+| structs[n]        | @Array(length=n) Records[]  (when part of a struct)         |
 | structs**         | @PtrPtrArg Records[]                                        |
 | char*, void *     | MemoryBlock                                                 |
 | char*, void *     | GenericPtr (Useful if a native method returns a pointer)    |
 | char*, void *     | MemorySegment (if you are doing your own memory magagement) |
 | n/a               | Arena (see below)                                           |
+| n/a               | ErrorCapture - must always be the first arg (see below)     |
 
 Any C argument that is defined with ** must be annotated with @PTrPtrArg in your Java interface.
 
@@ -411,6 +413,13 @@ double[] testReturnPointer(int count) {
     return values;
 }
 ```
+# Future work
+
+The main feature missing is union support. I have some ideas how to implement this within the framework I've already set out.
+
+If JPassport does not appear to meet your needs, or you're not sure how to accomplish what you
+want with JPassport, please send me a message or open an issue. 
+
 # Dependencies
 
 JPassport itself only requires **Java 24 or later** to build and run. There are separate Java 17-22 branches. 
@@ -427,6 +436,7 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
   - Deprecated the proxy implementation
   - Added support for arrays of structs > length 1
   - Added support for arrays of pointers to structs.
+  - Fixed an issue calculating the size of a struct
 - 1.1.0-24
   - Add support for building classes with the Classfile API
 - 1.0.1-22

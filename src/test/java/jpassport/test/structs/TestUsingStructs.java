@@ -160,11 +160,11 @@ public class TestUsingStructs {
             for (int n = 0; n < arg2.length; ++n)
                 arg2[n] = new TestStruct(ii++, ii++, ii++, ii++);
 
-//            TestStruct[]  arg3 = new TestStruct[3];
-//            for (int n = 0; n < arg3.length; ++n)
-//                arg3[n] = new TestStruct(ii++, ii++, ii++, ii++);
+            TestStruct[]  arg3 = new TestStruct[3];
+            for (int n = 0; n < arg3.length; ++n)
+                arg3[n] = new TestStruct(ii++, ii++, ii++, ii++);
 
-            jpassport.test.structs.PassingStructs p = new PassingStructs(arg1, arg2.length, arg2);
+            jpassport.test.structs.PassingStructs p = new PassingStructs(arg1, arg3, arg2.length, arg2);
 
             jpassport.test.structs.PassingStructs[] pass = new jpassport.test.structs.PassingStructs[1];
             pass[0] = p;

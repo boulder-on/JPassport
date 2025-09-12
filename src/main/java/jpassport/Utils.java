@@ -744,7 +744,7 @@ public class Utils {
         long nextBarrier = byteBarrier;
 
         var curSize = memLayout.stream().mapToLong(MemoryLayout::byteSize).sum();
-        while (nextBarrier <= curSize) nextBarrier += byteBarrier;
+        while (nextBarrier < curSize) nextBarrier += byteBarrier;
 
         for (int n = 1; n < layout.length; ++n)
         {
@@ -757,7 +757,7 @@ public class Utils {
 
             // If the next piece of memory we are adding crosses the byte alignement barrier
             // then we need to pad the struct to alow byte alignment
-            if (curSize + nextItemSize > nextBarrier)
+            if (curSize + nextItemSize > nextBarrier && nextBarrier - curSize > 0)
                 memLayout.add(MemoryLayout.paddingLayout(nextBarrier - curSize));
             memLayout.add(layout[n]);
 
