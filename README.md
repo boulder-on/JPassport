@@ -33,7 +33,7 @@ Download the source and run the maven build, or use the maven dependency:
         <dependency>
             <groupId>io.github.boulder-on</groupId>
             <artifactId>JPassport</artifactId>
-            <version>1.1.0-24</version>
+            <version>1.2.0-24</version>
         </dependency>
 
 If you would like to see the Java code or byte code created use:
@@ -426,7 +426,7 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
 
 
 # Release Notes
-- 1.2.0-24 (not released yet)
+- 1.2.0-24
   - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
   - Added MemoryBlock as a valid struct member
   - Code reorganization to hide classes that are not part of the API that a programmer needs to care about.
