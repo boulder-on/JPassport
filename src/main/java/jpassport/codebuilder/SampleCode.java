@@ -97,8 +97,7 @@ public class SampleCode {
         MemorySegment ptr = scope.allocate(size * rec.length);
         for (int n = 0; n < rec.length; ++n)
         {
-            MemorySegment struct = storeSimpleRec(scope, rec[n]);
-            ptr.asSlice(size*n).copyFrom(struct);
+            storeSimpleRec(scope, rec[n], ptr.asSlice(size*n));
         }
         return ptr;
     }
@@ -124,8 +123,15 @@ public class SampleCode {
         return storeSimpleRec(scope, new SimpleRec[] {rec});
     };
 
+    private MemorySegment storeSimpleRec(SegmentAllocator scope, SimpleRec rec, MemorySegment mem) {
+        return storeSimpleRec(scope, new SimpleRec[] {rec}, mem);
+    };
+
     private MemorySegment storeSimpleRec(SegmentAllocator scope, SimpleRec[] recs) {
-        MemorySegment memStruct = scope.allocate(1);
+        return storeSimpleRec(scope, recs, null);
+    }
+
+    private MemorySegment storeSimpleRec(SegmentAllocator scope, SimpleRec[] recs, MemorySegment memStruct) {
         return memStruct;
     }
 

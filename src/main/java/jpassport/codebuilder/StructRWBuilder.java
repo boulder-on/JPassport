@@ -250,7 +250,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
             //Creates a method "private MemorySegment store[RecordName](Arena a, RecordName recToStore)".
             //The returned MemorySegment is a pointer to native memory that is laid out as a struct would be in C.
             cbl.withMethod("store" + recordType.getSimpleName(),
-                    MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType)),
+                    MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType), CD_MemorySegment),
                     ClassFile.ACC_PRIVATE, methodBuilder -> methodBuilder.withCode(cob -> {
 
                         int arenaSlot = cob.parameterSlot(0);
@@ -264,25 +264,21 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.areturn();
 
                         cob.labelBinding(jumpTo);
-                        int slots = cob.parameterSlot(1) + 1; //start the local variables after the parameters
-                        int sizeSlot = slots;
-                        slots+=2;
+                        int slots = cob.parameterSlot(2) + 1; //start the local variables after the parameters
                         var methodStart = cob.newLabel();
                         cob.labelBinding(methodStart);
                         var methodEnd = cob.newLabel();
-                        cob.localVariable(sizeSlot, "size", ConstantDescs.CD_long, methodStart, methodEnd);
-                        int memSegSlot = slots++;
-                        cob.localVariable(memSegSlot, "memStruct", CD_MemorySegment, methodStart, methodEnd);
+                        int memSegSlot = cob.parameterSlot(2);
 
+                        //If someone passed in the memory segment we should write into, then we don't need to allocate one
+                        var skipAlloc = cob.newLabel();
+                        cob.aload(memSegSlot).ifnonnull(skipAlloc);
+                        cob.aload(arenaSlot); //load the Arena
                         cob.getstatic(groupLayouts.get(recordType).layout());
                         cob.invokeinterface(toDesc(GroupLayout.class), "byteSize", MethodTypeDesc.of(ConstantDescs.CD_long));
-                        cob.lstore(sizeSlot);
-
-                        cob.aload(arenaSlot); //load the Arena
-                        cob.lload(sizeSlot);
                         cob.invokeinterface(CD_SegmentAllocator, "allocate", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
                         cob.astore(memSegSlot);
-
+                        cob.labelBinding(skipAlloc);
 
                         int ii = 0;
                         slots++;
@@ -517,6 +513,15 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.labelBinding(methodEnd);
                     }));
 
+            cbl.withMethod("store" + recordType.getSimpleName(),
+                    MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType)),
+                    ClassFile.ACC_PRIVATE, methodBuilder -> methodBuilder.withCode(cob -> {
+
+                    cob.aload(0).aload(cob.parameterSlot(0)).aload(cob.parameterSlot(1)).aconst_null();
+                    cob.invokevirtual(thisClassDesc, "store" + recordType.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType), CD_MemorySegment));
+                    cob.areturn();
+            }));
+
             //==========================================================================================
             // This version of the store method takes an array of the records, pulls out the first array element
             //and passes it to the store method above.
@@ -571,7 +576,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             if (ce.toString().contains("SimpleRecLayout"))
                                 cob.getstatic(groupLayouts.get(recordType).layout());
                             else if (ce.toString().contains("storeSimpleRec"))
-                                cob.invokevirtual(thisClassDesc, "store" + recordType.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType)));
+                                cob.invokevirtual(thisClassDesc, "store" + recordType.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType), CD_MemorySegment));
                             else if (ce.toString().contains("name=this") || ce.toString().contains("name=rec"))
                                 continue;
                             else
