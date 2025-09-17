@@ -122,7 +122,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     
                         public %s(HashMap<String, MethodHandle> methods)
                         {
-                            m_methods.putAll(methods);
+                            this.methods.putAll(methods);
                             init();
                         }
 
@@ -331,21 +331,29 @@ public class PassportWriter<T extends Passport> implements CBConstants
  
                             long size = %1$sLayout.byteSize();
                             MemorySegment ptr = scope.allocate(size * recs.length);
+                            %1$s[] recsPass = new %1$s[1];
                             for (int n = 0; n < recs.length; ++n)
                             {
-                                MemorySegment struct = store%1$s(scope, recs[n]);
-                                ptr.asSlice(size*n).copyFrom(struct);
+                                recsPass[0] = recs[n];
+                                store%1$s(scope, recsPass, ptr.asSlice(size*n));
                             }
                             return ptr;
                         };
-                    
+
                         private MemorySegment store%1$s(SegmentAllocator scope, %1$s[] recs) {
+                            return store%1$s(scope, recs, null);                          
+                        }
+                    
+                        private MemorySegment store%1$s(SegmentAllocator scope, %1$s[] recs, MemorySegment memStruct) {
                             if (recs == null)
                                 return MemorySegment.NULL;
 
                             long size = %1$sLayout.byteSize();
-                            MemorySegment memStruct = scope.allocate(size * recs.length);
-                    
+                            if (memStruct == null)
+                            {
+                                memStruct = scope.allocate(size * recs.length);
+                            }
+                            
                             long offset = 0;
                             for (%1$s rec : recs) {
                     """,
@@ -488,8 +496,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         sb.append(String.format("\t\tvar %1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
 
                     case generic_ptr -> {
-                        sb.append(String.format("\t\tvar mem_%1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
-                        sb.append(String.format("\t\tvar %1$s = new %2$s(mem_%1$s);\n", f.getName(), type.getName()));
+                        sb.append(String.format("\t\tvar mem%1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = new %2$s(mem%1$s);\n", f.getName(), type.getName()));
                     }
                     case string_ ->
                         sb.append(String.format("\t\tvar %1$s = Utils.readString(memStruct.get(ADDRESS, %2$s));\n", f.getName(), offset));
@@ -714,12 +722,12 @@ public class PassportWriter<T extends Passport> implements CBConstants
             tryArgs.insert(0, "(").append(")");
 
         m_source.append(String.format("""
-                                private MethodHandle m_%s;
+                                private MethodHandle %s;
                                 public %s %s(%s)
                                 {
                                     try %s {
                                         %s
-                                        %s m_%s.invokeExact(%s);
+                                        %s %s.invokeExact(%s);
                                         %s
                                         %s
                                     }
@@ -738,7 +746,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 postCall.toString().replace("\n", "\n\t\t\t"),
                 strReturn));
 
-        m_initSource.append(String.format("\t\tm_%s = m_methods.get(\"%s\");\n", method.getName(), method.getName()));
+        m_initSource.append(String.format("\t\t%s = methods.get(\"%s\");\n", method.getName(), method.getName()));
     }
 
     public List<Path> writeModule(Path buildRoot) throws IOException

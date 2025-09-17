@@ -19,8 +19,8 @@ import java.util.HashMap;
  * An interface needs to extend this interface in order to link to the foreign library.
  */
 public interface Passport {
-    HashMap<String, MethodHandle> m_methods = new HashMap<>();
-    HashMap<String, MemorySegment> m_loadedNames = new HashMap<>();
+    HashMap<String, MethodHandle> methods = new HashMap<>();
+    HashMap<String, MemorySegment> loadedNames = new HashMap<>();
 
     /**
      * Lets you know if a specific method was found or not. Generally, all methods must be found
@@ -33,12 +33,12 @@ public interface Passport {
      */
     default boolean hasMethod(String name)
     {
-        return m_methods.containsKey(name);
+        return methods.containsKey(name);
     }
 
     default boolean hasName(String name)
     {
-        return m_loadedNames.containsKey(name);
+        return loadedNames.containsKey(name);
     }
 
     default Object readStruct(MemorySegment segment, Object rec)
