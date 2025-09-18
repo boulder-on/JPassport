@@ -29,6 +29,7 @@ public class PerformanceTest
     static PerfTest testJNA;
     static PerfTest testJNADirect;
     static PerfTest testJava;
+    static PerfTest testExtracted;
 
 
     public static void startup() throws Throwable
@@ -40,17 +41,18 @@ public class PerformanceTest
         testJNA =  Native.load("passport_test", PerfTest.class);
         testJNADirect =  new TestLinkJNADirect.JNADirect();
         testJava = new PureJavaPerf();
+        testExtracted = new UseExtracted();
     }
 
     public static void main(String[] str) throws Throwable
     {
         startup();
 
-        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testPassportByteCode, testPassportWritten};
+        PerfTest[] tests = new PerfTest[] {testJava, testJNA, testJNADirect, testPassportByteCode, testPassportWritten, testExtracted};
 
         try(var csv = new CSVOutput(Path.of("performance", "doubles_add_2.csv")))
         {
-            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport Byte Code", "JPassport written").endLine();
+            csv.add("iteration", "pure java", "JNA", "JNA Direct", "JPassport Byte Code", "JPassport written", "JExtract").endLine();
 
             for (int loops = 1000; loops < 100000; loops += 1000) {
 
@@ -77,7 +79,7 @@ public class PerformanceTest
 
         try(var csv = new CSVOutput(Path.of("performance", "double_arr_add.csv")))
         {
-            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport Byte Code", "JPassport written").endLine();
+            csv.add("array size", "pure java", "JNA", "JNA Direct", "JPassport Byte Code", "JPassport written", "JExtract").endLine();
             for (int size = 1024; size <= 1024*256; size += 1024)
             {
                 double[][] results = new double[tests.length][5];

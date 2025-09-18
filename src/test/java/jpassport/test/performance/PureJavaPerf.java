@@ -28,24 +28,6 @@ public class PureJavaPerf implements PerfTest{
         return ret;
     }
 
-    @Override
-    public int sumArrI(int[] d, int len)
-    {
-        int ret = 0;
-        for (int n = 0; n < len; ++n)
-            ret += d[n];
-        return ret;
-    }
-
-    @Override
-    public float sumArrF(float[] d, int len)
-    {
-        float ret = 0;
-        for (int n = 0; n < len; ++n)
-            ret += d[n];
-        return ret;
-    }
-
     public double passStruct(TestStruct simpleStruct) {
         return simpleStruct.s_int() + simpleStruct.s_long() + simpleStruct.s_float() + simpleStruct.s_double();
     }

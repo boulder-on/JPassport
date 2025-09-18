@@ -10,15 +10,24 @@ JPassport was able to build on new language features to make this library (hopef
 (ex. I think my struct support is cleaner because I could rely on the formal structure of records). 
 If you cannot use a recent Java version then JNA is your best bet. However, if you can use a recent JRE then 
 this library is much lighter weight than JNA (100 kb vs 3+ MB) and the programing should be simpler
-for many cases. I also hope that in many cases, changing to JPassport from existing JNA code shouldn't be
+for many cases. I also hope that in simple cases, changing to JPassport from existing JNA code shouldn't be
 an onerous task.
 
 The FFM team maintain a tool called [JExtract](https://github.com/openjdk/panama-foreign/blob/foreign-jextract/doc/panama_jextract.md). Given a header file (.h), JExtract will write the required
-Java code to access the native code described in the header. I haven't used JExtract much. In order
-to use the code it generates you need to be somewhat familiar with FFM and, if I understand correctly,
+Java code to access the native code described in the header. In order to use the code it generates you need 
+to be somewhat familiar with FFM and, if I understand correctly,
 for proper struct support you need to have it generate code for each platform you want to support. 
-Maybe for large header files JExtract is a quicker route. But if your goal is simple, easy to read Java code
-the JPassport is a better route.
+In terms of performance, JExtract and JPassport are nearly identical. Since JExtract leaves you dealing
+directly with FFM calls it could get performance gains by directly optimizing the calls you make (ex.
+you do not need to read back all fields in a struct). 
+
+Whether jextract or JPassport is a better tool for you depends on a) how large is your C API, b) where do 
+you want the cognitive load. For large header files, jextract will create the code very quickly and
+it will be correct (i.e. argument ordering will always be right). Since you need to build the interface
+file and records yourself in JPassport, you could make a mistake. Jextract puts the cognitive load on every
+function call you make, since you need to know lots about FFM to use the generated code. JPassport puts
+the cognitive load on building the interfaces and records. When using JPassport you do not need to know
+any FFM, it should look like bland Java code.
 
 **Java 24 and later** are required to use this library. There are separate branches for Java 17 to 22.
 
@@ -151,11 +160,10 @@ then the thread must be a Java thread. In testing I've done, if a callback is ca
 normal Linux Thread then synchronized blocks do not work.
 
 # Performance
-Performance was tested vs JNA, JNA Direct, and pure Java.
+Performance was tested vs JNA, JNA Direct, pure Java and jextract.
 
 Performance of a method that passes 2 doubles. JPassport is about 5x faster than
-JNA. JNA Direct is impressively fast. JPassport that uses a proxy class performs
-quite poorly because of its heavy use of reflection.
+JNA (JNA not shown in graph to help preserve scale). JNA Direct is impressively fast. 
 
 ![primative performance](passing_doubles.png)
 
@@ -163,6 +171,20 @@ Performance of a method that passes an array of doubles. The gap here
  is much smaller between JNA and JPassport.
 
 ![array performance](passing_double_arr.png)
+
+I also used JMH to benchmark against jextract generated code. 
+
+| Test | JPassport result | jextract result | Difference           |
+|------|------------------|-----------------|----------------------|
+| Pass 2 doubles | 191,072,929 ops/s | 121,143,482 ops/s| JPassport 57% faster |
+| Pass 2096 doubles | 216,102 ops/s |  217125 ops/s | 0%                   |
+| Pass simple 4 element strucct | 8,594,117 ops/s | 6,336,045 ops/s | JPassport 35% faster |
+| Pass a complex struct containing arrays and ptrs | 1,302,120 ops/s | 1,055,131 | JPassport 23% faster |
+
+I think the tests were all pretty fair. I'm honestly suprised JPassport did as well as
+it did. Based on the fact that both solutions are based on the same API I assumed the
+results would be closer. The tests are in CPassportJMH.java. This is also a
+good place to see the difference in usage for JPassport vs jextract generated code.
 
 (Tests were run on Windows 11 with an i7-10850H.)
 
@@ -426,6 +448,10 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
 
 
 # Release Notes
+- 1.3.0-24 (unreleased)
+  - Removed m_ from generated code variable names
+  - Improved efficiency of arrays of structs
+  - Added jextract performance comparison
 - 1.2.0-24
   - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
   - Added MemoryBlock as a valid struct member
