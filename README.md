@@ -172,20 +172,6 @@ Performance of a method that passes an array of doubles. The gap here
 
 ![array performance](passing_double_arr.png)
 
-I also used JMH to benchmark against jextract generated code. 
-
-| Test | JPassport result | jextract result | Difference           |
-|------|------------------|-----------------|----------------------|
-| Pass 2 doubles | 191,072,929 ops/s | 121,143,482 ops/s| JPassport 57% faster |
-| Pass 2096 doubles | 216,102 ops/s |  217125 ops/s | 0%                   |
-| Pass simple 4 element strucct | 8,594,117 ops/s | 6,336,045 ops/s | JPassport 35% faster |
-| Pass a complex struct containing arrays and ptrs | 1,302,120 ops/s | 1,055,131 | JPassport 23% faster |
-
-I think the tests were all pretty fair. I'm honestly suprised JPassport did as well as
-it did. Based on the fact that both solutions are based on the same API I assumed the
-results would be closer. The tests are in CPassportJMH.java. This is also a
-good place to see the difference in usage for JPassport vs jextract generated code.
-
 (Tests were run on Windows 11 with an i7-10850H.)
 
 # C Data Types Handled Automatically
