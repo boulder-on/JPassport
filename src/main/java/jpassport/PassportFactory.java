@@ -35,6 +35,11 @@ import java.util.*;
  */
 public class PassportFactory
 {
+    /** This map is used to hold the method handles classes need as they are starting.
+     * It's part of the mechanism that allows method handles to be static and final
+     */
+    private static final HashMap<Class, HashMap<String, MethodHandle>> mappedHandles = new HashMap<>();
+
     /**
      * Call this method to generate the library linkage. This version of the method will write the java file and compile
      * it. As a result, the start-up is significantly slower that {@link #link(String, Class) link()}, but the code
@@ -82,6 +87,20 @@ public class PassportFactory
         }
     }
 
+    /**
+     * This method should not be called. It is only used internally while the classes are being built
+     */
+    public static MethodHandle getHandle(Class interfaceClass, String name)
+    {
+        if (!mappedHandles.containsKey(interfaceClass) || ! mappedHandles.get(interfaceClass).containsKey(name))
+            return null;
+
+        var ret = mappedHandles.get(interfaceClass).remove(name);
+        if (mappedHandles.get(interfaceClass).isEmpty())
+            mappedHandles.remove(interfaceClass);
+        return ret;
+    }
+
     private static <T extends Passport> T writeClass(String libName, Class<T> interfaceClass) throws Throwable
     {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
@@ -118,6 +137,8 @@ public class PassportFactory
 
         List<Method> interfaceMethods = getDeclaredMethods(interfaceClass);
         HashMap<String, MethodHandle> methodMap = new HashMap<>();
+
+        mappedHandles.put(interfaceClass, methodMap);
 
         //if no library name is given then it must be a system library
         SymbolLookup lookup = libName == null ? cLinker.defaultLookup() : SymbolLookup.loaderLookup();
@@ -177,7 +198,9 @@ public class PassportFactory
             }
         }
         loadNames(interfaceClass);
-        return methodMap;
+
+        //methodMap is emptied by the class when it is created.
+        return new HashMap<>(methodMap);
     }
 
     /**

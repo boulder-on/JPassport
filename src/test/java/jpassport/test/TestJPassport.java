@@ -70,6 +70,7 @@ public class TestJPassport
     {
         for (var testLink : testClass) {
             assertFalse(testLink.link.hasMethod("functionDoesNotExist"));
+            assertTrue(testLink.link.hasMethod("mallocString"));
             assertThrows(Error.class, () -> testLink.link.functionDoesNotExist(1));
         }
     }

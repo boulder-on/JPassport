@@ -212,11 +212,6 @@ public class TestLinkJNADirect
             return true;
         }
 
-        @Override
-        public Object readStruct(MemorySegment segment, Object rec) {
-            return null;
-        }
-
         public void readPointer(Pointer[] val, long set)
         {}
 

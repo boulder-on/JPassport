@@ -40,9 +40,4 @@ public interface Passport {
     {
         return loadedNames.containsKey(name);
     }
-
-    default Object readStruct(MemorySegment segment, Object rec)
-    {
-        throw new RuntimeException("Not implemented");
-    }
 }

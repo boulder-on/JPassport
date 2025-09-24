@@ -14,9 +14,15 @@ import java.lang.foreign.ValueLayout;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 
-@State(Scope.Benchmark)
+@BenchmarkMode(Mode.AverageTime)
+@Warmup(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@State(Scope.Thread)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@Fork(value = 3, jvmArgsAppend = { "--enable-native-access=ALL-UNNAMED" })
 public class CPassportJMH {
 
     public static void main(String[] args) throws Throwable {
@@ -54,25 +60,19 @@ public class CPassportJMH {
     private static double[] passArr;
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
     public double usePassportSumD()
     {
-        return sp.sumD(1, 2);
+        return sp.sumD(1.0, 2.0);
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
     public double usePassportSumArrD()
     {
         return sp.sumArrD(passArr, passArr.length);
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
-    public double usePassport()
+    public double usePassportStruct()
     {
         PassingDataJP[] pd = new PassingDataJP[] {passStruct};
         double sum = sp.passStruct(pd);
@@ -81,8 +81,6 @@ public class CPassportJMH {
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
     public double usePassportArrays()
     {
         PassingArrays[] regArg = new PassingArrays[]{passArrays};
@@ -94,16 +92,12 @@ public class CPassportJMH {
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
     public double useExtractSumD()
     {
-        return library_h.sumD(1, 2);
+        return library_h.sumD(1.0, 2.0);
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
     public double useExtractSumArrD()
     {
         try (Arena a = Arena.ofConfined()){
@@ -113,9 +107,7 @@ public class CPassportJMH {
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
-    public double useExtract()
+    public double useExtractStruct()
     {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment struct = PassingData.allocate(a);
@@ -133,15 +125,13 @@ public class CPassportJMH {
     }
 
     @Benchmark
-    @Fork(value = 1, warmups = 5)
-    @BenchmarkMode(Mode.Throughput)
     public static double useExtractArrays()
     {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment struct = jpassport.test.extracted.PassingArrays.allocate(a);
 
-            jpassport.test.extracted.PassingArrays.s_double(struct, a.allocateFrom(ValueLayout.JAVA_DOUBLE, passArrays.s_double()));
-            jpassport.test.extracted.PassingArrays.s_long(struct, a.allocateFrom(ValueLayout.JAVA_LONG, passArrays.s_long()));
+            jpassport.test.extracted.PassingArrays.s_double(struct, MemorySegment.ofArray(passArrays.s_double()));
+            jpassport.test.extracted.PassingArrays.s_long(struct, MemorySegment.ofArray(passArrays.s_long()));
             jpassport.test.extracted.PassingArrays.s_doublePtrCount(struct, passArrays.s_doublePtrCount());
             jpassport.test.extracted.PassingArrays.s_longPtrCount(struct, passArrays.s_longPtrCount());
 

@@ -22,7 +22,7 @@ double sumD(const double d1, const double d2)
     return (d1 + d2);
 }
 
-double sumArrD(const double *arr, const int count)
+double sumArrD(double *arr, const int count)
 {
     if (arr == NULL)
         return 0;
@@ -32,6 +32,7 @@ double sumArrD(const double *arr, const int count)
     for (int n = 0; n < count; ++n)
         r += arr[n];
 
+    arr[0] = arr[count-1];
     return r;
 }
 

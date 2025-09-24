@@ -38,7 +38,6 @@ public class PassportWriter<T extends Passport> implements CBConstants
 {
     private final StringBuilder m_source = new StringBuilder();
     private final StringBuilder m_moduleSource = new StringBuilder();
-    private final StringBuilder m_initSource = new StringBuilder();
     private final String m_className;
     private final String m_fullClassName;
 
@@ -100,6 +99,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     %s
                     import %s;
                     import jpassport.Utils;
+                    import jpassport.PassportFactory;
                     import jpassport.ErrorCapture;
                     import jpassport.pointers.Pointer;
                     import jpassport.pointers.GenericPointer;
@@ -123,7 +123,6 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         public %s(HashMap<String, MethodHandle> methods)
                         {
                             this.methods.putAll(methods);
-                            init();
                         }
 
                     """,
@@ -139,10 +138,6 @@ public class PassportWriter<T extends Passport> implements CBConstants
         m_source.append(buildStoreStructFunction(extraImports));
         m_source.append(buildReadStructFunction(extraImports));
         m_source.append(buildReadAnyStructFunction(extraImports));
-
-        m_initSource.append("""
-                                    private void init(){
-                                """);
 
         if (interfaceClass.getModule() == null || interfaceClass.getModule().getName() == null ||
                 interfaceClass.getModule().getName().equals("jpassport"))
@@ -722,14 +717,14 @@ public class PassportWriter<T extends Passport> implements CBConstants
             tryArgs.insert(0, "(").append(")");
 
         m_source.append(String.format("""
-                                private MethodHandle %s;
-                                public %s %s(%s)
+                                private static final MethodHandle %1$s = PassportFactory.getHandle(%10$s.class, "%1$s");
+                                public %2$s %1$s(%3$s)
                                 {
-                                    try %s {
-                                        %s
-                                        %s %s.invokeExact(%s);
-                                        %s
-                                        %s
+                                    try %4$s {
+                                        %5$s
+                                        %6$s %1$s.invokeExact(%7$s);
+                                        %8$s
+                                        %9$s
                                     }
                                     catch(Throwable th)
                                     {
@@ -739,20 +734,16 @@ public class PassportWriter<T extends Passport> implements CBConstants
                             
                             """,
                 method.getName(),
-                retType.getSimpleName(), method.getName(),args,
+                retType.getSimpleName(),args,
                 tryArgs,
                 preCall.toString().replace("\n", "\n\t\t\t"),
-                strCallReturn, method.getName(), params,
+                strCallReturn, params,
                 postCall.toString().replace("\n", "\n\t\t\t"),
-                strReturn));
-
-        m_initSource.append(String.format("\t\t%s = methods.get(\"%s\");\n", method.getName(), method.getName()));
+                strReturn, interfaceClass.getSimpleName()));
     }
 
     public List<Path> writeModule(Path buildRoot) throws IOException
     {
-        m_initSource.append("\t}");
-        m_source.append(m_initSource);
         m_source.append("\n}");
 
         String[] packages = m_fullClassName.split("\\.");

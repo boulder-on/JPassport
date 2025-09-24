@@ -36,7 +36,6 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
     public static Map<Class<?>, ClassDesc> primativeToVLDescMap;
     public static Map<Class<?>, String> primitiveToConstName = new HashMap<>();
     public static Map<Class<?>, ClassDesc> primitiveToDescMap = new HashMap<>();
-    static final String INIT_METHODS_METHOD_NAME = "initMethods";
 
     static {
         primativeToVLDescMap = new HashMap<>();
@@ -102,7 +101,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             var desc = MethodTypeDesc.of(ConstantDescs.CD_void, classDescHM);
             var descputAll = MethodTypeDesc.of(ConstantDescs.CD_void, descMap);
 
-            //Create the constructor for the iplemenation
+            //Create the constructor for the implementation
             clb.withMethod(ConstantDescs.INIT_NAME, desc,
                     ClassFile.ACC_PUBLIC, mb -> mb.withCode(
 
@@ -121,8 +120,6 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     .aload(1)
                                     .invokevirtual(classDescHM, "putAll", descputAll)
                                     .aload(0)
-                                    .invokevirtual(thisClassDesc, INIT_METHODS_METHOD_NAME, ConstantDescs.MTD_void)
-                                    .aload(0)
                                     .invokevirtual(thisClassDesc, INIT_STRUCTS_METHOD_NAME, ConstantDescs.MTD_void)
                                     .return_()));
 
@@ -130,34 +127,26 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             var methodTypeDesc = toDesc(MethodHandle.class);
             for (Method m : interfaceMethods)
             {
-                String fieldName = "m_" + m.getName();
-                clb.withField(fieldName, methodTypeDesc, ClassFile.ACC_PRIVATE);
+                String fieldName = m.getName();
+                clb.withField(fieldName, methodTypeDesc, ClassFile.ACC_PRIVATE | ClassFile.ACC_STATIC | ClassFile.ACC_FINAL );
                 nte = clb.constantPool().nameAndTypeEntry(fieldName, methodTypeDesc);
                 var fieldRefEntry = clb.constantPool().fieldRefEntry(clb.constantPool().classEntry(thisClassDesc), nte);
                 methodHandles.put(fieldName, fieldRefEntry);
             }
 
             //Create a method that assigns all the method handles for the native methods
-            var cdObject = toDesc(Object.class);
-            clb.withMethod(INIT_METHODS_METHOD_NAME,  ConstantDescs.MTD_void,
-                    ClassFile.ACC_PUBLIC, mb -> mb.withCode(
+            clb.withMethod(ConstantDescs.CLASS_INIT_NAME,  ConstantDescs.MTD_void,
+                    ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, mb -> mb.withCode(
                        cob -> {
-                           var start = cob.newBoundLabel();
 
+                           //loads all method handles as static final variables
                            for (String name : methodHandles.keySet())
                            {
-                               cob.ldc(name.substring(2)) // clip off "m_"
-                                       .astore(1)
-                                       .aload(0)
-                                       .aload(0)
-                                       .getfield(methodsfield)
-                                       .aload(1)
-                                       .invokevirtual(classDescHM, "get", MethodTypeDesc.of(cdObject, cdObject))
-                                       .checkcast(methodTypeDesc)
-                                        .putfield(methodHandles.get(name));
+                               cob.ldc(toDesc(interfaceClass));
+                               cob.ldc(name);
+                               cob.invokestatic(toDesc(PassportFactory.class), "getHandle", MethodTypeDesc.of(toDesc(MethodHandle.class), ConstantDescs.CD_Class, ConstantDescs.CD_String));
+                               cob.putstatic(methodHandles.get(name));
                            }
-                           var end = cob.endLabel();
-                           cob.localVariable(1, "key", ConstantDescs.CD_String, start, end);
                            cob.return_();
                        }
                     ));
@@ -248,7 +237,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 }
                             }
 
-                            cob.aload(0).getfield(methodHandles.get("m_" + iMethod.getName()));
+                            cob.aload(0).getstatic(methodHandles.get(iMethod.getName()));
                             for (var k : keepers)
                                 k.loadParam(cob);
 
@@ -435,7 +424,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 keepers.get(ii).stored = used;
                                 keepers.get(ii).type = ParamType.addressType;
                             }
-                            cob.aload(0).getfield(methodHandles.get("m_" + iMethod.getName()));
+                            cob.aload(0).getstatic(methodHandles.get(iMethod.getName()));
 
                             //Move parameters to stack for the native function call
                             for (ParamKeeper k : keepers)

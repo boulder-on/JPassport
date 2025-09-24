@@ -13,7 +13,7 @@
 #define FL_DLL_LIBRARY_H
 
 extern double sumD(double d1, double d2);
-extern double sumArrD(const double *arr, int count);
+extern double sumArrD(double *arr, int count);
 extern double sumArrDD(const double *arr, const double *arr2, int count);
 extern void readD(double *v, int set);
 extern double sumMatD(int rows, int cols, double mat[rows][cols]);

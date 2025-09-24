@@ -423,8 +423,6 @@ double[] testReturnPointer(int count) {
 ```
 # Future work
 
-The main feature missing is union support. I have some ideas how to implement this within the framework I've already set out.
-
 If JPassport does not appear to meet your needs, or you're not sure how to accomplish what you
 want with JPassport, please send me a message or open an issue. 
 
@@ -438,6 +436,7 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
   - Removed m_ from generated code variable names
   - Improved efficiency of arrays of structs
   - Added jextract performance comparison
+  - Made all method handles static final
 - 1.2.0-24
   - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
   - Added MemoryBlock as a valid struct member
