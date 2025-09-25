@@ -68,17 +68,17 @@ public class CPassportJMH {
     private static PassingArrays passArrays;
     private static double[] passArr;
 
-//    @Benchmark
-//    public double java_Sum2Double()
-//    {
-//        return pureJava.sumD(1.0, 2.0);
-//    }
-//
-//    @Benchmark
-//    public double java_SumDoubleArr()
-//    {
-//        return pureJava.sumArrD(passArr, passArr.length);
-//    }
+    @Benchmark
+    public double java_Sum2Double()
+    {
+        return pureJava.sumD(1.0, 2.0);
+    }
+
+    @Benchmark
+    public double java_SumDoubleArr()
+    {
+        return pureJava.sumArrD(passArr, passArr.length);
+    }
 
     @Benchmark
     public double java_SimpleStruct()
