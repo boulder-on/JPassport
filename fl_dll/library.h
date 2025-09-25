@@ -14,6 +14,9 @@
 
 extern double sumD(double d1, double d2);
 extern double sumArrD(double *arr, int count);
+extern double sumDCritical(double d1, double d2);
+extern double sumArrDCritical(double *arr, int count);
+
 extern double sumArrDD(const double *arr, const double *arr2, int count);
 extern void readD(double *v, int set);
 extern double sumMatD(int rows, int cols, double mat[rows][cols]);

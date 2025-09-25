@@ -2,6 +2,7 @@ package jpassport.codebuilder;
 
 import jpassport.*;
 import jpassport.Utils;
+import jpassport.annotations.Critical;
 import jpassport.pointers.GenericPointer;
 import jpassport.pointers.MemoryBlock;
 
@@ -142,9 +143,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                            //loads all method handles as static final variables
                            for (String name : methodHandles.keySet())
                            {
-                               cob.ldc(toDesc(interfaceClass));
-                               cob.ldc(name);
-                               cob.invokestatic(toDesc(PassportFactory.class), "getHandle", MethodTypeDesc.of(toDesc(MethodHandle.class), ConstantDescs.CD_Class, ConstantDescs.CD_String));
+                               cob.ldc(toDesc(interfaceClass)).aconst_null().ldc(name);
+                               cob.invokestatic(toDesc(PassportFactory.class), "getHandle",
+                                       MethodTypeDesc.of(toDesc(MethodHandle.class), ConstantDescs.CD_Class, ConstantDescs.CD_Class, ConstantDescs.CD_String));
                                cob.putstatic(methodHandles.get(name));
                            }
                            cob.return_();
@@ -312,6 +313,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         var methodTypeDesc = toDesc(MethodHandle.class);
         var error = toDesc(Error.class);
+        boolean isCriticalMethod = iMethod.getAnnotation(Critical.class) != null;
 
         clb.withMethod(iMethod.getName(), methodSig, ClassFile.ACC_PUBLIC,
                 mb -> mb.withCode(cob -> {
@@ -347,7 +349,26 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     case primitive, mem_segment -> {
                                         continue;
                                     }
-                                    case primitive_array, primitive_array2D -> {
+                                    case primitive_array -> {
+                                        if (isCriticalMethod) {
+                                            //critical methods can access heap memory, which saves a data copy.
+                                            //load the array as heap memory
+                                            cob.aload(keepers.get(ii).stored);
+                                            cob.invokestatic(CD_Utils, "toMS",
+                                                    MethodTypeDesc.of(CD_MemorySegment, ParamKeeper.classify(t).typeForInterfaceMethod()));
+                                        }
+                                        else {
+                                            cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                            if (isRefArgReadBackOnly(keepers.get(ii).annotations))
+                                                cob.iconst_1();
+                                            else
+                                                cob.iconst_0();
+                                            cob.invokestatic(CD_Utils, "toMS",
+                                                    MethodTypeDesc.of(CD_MemorySegment,
+                                                            CD_SegmentAllocator, ParamKeeper.classify(t).typeForInterfaceMethod(), ConstantDescs.CD_boolean));
+                                        }
+                                    }
+                                    case primitive_array2D -> {
                                         cob.aload(arenaSlot).aload(keepers.get(ii).stored);
                                         if (isRefArgReadBackOnly(keepers.get(ii).annotations))
                                             cob.iconst_1();
@@ -428,20 +449,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                             //Move parameters to stack for the native function call
                             for (ParamKeeper k : keepers)
-                            {
-                                if (k.type == ParamType.addressType)
-                                {
-                                    var mtd = MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment);
-                                    k.loadParam(cob);
-                                    cob.invokestatic(CD_Utils, "toAddr", mtd);
-                                    used++;
-                                    cob.astore(used).aload(used);
-                                    k.stored = used;
-                                }
-                                else {
-                                     k.loadParam(cob);
-                                }
-                            }
+                                 k.loadParam(cob);
 
                             //call the native method
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
@@ -518,11 +526,16 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                                     }
                                     case primitive_array -> {
-                                        //Loads the arguments for toMS()
-                                        cob.aload(k.storedOrig).aload(k.stored);
-                                        cob.invokestatic(CD_Utils, "toArr",
-                                                MethodTypeDesc.of(ConstantDescs.CD_void,
-                                                        k.typeForInterfaceMethod(), CD_MemorySegment));
+                                        // critical methods can access heap memory, we have already passed
+                                        // the array as heap memory. If it was manipulated in native code
+                                        // then that is automatically reflected i java, so there's no
+                                        // need to read it back
+                                        if (!isCriticalMethod) {
+                                            cob.aload(k.storedOrig).aload(k.stored);
+                                            cob.invokestatic(CD_Utils, "toArr",
+                                                    MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                            k.typeForInterfaceMethod(), CD_MemorySegment));
+                                        }
                                     }
                                     case error_capture -> {
                                         cob.aload(k.storedOrig).aload(k.stored);

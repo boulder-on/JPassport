@@ -90,6 +90,7 @@ public class TestJPassport
         for (var testFL : testClass) {
             assertNull(testFL.link.mallocString(null));
             assertEquals(0, testFL.link.sumArrD(null, 10));
+            assertEquals(0, testFL.link.sumArrDCritical(null, 10));
             assertTrue(TestLinkHelp.testMallocDouble(testFL.link));
         }
     }
@@ -99,7 +100,15 @@ public class TestJPassport
     {
         for (var testFL : testClass) {
             assertEquals(4 + 5, testFL.link.sumD(4, 5));
-            assertEquals(1 + 2 + 3, testFL.link.sumArrD(new double[]{1, 2, 3}, 3));
+            assertEquals(4 + 5, testFL.link.sumDCritical(4, 5));
+            double pass[] = new double[]{1, 2, 3};
+            assertEquals(1 + 2 + 3, testFL.link.sumArrD(pass, pass.length));
+            assertArrayEquals(new double[]{3, 2, 3}, pass);
+
+            pass = new double[]{1, 2, 3};
+            assertEquals(1 + 2 + 3, testFL.link.sumArrDCritical(pass, 3));
+            assertArrayEquals(new double[]{3, 2, 3}, pass);
+
             assertEquals(1 + 2 + 3 + 4 + 5 + 6, testFL.link.sumArrDD(new double[]{1, 2, 3}, new double[]{4, 5, 6}, 3));
 
             double[] v = new double[1];

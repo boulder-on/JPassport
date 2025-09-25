@@ -25,6 +25,9 @@ public class TestLinkJNADirect
 {
     public static native double sumD(double d, double d2);
     public static native double sumArrD(double[] d, int len);
+    public static native double sumDCritical(double d, double d2);
+    public static native double sumArrDCritical(double[] d, int len);
+
     public static native double sumArrDD(double[] d, double[] dd, int len);
     public static native void readD(double[] d, int set);
 
@@ -63,8 +66,18 @@ public class TestLinkJNADirect
         }
 
         @Override
+        public double sumDCritical(double d, double d2) {
+            return TestLinkJNADirect.sumDCritical(d, d2);
+        }
+
+        @Override
         public double sumArrD(double[] d, int len) {
             return TestLinkJNADirect.sumArrD(d, len);
+        }
+
+        @Override
+        public double sumArrDCritical(double[] d, int len) {
+            return TestLinkJNADirect.sumArrDCritical(d, len);
         }
 
         @Override

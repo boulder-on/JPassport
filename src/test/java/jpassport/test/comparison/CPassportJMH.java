@@ -1,8 +1,11 @@
 package jpassport.test.comparison;
 
 import jpassport.PassportFactory;
+import jpassport.test.PureJava;
+import jpassport.test.TestLinkJNADirect;
 import jpassport.test.extracted.PassingData;
 import jpassport.test.extracted.library_h;
+import jpassport.test.performance.PerfTest;
 import jpassport.test.structs.PassingArrays;
 import org.openjdk.jmh.annotations.*;
 
@@ -18,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 
 @BenchmarkMode(Mode.AverageTime)
-@Warmup(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -41,6 +44,9 @@ public class CPassportJMH {
     {
         System.setProperty("jpassport.build.home", "out/testing");
         sp =  PassportFactory.link("libpassport_test", struct_passer.class);
+        pureJava = new PureJava();
+        testJNADirect =  new TestLinkJNADirect.JNADirect();
+
         passStruct = new PassingDataJP(1, 2, 3, 4);
 
         var doublesArr = new double[]{1, 2, 3, 4, 5};
@@ -55,24 +61,83 @@ public class CPassportJMH {
     }
 
     static struct_passer sp;
+    static PureJava pureJava;
+    static PerfTest testJNADirect;
+
     private static PassingDataJP passStruct;
     private static PassingArrays passArrays;
     private static double[] passArr;
 
+//    @Benchmark
+//    public double java_Sum2Double()
+//    {
+//        return pureJava.sumD(1.0, 2.0);
+//    }
+//
+//    @Benchmark
+//    public double java_SumDoubleArr()
+//    {
+//        return pureJava.sumArrD(passArr, passArr.length);
+//    }
+
     @Benchmark
-    public double usePassportSumD()
+    public double java_SimpleStruct()
+    {
+        PassingDataJP[] pd = new PassingDataJP[] {passStruct};
+        double sum = pureJava.passStruct(pd);
+        sum += pd[0].s_int() + pd[0].s_long() + pd[0].s_float() + pd[0].s_double();
+        return sum;
+    }
+
+    @Benchmark
+    public double java_StructWithArrays()
+    {
+        PassingArrays[] regArg = new PassingArrays[]{passArrays};
+        double sum = pureJava.passStructWithArrays(regArg);
+        sum += regArg[0].s_long().length + regArg[0].s_double().length +
+                regArg[0].s_doublePtrCount() + regArg[0].s_longPtrCount() +
+                regArg[0].s_doublePtr().length + regArg[0].s_longPtr().length;
+        return sum;
+    }
+
+    @Benchmark
+    public double JNAD_Sum2Double()
+    {
+        return testJNADirect.sumD(1.0, 2.0);
+    }
+
+    @Benchmark
+    public double JNAD_SumDoubleArr()
+    {
+        return testJNADirect.sumArrD(passArr, passArr.length);
+    }
+
+    @Benchmark
+    public double jpassport_Sum2Double()
     {
         return sp.sumD(1.0, 2.0);
     }
 
     @Benchmark
-    public double usePassportSumArrD()
+    public double jpassport_SumDoubleArr()
     {
         return sp.sumArrD(passArr, passArr.length);
     }
 
     @Benchmark
-    public double usePassportStruct()
+    public double jpassportCritical_Sum2Double()
+    {
+        return sp.sumDCritical(1.0, 2.0);
+    }
+
+    @Benchmark
+    public double passportCritical_SumDoubleArr()
+    {
+        return sp.sumArrDCritical(passArr, passArr.length);
+    }
+
+    @Benchmark
+    public double jpassport_SimpleStruct()
     {
         PassingDataJP[] pd = new PassingDataJP[] {passStruct};
         double sum = sp.passStruct(pd);
@@ -81,7 +146,7 @@ public class CPassportJMH {
     }
 
     @Benchmark
-    public double usePassportArrays()
+    public double jpassport_StructWithArrays()
     {
         PassingArrays[] regArg = new PassingArrays[]{passArrays};
         double sum = sp.passStructWithArrays(regArg);
@@ -91,23 +156,26 @@ public class CPassportJMH {
         return sum;
     }
 
+
     @Benchmark
-    public double useExtractSumD()
+    public double jextract_Sum2Double()
     {
         return library_h.sumD(1.0, 2.0);
     }
 
     @Benchmark
-    public double useExtractSumArrD()
+    public double jextract_SumDoubleArr()
     {
         try (Arena a = Arena.ofConfined()){
             var memseg = a.allocateFrom(ValueLayout.JAVA_DOUBLE, passArr);
-            return library_h.sumArrD(memseg, passArr.length);
+            double ret = library_h.sumArrD(memseg, passArr.length);
+            MemorySegment.copy(memseg, ValueLayout.JAVA_DOUBLE, 0, passArr, 0, passArr.length);
+            return ret;
         }
     }
 
     @Benchmark
-    public double useExtractStruct()
+    public double jextract_SimpleStruct()
     {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment struct = PassingData.allocate(a);
@@ -125,7 +193,7 @@ public class CPassportJMH {
     }
 
     @Benchmark
-    public static double useExtractArrays()
+    public static double jextract_StructWithArrays()
     {
         try (Arena a = Arena.ofConfined()) {
             MemorySegment struct = jpassport.test.extracted.PassingArrays.allocate(a);

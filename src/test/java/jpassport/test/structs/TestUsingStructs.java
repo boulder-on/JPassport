@@ -30,11 +30,10 @@ public class TestUsingStructs {
         PassingStructs = new Link[] {
                 new Link(PassType.written, PassportFactory.link_written(getLibName(), TestStructCalls.class)),
                 new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
-
         };
 
 //        PassingStructs = new Link[] {
-//                new Link(PassType.written, new TestStructCalls_impl(PassportFactory.loadMethodHandles(getLibName(), TestStructCalls.class))),
+//                new Link(PassType.written, new TestStructCalls_impl(PassportFactory.loadMethodHandles(getLibName(), TestStructCalls.class)))
 //        };
 
     }
@@ -88,6 +87,33 @@ public class TestUsingStructs {
             assertArrayEquals(new long[]{6, 7, 8, 9}, regArg[0].s_longPtr());
             assertArrayEquals(longArr, regArg[0].s_long());
             assertArrayEquals(doublePtr, regArg[0].s_doublePtr());
+        }
+    }
+
+    @Test
+    public void testStructsWithArraysAndNulls()
+    {
+        int expected = IntStream.range(1, 14).sum();
+
+        for (int n = 0; n < PassingStructs.length; ++n) {
+
+            var doublesArr = new double[]{1, 2, 3, 4, 5};
+            var longArr = new long[]{6, 7, 8, 9, 10, 11, 12, 13};
+
+            PassingArrays pa = new PassingArrays(doublesArr, longArr, 10, null, 12, null);
+            PassingArrays[] regArg = new PassingArrays[]{pa};
+            assertEquals(expected, PassingStructs[n].link.passStructWithArrays(regArg));
+
+            assertArrayEquals(doublesArr, regArg[0].s_double());
+            assertArrayEquals(null, regArg[0].s_longPtr());
+            assertArrayEquals(longArr, regArg[0].s_long());
+            assertArrayEquals(null, regArg[0].s_doublePtr());
+
+            ComplexStruct[] complex = new ComplexStruct[] {new ComplexStruct(55, null, null, null)};
+            assertEquals(-2, PassingStructs[n].link.passComplex(complex));
+            assertEquals(65, complex[0].ID());
+            complex = new ComplexStruct[] {new ComplexStruct(55, null, null, "hello")};
+            assertEquals(-1, PassingStructs[n].link.passComplex(complex));
         }
     }
 

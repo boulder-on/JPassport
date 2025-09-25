@@ -682,11 +682,11 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                 case primitive_array_ptr -> {
                                     var c = ftype.getComponentType();
+                                    var arrDesc = primitiveToDescMap.get(c).arrayType();
                                     cob.aload(recordSlot);
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(c).arrayType()));
-                                    cob.arraylength();
-                                    int arrLenSlot = slots;
-                                    slots = storeParam(cob, arrLenSlot, int.class);
+                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(arrDesc));
+                                    int arrSlot = slots;
+                                    slots = storeParam(cob, arrSlot, ftype);
 
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -696,15 +696,10 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     int msegmentSlot = slots;
                                     slots = storeParam(cob, msegmentSlot, MemorySegment.class);
 
-                                    cob.getstatic(CD_ValueLayout, primitiveToConstName.get(c), primativeToVLDescMap.get(c));
-                                    cob.aload(memStructSlot).aload(msegmentSlot).iload(arrLenSlot);
+                                    cob.aload(memStructSlot).aload(msegmentSlot).aload(arrSlot);
                                     cob.invokestatic(CD_Utils, "toArr",
-                                            MethodTypeDesc.of(primitiveToDescMap.get(c).arrayType(),
-                                                    primativeToVLDescMap.get(c), CD_MemorySegment, CD_MemorySegment, ConstantDescs.CD_int));
+                                            MethodTypeDesc.of(arrDesc, CD_MemorySegment, CD_MemorySegment, arrDesc));
                                     storeParam(cob, fieldSlots[ii], ftype);
-
-//                                    int s_doublePtrSize = rec.s_doublePtr().length;
-//                                    var s_doublePtr = Utils.toArr(JAVA_DOUBLE, memStruct, memStruct.get(ADDRESS, PassingArraysLayoutOffsets[3]), s_doublePtrSize);
                                 }
 
                                 case record_ -> {

@@ -36,6 +36,25 @@ double sumArrD(double *arr, const int count)
     return r;
 }
 
+double sumDCritical(const double d1, const double d2)
+{
+    return (d1 + d2);
+}
+
+double sumArrDCritical(double *arr, const int count)
+{
+    if (arr == NULL)
+        return 0;
+
+    double r = 0;
+
+    for (int n = 0; n < count; ++n)
+        r += arr[n];
+
+    arr[0] = arr[count-1];
+    return r;
+}
+
 double sumArrDD(const double *arr,const double *arr2, const int count)
 {
     if (arr == NULL || arr2 == NULL)
@@ -345,6 +364,9 @@ void freeMemory(void *memory)
 
 double passStruct(struct PassingData* data)
 {
+    if (data == NULL)
+        return -1;
+
     double ret = 0;
     ret += (double)data->s_long;
     ret += data->s_float;
@@ -359,51 +381,54 @@ double passComplex(struct ComplexPassing* complex)
     double ret = passStruct(&complex->s_passingData);
     ret += passStruct(complex->s_ptrPassingData);
 
-    int len = strlen(complex->s_string);
-    for (int n = 0; n < len; ++n)
-        complex->s_string[n] -= 32;
+    if (complex->s_string == NULL)
+        ret -= 1;
+    else {
+        int len = strlen(complex->s_string);
+        for (int n = 0; n < len; ++n)
+            complex->s_string[n] -= 32;
+    }
 
     complex->s_ID += 10;
     complex->s_passingData.s_int += 10;
-    complex->s_ptrPassingData->s_int +=20;
+    if (complex->s_ptrPassingData != NULL)
+        complex->s_ptrPassingData->s_int +=20;
     return ret;
 }
 
 double passStructWithArrays(struct PassingArrays* structWithArrays)
 {
+    if (structWithArrays == NULL)
+        return -1;
+
     double ret = 0;
-//    printf("Size = %lld\n", sizeof(struct PassingArrays));
-    int count = sizeof(structWithArrays->s_double)/sizeof(double);
-    for (int n = 0; n < count; ++n)
+    int countd = sizeof(structWithArrays->s_double)/sizeof(double);
+    for (int n = 0; n < countd; ++n)
     {
         ret += structWithArrays->s_double[n];
-//        printf("double [%d] = %f (%f)\n", n, structWithArrays->s_double[n], ret);
     }
 
-    count = sizeof(structWithArrays->s_long)/sizeof(long long);
-    for (int n = 0; n < count; ++n)
+    int countl = sizeof(structWithArrays->s_long)/sizeof(long long);
+    for (int n = 0; n < countl; ++n)
     {
-        ret += structWithArrays->s_long[n];
-//        printf("long [%d] = %lld (%f)\n", n, structWithArrays->s_long[n], ret);
+        ret += (double)structWithArrays->s_long[n];
     }
 
-    for (int n = 0; n < structWithArrays->s_doublePtrCount; ++n)
-    {
-        ret += structWithArrays->s_doublePtr[n];
-//        printf("double Ptr[%d] = %f (%f)\n", n, structWithArrays->s_doublePtr[n], ret);
+    if (structWithArrays->s_doublePtr != NULL) {
+        for (int n = 0; n < structWithArrays->s_doublePtrCount; ++n) {
+            ret += structWithArrays->s_doublePtr[n];
 
-        if (n < count)
-            structWithArrays->s_double[n] = structWithArrays->s_doublePtr[n];
+            if (n < countd)
+                structWithArrays->s_double[n] = structWithArrays->s_doublePtr[n];
+        }
     }
 
-
-    for (int n = 0; n < structWithArrays->s_longPtrCount; ++n)
-    {
-        ret += structWithArrays->s_longPtr[n];
-//        printf("long Ptr[%d] = %lld (%f)\n", n, structWithArrays->s_longPtr[n], ret);
-
-        if (n < count)
-            structWithArrays->s_longPtr[n] = structWithArrays->s_long[n];
+    if (structWithArrays->s_longPtr != NULL) {
+        for (int n = 0; n < structWithArrays->s_longPtrCount; ++n) {
+            ret += (double)structWithArrays->s_longPtr[n];
+            if (n < countl)
+                structWithArrays->s_longPtr[n] = structWithArrays->s_long[n];
+        }
     }
 
     return ret;

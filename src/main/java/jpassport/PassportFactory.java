@@ -12,6 +12,7 @@
 package jpassport;
 
 
+import jpassport.annotations.NativeLibrary;
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.Critical;
 import jpassport.codebuilder.PassportBuilder;
@@ -90,9 +91,18 @@ public class PassportFactory
     /**
      * This method should not be called. It is only used internally while the classes are being built
      */
-    public static MethodHandle getHandle(Class interfaceClass, String name)
+    public static MethodHandle getHandle(Class interfaceClass, Class implClass, String name)
     {
-        if (!mappedHandles.containsKey(interfaceClass) || ! mappedHandles.get(interfaceClass).containsKey(name))
+        if (!mappedHandles.containsKey(interfaceClass) && implClass != null)
+        {
+            var annotation = implClass.getAnnotation(NativeLibrary.class);
+            if (annotation == null)
+                throw new PassportException("Prebuild classes must contain the NativeLibrary annotation");
+
+            loadMethodHandles(((NativeLibrary)annotation).name(), interfaceClass);
+        }
+
+        if (!mappedHandles.get(interfaceClass).containsKey(name))
             return null;
 
         var ret = mappedHandles.get(interfaceClass).remove(name);
@@ -104,7 +114,7 @@ public class PassportFactory
     private static <T extends Passport> T writeClass(String libName, Class<T> interfaceClass) throws Throwable
     {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
-        PassportWriter<T> classWriter = new PassportWriter<>(interfaceClass);
+        PassportWriter<T> classWriter = new PassportWriter<>(interfaceClass, libName);
 
         return classWriter.build(handles);
     }

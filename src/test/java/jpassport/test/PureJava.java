@@ -16,9 +16,13 @@ import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.Pointer;
 import jpassport.annotations.RefArg;
+import jpassport.test.comparison.PassingDataJP;
+import jpassport.test.extracted.PassingData;
+import jpassport.test.structs.PassingArrays;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.util.Arrays;
 
 public class PureJava implements TestLink
 {
@@ -34,12 +38,24 @@ public class PureJava implements TestLink
     }
 
     @Override
+    public double sumDCritical(double d, double d2) {
+        return d + d2;
+    }
+
+    @Override
     public double sumArrD(double[] d, int len)
     {
         double ret = 0;
-        for (int n = 0; n < len; ++n)
-            ret += d[n];
+        for (double dd : d)
+            ret += dd;
+        d[0] = d[len -1];
         return ret;
+    }
+
+    @Override
+    public double sumArrDCritical(double[] d, int len)
+    {
+        return sumArrD(d, len);
     }
 
     @Override
@@ -295,6 +311,57 @@ public class PureJava implements TestLink
     public void setAnError(ErrorCapture errs, int errval)
     {
 
+    }
+
+    public double passStruct(PassingDataJP[] data)
+    {
+        if (data == null || data[0] == null)
+            return -1;
+
+        double ret = 0;
+        ret += (double)data[0].s_long();
+        ret += data[0].s_float();
+        ret += data[0].s_int();
+        ret += data[0].s_double();
+
+        return ret;
+    }
+
+
+    public double passStructWithArrays(PassingArrays[] structWithArrays)
+    {
+        if (structWithArrays == null || structWithArrays[0] == null)
+            return -1;
+
+        double ret = 0;
+        double[] arr = structWithArrays[0].s_double();
+        for (double v : arr) ret += v;
+
+
+        long[] arrl = structWithArrays[0].s_long();
+        for (long l : arrl) ret += l;
+
+        if (structWithArrays[0].s_doublePtr() != null) {
+            double[] arrPtr = structWithArrays[0].s_doublePtr();
+
+            for (int n = 0; n < arrPtr.length; ++n) {
+                ret += arrPtr[n];
+                if (n < arr.length)
+                    arr[n] = arrPtr[n];
+            }
+        }
+
+        if (structWithArrays[0].s_longPtr() != null) {
+            long[] arrlPtr = structWithArrays[0].s_longPtr();
+
+            for (int n = 0; n < arrlPtr.length; ++n) {
+                ret += arrlPtr[n];
+                if (n < arr.length)
+                    arrl[n] = arrlPtr[n];
+            }
+        }
+
+        return ret;
     }
 
 }
