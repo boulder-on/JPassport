@@ -17,4 +17,6 @@ module test.passport {
     exports jpassport.test.structs;
     exports jpassport.test.callback;
     exports jpassport.test.comparison;
+    exports jpassport.test.testformats;
+    opens jpassport.test.testformats;
 }

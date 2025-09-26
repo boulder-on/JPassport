@@ -92,12 +92,17 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
         var verParts = Version.getVersionParts();
 
+        String importInterface = "import " + interfaceClass.getName();
+        if (interfaceClass.getEnclosingClass() != null)
+        {
+            importInterface = "import static " + interfaceClass.getEnclosingClass().getName() + "." + interfaceClass.getSimpleName();
+        }
 
         m_source.append(String.format("""
                     package %1$s;
 
                     %2$s
-                    import %3$s;
+                    %3$s;
                     import jpassport.Utils;
                     import jpassport.PassportFactory;
                     import jpassport.ErrorCapture;
@@ -130,7 +135,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     """,
                 packageName,
                 buildExtraImports(extraImports),
-                interfaceClass.getName(),
+                importInterface,
                 m_className, interfaceClass.getSimpleName(),
                 structLayouts,
                 verParts[0], verParts[1], verParts[2],
@@ -172,7 +177,15 @@ public class PassportWriter<T extends Passport> implements CBConstants
     {
         StringBuilder strImports = new StringBuilder();
         for (Class<?> c : imports)
-            strImports.append("import ").append(c.getName()).append(";\n");
+        {
+            if (c.getEnclosingClass() == null)
+                strImports.append("import ").append(c.getName()).append(";\n");
+            else
+            {
+                String innerClassName = c.getEnclosingClass().getName() + "." + c.getSimpleName();
+                strImports.append("import static ").append(innerClassName).append(";\n");
+            }
+        }
         return strImports.toString();
     }
 
