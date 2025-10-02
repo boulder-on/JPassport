@@ -711,6 +711,11 @@ public class Utils {
         return MemoryLayout.structLayout(memLayout.toArray(new MemoryLayout[0]));
     }
 
+    public static UnionLayout makeUnion(MemoryLayout ... layout)
+    {
+        return MemoryLayout.unionLayout(layout);
+    }
+
 //    private static final Map<Class<?>, MemoryLayout> typeToCName = new HashMap<>()
 //    {
 //        {

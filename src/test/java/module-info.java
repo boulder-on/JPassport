@@ -19,4 +19,6 @@ module test.passport {
     exports jpassport.test.comparison;
     exports jpassport.test.testformats;
     opens jpassport.test.testformats;
+    exports jpassport.test.unions;
+    opens jpassport.test.unions;
 }

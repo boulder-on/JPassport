@@ -215,14 +215,24 @@ public class PassportWriter<T extends Passport> implements CBConstants
             StringBuilder sbLayout = new StringBuilder();
             StringBuilder sbOffsets = new StringBuilder();
             layoutMap.put(c, sbLayout);
+            boolean isUnion = isUnion(c);
 
-            sbLayout.append(String.format("private static final GroupLayout %sLayout = Utils.makeStruct(\n", c.getSimpleName()));
+            if (isUnion)
+                sbLayout.append(String.format("private static final UnionLayout %sLayout = Utils.makeUnion(\n", c.getSimpleName()));
+            else
+                sbLayout.append(String.format("private static final GroupLayout %sLayout = Utils.makeStruct(\n", c.getSimpleName()));
 
             //Build an array cached with the required byte offsets. This reduces the overhead on calls using structs ~60%-75%
             sbOffsets.append(String.format("\tprivate static final long[] %sLayoutOffsets = new long[] {\n", c.getSimpleName()));
 
+            //Makes sure the union has the required annotations
+            verifyUnion(c);
+
             for (Field f : c.getDeclaredFields())
             {
+                if (skipUnionField(c, f))
+                        continue;
+
                 var varHandling = ArgClassification.classify(f);
                 int paddingBits = getPaddingBytes(f);
 
@@ -369,12 +379,31 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     """,
                     c.getSimpleName()));
 
+            boolean isUnion = isUnion(c);
+            String toNativeFieldName = "";
+            if (isUnion) {
+                for (Field f : c.getDeclaredFields()) {
+                    if (hasAnnotation(f, UnionToNativeIdx.class))
+                    {
+                        toNativeFieldName = f.getName();
+                        break;
+                    }
+                }
+            }
+
             int Element = 0;
             for (Field f : c.getDeclaredFields())
             {
+                if (skipUnionField(c, f))
+                    continue;
+
                 var varHandling = ArgClassification.classify(f);
                 Class<?> type = f.getType();
                 String offset = String.format("%sLayoutOffsets[%d] + offset", c.getSimpleName(), Element++);
+
+                //if the union UnionToNativeIdx annotated field has the index of this field then write to memory.
+                if (isUnion)
+                    sb.append(String.format("\t\tif (rec.%1$s() == %2$d)\n", toNativeFieldName, Element-1));
 
                 switch (varHandling)
                 {
@@ -475,55 +504,83 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
             int Element = 0;
 
+            boolean isUnion = isUnion(c);
+            String toFromNativeFieldName = "";
+            if (isUnion) {
+                for (Field f : c.getDeclaredFields()) {
+                    if (hasAnnotation(f, UnionFromNativeIdx.class))
+                    {
+                        toFromNativeFieldName = f.getName();
+                        break;
+                    }
+                }
+            }
+
+
             for (Field f : c.getDeclaredFields())
             {
+                Class<?> type = f.getType();
+
+                if (skipUnionField(c, f))
+                {
+                    sb.append(String.format("\t\tvar %1$s = rec.%1$s();\n", f.getName()));
+                    continue;
+                }
+
                 var varHandling = ArgClassification.classify(f);
                 String offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
-                Class<?> type = f.getType();
+                String ifUnionRead = "";
+                // creates a ternary operator to help read back the correct field for unions.
+                if (isUnion)
+                    ifUnionRead = String.format(" (rec.%1$s() != %2$d) ? rec.%3$s() : ", toFromNativeFieldName, Element-1, f.getName());
 
                 switch (varHandling)
                 {
                     case primitive ->
-                        sb.append(String.format("\t\tvar %1$s = memStruct.get(JAVA_%2$s, %3$s);\n", f.getName(), typeToName.get(type).toUpperCase(), offset));
+                        sb.append(String.format("\t\tvar %1$s = %4$s memStruct.get(JAVA_%2$s, %3$s);\n", f.getName(), typeToName.get(type).toUpperCase(), offset, ifUnionRead));
 
                     case record_ ->
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(memStruct.asSlice(%3$s), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = %4$s read%2$s(memStruct.asSlice(%3$s), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset, ifUnionRead));
 
                     case record_ptr ->
-                        sb.append(String.format("\t\tvar %1$s = read%2$s(Utils.slice(memStruct, memStruct.get(ADDRESS, %3$s), %2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = %4$s read%2$s(Utils.slice(memStruct, memStruct.get(ADDRESS, %3$s), %2$sLayout.byteSize()), rec.%1$s());\n", f.getName(), type.getSimpleName(), offset, ifUnionRead));
 
                     case record_array_ptr -> {
                             sb.append(String.format("\t\tvar %1$s = new %2$s[rec.%1$s().length];\n", f.getName(), type.getComponentType().getSimpleName()));
+                            if (isUnion)
+                                sb.append(String.format("\t\tif(rec.%1$s() == %2$d)",toFromNativeFieldName, Element-1));
                             sb.append(String.format("\t\treadPtrs%2$s(memStruct.get(ADDRESS, %3$s), %1$s);\n", f.getName(), type.getComponentType().getSimpleName(), offset));
                     }
 
                     case record_array ->{
                             sb.append(String.format("\t\tvar %1$s = new %2$s[rec.%1$s().length];\n", f.getName(), type.getComponentType().getSimpleName()));
+                            if (isUnion)
+                                sb.append(String.format("\t\tif(rec.%1$s() == %2$d)",toFromNativeFieldName, Element-1));
                             sb.append(String.format("\t\treadArr%2$s(memStruct.asSlice(%3$s, rec.%1$s().length * %2$sLayout.byteSize()), %1$s);\n", f.getName(), type.getComponentType().getSimpleName(), offset));
                     }
 
                     case mem_segment ->
-                        sb.append(String.format("\t\tvar %1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = %3$s  memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset, ifUnionRead));
 
                     case generic_ptr -> {
                         sb.append(String.format("\t\tvar mem%1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
-                        sb.append(String.format("\t\tvar %1$s = new %2$s(mem%1$s);\n", f.getName(), type.getName()));
+                        sb.append(String.format("\t\tvar %1$s = %3$s new %2$s(mem%1$s);\n", f.getName(), type.getName(), ifUnionRead));
                     }
                     case string_ ->
-                        sb.append(String.format("\t\tvar %1$s = Utils.readString(memStruct.get(ADDRESS, %2$s));\n", f.getName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = %3$s Utils.readString(memStruct.get(ADDRESS, %2$s));\n", f.getName(), offset, ifUnionRead));
 
                     case primitive_array -> {
                         Annotation[] arrays = f.getAnnotationsByType(Array.class);
                         Class<?> arrType = type.getComponentType();
                         int length = ((Array) arrays[0]).length();
-                        sb.append(String.format("\t\tvar %1$s = memStruct.asSlice(%4$s, %2$d * %5$s.BYTES).toArray(JAVA_%3$s);\n", f.getName(), length, typeToName.get(arrType).toUpperCase(), offset, typeToName.get(arrType)));
+                        sb.append(String.format("\t\tvar %1$s = %6$s memStruct.asSlice(%4$s, %2$d * %5$s.BYTES).toArray(JAVA_%3$s);\n", f.getName(), length, typeToName.get(arrType).toUpperCase(), offset, typeToName.get(arrType), ifUnionRead));
                     }
                     case primitive_array_ptr -> {
-                        sb.append(String.format("\t\tvar %1$s = Utils.toArr(memStruct, memStruct.get(ADDRESS, %2$s), rec.%1$s());\n", f.getName(), offset));
+                        sb.append(String.format("\t\tvar %1$s = %3$s Utils.toArr(memStruct, memStruct.get(ADDRESS, %2$s), rec.%1$s());\n", f.getName(), offset, ifUnionRead));
                     }
                     case memory_block -> {
                         sb.append(String.format("\t\tvar %1$sMS = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
-                        sb.append(String.format("\t\tvar %1$s = MemoryBlock.recreate(%1$sMS, rec.%1$s());\n", f.getName()));
+                        sb.append(String.format("\t\tvar %1$s = %2$s MemoryBlock.recreate(%1$sMS, rec.%1$s());\n", f.getName(), ifUnionRead));
                     }
                     default -> throw new PassportException("Type not supported in a struct: " + f.getType() + ", " + c.getSimpleName() +"." + f.getName());
                 }

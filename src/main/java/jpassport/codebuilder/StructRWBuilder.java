@@ -2,6 +2,8 @@ package jpassport.codebuilder;
 
 import jpassport.*;
 import jpassport.annotations.Array;
+import jpassport.annotations.UnionFromNativeIdx;
+import jpassport.annotations.UnionToNativeIdx;
 import jpassport.pointers.GenericPointer;
 import jpassport.pointers.MemoryBlock;
 
@@ -18,6 +20,7 @@ import java.text.ParseException;
 import java.util.*;
 import java.util.function.Consumer;
 
+import static jpassport.codebuilder.CBConstants.skipUnionField;
 import static jpassport.codebuilder.PassportBuilder.*;
 import static jpassport.Utils.toDesc;
 import static jpassport.codebuilder.CBConstants.*;
@@ -86,11 +89,25 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
         createReadMethods(cbl, orderedRecords);
     }
 
+    private int getFieldCount(Class<?> recordType)
+    {
+        int ret = 0;
+        for (Field f : recordType.getDeclaredFields()) {
+            if (skipUnionField(recordType, f))
+                continue;
+            ret++;
+        }
+        return ret;
+    }
+
     private int createGroupLayout(CodeBuilder cob, Class<?> recordType, int firstAvailableSlot)
     {
         //How many items will be passed to Utils.makeStruct()?
         int slotsNeeded = 0;
         for (Field f : recordType.getDeclaredFields()) {
+            if (skipUnionField(recordType, f))
+                continue;
+
             if (getPaddingBytes(f) != 0)
                 slotsNeeded++;
             slotsNeeded++;
@@ -101,10 +118,15 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
         int memLayoutArrSlot = firstAvailableSlot++;
         cob.astore(memLayoutArrSlot);
 
+        verifyUnion(recordType);
+
         int idx = 0;
         for (Field f : recordType.getDeclaredFields()) {
             long paddingBits = getPaddingBytes(f);
             var ftype = f.getType();
+
+            if (skipUnionField(recordType, f))
+                continue;
 
             if (paddingBits < 0) {
                 cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
@@ -194,8 +216,14 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
         }
 
         cob.aload(memLayoutArrSlot);
-        cob.invokestatic(CD_Utils, "makeStruct",
-                MethodTypeDesc.of(toDesc(GroupLayout.class), CD_MemoryLayout.arrayType(1)));
+        if (isUnion(recordType)) {
+            cob.invokestatic(CD_Utils, "makeUnion",
+                    MethodTypeDesc.of(toDesc(UnionLayout.class), CD_MemoryLayout.arrayType(1)));
+        }
+        else {
+            cob.invokestatic(CD_Utils, "makeStruct",
+                    MethodTypeDesc.of(toDesc(GroupLayout.class), CD_MemoryLayout.arrayType(1)));
+        }
         cob.putstatic(groupLayouts.get(recordType).layout);
 
         return firstAvailableSlot;
@@ -204,7 +232,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
     private int createRecordOffsets(CodeBuilder cob, Class<?> recordType, int firstAvailableSlot)
     {
         //StructLayoutOffsets = new long[n]
-        cob.bipush(recordType.getDeclaredFields().length);
+        int fieldCount = getFieldCount(recordType);
+        cob.bipush(fieldCount);
         cob.newarray(TypeKind.LONG).dup();
         cob.putstatic(groupLayouts.get(recordType).offsets);
         int pathElementSlot = firstAvailableSlot++;
@@ -214,6 +243,9 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
         int i = 0;
         for (Field f : recordType.getDeclaredFields()) {
+            if (skipUnionField(recordType, f))
+                continue;
+
             cob.aload(pathElementSlot).iconst_0();
             cob.loadConstant(f.getName());
             cob.invokestatic(toDesc(MemoryLayout.PathElement.class), "groupElement",
@@ -280,13 +312,37 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.astore(memSegSlot);
                         cob.labelBinding(skipAlloc);
 
+                        boolean isUnion = isUnion(recordType);
+                        int recToReadSlot = slots++;
+                        if (isUnion) {
+                            for (Field f : recordType.getDeclaredFields()) {
+                                if (hasAnnotation(f, UnionToNativeIdx.class))
+                                {
+                                    //load the field index of the union that we are going to write out to memory
+                                    cob.aload(inputRecSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(int.class)));
+                                    cob.istore(recToReadSlot);
+                                    break;
+                                }
+                            }
+                        }
+
                         int ii = 0;
                         slots++;
                         for (Field f : recordType.getDeclaredFields()) {
+                            if (skipUnionField(recordType, f))
+                                continue;
+
+                            Label endLabel = cob.newLabel();
+                            if (isUnion)
+                            {
+                                //if this is not the right field of the union to write to memory, then skip it.
+                                cob.iload(recToReadSlot).loadConstant(ii);
+                                cob.if_icmpne(endLabel);
+                            }
+
                             Class<?> ftype = f.getType();
-
                             var varHandling = ArgClassification.classify(f);
-
                             switch(varHandling)
                             {
                                 case primitive -> {
@@ -330,7 +386,9 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.aload(sliceSlot).aload(copySlot);
                                     cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
+                                    cob.pop();
 //                                        memStruct.asSlice(PassingArraysLayoutOffsets[0] + offset).copyFrom(MemorySegment.ofArray(rec.s_double()));
+
 
                                 }
                                 case primitive_array_ptr -> {
@@ -372,6 +430,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.aload(sliceSlot).aload(memorySlot);
                                     cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
+                                    cob.pop();
 
                                 }
                                 case record_ptr -> {
@@ -410,7 +469,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
                                     cob.aload(memorySlot);
                                     cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
-                                    cob.aload(memorySlot);
+                                    cob.pop();
+//                                    cob.aload(memorySlot);
                                 }
                                 case record_array_ptr -> {
                                     cob.aload(inputRecSlot);
@@ -507,6 +567,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                 default ->
                                     throw new PassportException(varHandling + " not implemented");
                             }
+
+                            cob.labelBinding(endLabel);
                         }
 
                         cob.aload(memSegSlot).areturn();
@@ -598,10 +660,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
         for (Class<?> recordType : extraImports)
         {
+            var recDesc = toDesc(recordType);
+
             //Creates "private RecordType readRecordTye(MemorySegment memPtr, RecordType origRec)".
             //The returned value is the new record made from the struct in memPtr.
             cbl.withMethod("read" + recordType.getSimpleName(),
-                    MethodTypeDesc.of(toDesc(recordType), CD_MemorySegment, toDesc(recordType)),
+                    MethodTypeDesc.of(recDesc, CD_MemorySegment, recDesc),
                     ClassFile.ACC_PRIVATE, methodBuilder -> methodBuilder.withCode(cob -> {
                         int slots = cob.parameterSlot(1) + 1; //start the local variables after the parameters
 
@@ -612,7 +676,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.aload(cob.parameterSlot(0));
                         cob.invokeinterface(CD_MemorySegment, "equals", MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_Object));
                         cob.ifne(earlyReturn);
-                        cob.aload(cob.parameterSlot(1));
+                        int inputRecordSlot = cob.parameterSlot(1);
+                        cob.aload(inputRecordSlot);
                         cob.ifnonnull(postIf);
                         cob.labelBinding(earlyReturn).aconst_null().areturn();
 
@@ -634,11 +699,15 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.invokestatic(CD_Utils, "resize", MethodTypeDesc.of(CD_MemorySegment,CD_MemorySegment, ConstantDescs.CD_long));
                         cob.astore(memStructSlot);
 
-                        ParamType[] fields = new ParamType[recordType.getDeclaredFields().length];
+                        int fieldCount = getFieldCount(recordType);
+
+                        ParamType[] fields = new ParamType[fieldCount];
                         int[] fieldSlots = new int[fields.length];
                         int ii = 0;
                         //Create a local variable for each field of the record
                         for (Field f : recordType.getDeclaredFields()) {
+                            if (skipUnionField(recordType, f))
+                                continue;
                             var t = f.getType();
                             fields[ii] = ParamType.toType(t);
                             fieldSlots[ii] = slots;
@@ -647,10 +716,52 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             ii++;
                         }
 
+                        boolean isUnion = isUnion(recordType);
+                        int recToReadSlot = slots++;
+                        if (isUnion) {
+                            for (Field f : recordType.getDeclaredFields()) {
+                                if (hasAnnotation(f, UnionFromNativeIdx.class))
+                                {
+                                    //get the index of the field that we are reading back from the union.
+                                    cob.aload(inputRecordSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(int.class)));
+                                    cob.istore(recToReadSlot);
+                                    break;
+                                }
+                            }
+                        }
+
+
+
                         ii=0;
                         for (Field f : recordType.getDeclaredFields()) {
+                            if (skipUnionField(recordType, f))
+                                continue;
+
                             var ftype = f.getType();
                             var varHandling = ArgClassification.classify(f);
+                            Label endIfLabel = cob.newLabel();
+                            Label endElseLabel = cob.newLabel();
+
+                            //if this is not the right union field to read back then skip it.
+                            if (isUnion)
+                            {
+                                cob.iload(recToReadSlot).loadConstant(ii);
+                                cob.if_icmpeq(endIfLabel);
+
+                                cob.aload(inputRecordSlot);
+                                ClassDesc cd = switch (varHandling)
+                                {
+                                    case primitive -> primitiveToDescMap.get(ftype);
+                                    case primitive_array, primitive_array_ptr -> primitiveToDescMap.get(ftype.getComponentType()).arrayType(1);
+                                    case record_array, record_array_ptr -> toDesc(ftype.getComponentType()).arrayType(1);
+                                    default -> toDesc(ftype);
+                                };
+                                cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd));
+                                storeParam(cob, fieldSlots[ii], ftype);
+                                cob.goto_(endElseLabel).labelBinding(endIfLabel);
+                            }
+
 
                             switch (varHandling)
                             {
@@ -684,7 +795,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     var c = ftype.getComponentType();
                                     var arrDesc = primitiveToDescMap.get(c).arrayType();
                                     cob.aload(recordSlot);
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(arrDesc));
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(arrDesc));
                                     int arrSlot = slots;
                                     slots = storeParam(cob, arrSlot, ftype);
 
@@ -710,7 +821,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     slots = storeParam(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.aload(cob.parameterSlot(1));
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(toDesc(ftype)));
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int recTypeSlot = slots;
                                     slots = storeParam(cob, recTypeSlot, ftype);
 
@@ -741,7 +852,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     slots = storeParam(cob, recSliceSlot, ftype);
 
                                     cob.aload(cob.parameterSlot(1));
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(toDesc(ftype)));
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int recTypeSlot = slots;
                                     slots = storeParam(cob, recTypeSlot, ftype);
 
@@ -755,7 +866,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                 case record_array -> {
                                     var rec_type = ftype.getComponentType();
                                     var cd_rec_type = toDesc(rec_type);
-                                    cob.aload(recordSlot).invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
+                                    cob.aload(recordSlot).invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().anewarray(cd_rec_type);
                                     int newArrSlot = slots;
                                     slots = storeParam(cob, newArrSlot, rec_type);
@@ -764,7 +875,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
 
                                     cob.aload(recordSlot);
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().i2l();
 
                                     cob.getstatic(groupLayouts.get(rec_type).layout).invokeinterface(CD_MemoryLayout, "byteSize", MethodTypeDesc.of(ConstantDescs.CD_long));
@@ -784,7 +895,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     var cd_rec_type = toDesc(rec_type);
 
                                     cob.aload(recordSlot);
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().anewarray(cd_rec_type);
                                     int newArrSlot = slots;
                                     slots = storeParam(cob, newArrSlot, rec_type);
@@ -856,7 +967,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     slots = storeParam(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.aload(recordSlot);
-                                    cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(toDesc(ftype)));
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int origBlockSlot = slots;
                                     slots = storeParam(cob, origBlockSlot, MemoryBlock.class);
 
@@ -869,6 +980,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             }
 
                             ii++;
+
+                            cob.labelBinding(endElseLabel);
                         }
 
 
@@ -876,6 +989,15 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         ii = 0;
                         List<ClassDesc> paramDesc = new ArrayList<>();
                         for (Field f : recordType.getDeclaredFields()) {
+                            if (skipUnionField(recordType, f))
+                            {
+                                //set the same to and from native indexes
+                                cob.aload(inputRecordSlot);
+                                cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(int.class)));
+                                paramDesc.add(ConstantDescs.CD_int);
+                                continue;
+                            }
+
                             loadParam(cob, fieldSlots[ii++], f.getType());
                             paramDesc.add(toLocalVariableDesc(f.getType()));
                         }

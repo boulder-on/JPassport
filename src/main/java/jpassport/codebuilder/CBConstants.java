@@ -1,12 +1,11 @@
 package jpassport.codebuilder;
 
 import jpassport.ErrorCapture;
+import jpassport.Union;
+import jpassport.annotations.*;
 import jpassport.pointers.GenericPointer;
 import jpassport.PassportException;
 import jpassport.Utils;
-import jpassport.annotations.PtrPtrArg;
-import jpassport.annotations.RefArg;
-import jpassport.annotations.StructPadding;
 
 import java.lang.annotation.Annotation;
 import java.lang.classfile.CodeBuilder;
@@ -152,6 +151,48 @@ public interface CBConstants {
         return Arrays.stream(paramAnnotations).map(Annotation::annotationType).anyMatch(PtrPtrArg.class::equals);
     }
 
+    static boolean hasAnnotation(Field f, Class<? extends Annotation> annotationType)
+    {
+        return f.getAnnotation(annotationType) != null;
+    }
+
+    static boolean skipUnionField(Class<?> c, Field f)
+    {
+        return isUnion(c) && (hasAnnotation(f, UnionToNativeIdx.class) || hasAnnotation(f, UnionFromNativeIdx.class));
+    }
+
+    static void verifyUnion(Class<?> c)
+    {
+        if (!isUnion(c))
+            return;
+
+        int unionToNativeCount = 0;
+        int unionFromNativeCount = 0;
+
+        for (Field f : c.getDeclaredFields()) {
+            if (hasAnnotation(f, UnionToNativeIdx.class)) {
+                if (f.getType() != int.class)
+                    throw new PassportException("@UnionToNativeIdx must be an int: " + c.getSimpleName() + "." + f.getName());
+                unionToNativeCount++;
+            }
+            if (hasAnnotation(f, UnionFromNativeIdx.class)) {
+                if (f.getType() != int.class)
+                    throw new PassportException("@UnionFromNativeIdx must be an int: " + c.getSimpleName() + "." + f.getName());
+                unionFromNativeCount++;
+            }
+        }
+
+        if (unionToNativeCount == 0)
+            throw new PassportException("Unions must have at least one @UnionToNativeIdx field: " + c.getSimpleName());
+        if (unionToNativeCount > 1)
+            throw new PassportException("Unions can only have one @UnionToNativeIdx field: " + c.getSimpleName());
+        if (unionFromNativeCount == 0)
+            throw new PassportException("Unions must have at least one @UnionFromNativeIdx field: " + c.getSimpleName());
+        if (unionFromNativeCount > 1)
+            throw new PassportException("Unions can only have one @UnionFromNativeIdx field: " + c.getSimpleName());
+
+    }
+
     static boolean isArrayOfPrimitives(Class<?> c)
     {
         return c.isArray() && c.getComponentType().isPrimitive();
@@ -167,6 +208,11 @@ public interface CBConstants {
         while (!c.equals(GenericPointer.class) && c.getSuperclass() != null)
             c = c.getSuperclass();
         return c.equals(GenericPointer.class);
+    }
+
+    static boolean isUnion(Class<?> c)
+    {
+        return Arrays.asList(c.getInterfaces()).contains(Union.class);
     }
 
     static int getPaddingBytes(Field field)

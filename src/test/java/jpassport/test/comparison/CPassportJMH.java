@@ -19,6 +19,8 @@ import java.net.URLClassLoader;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import static jpassport.test.TestLinkHelp.getLibName;
+
 
 @BenchmarkMode(Mode.AverageTime)
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
@@ -43,7 +45,7 @@ public class CPassportJMH {
     public void init() throws Throwable
     {
         System.setProperty("jpassport.build.home", "out/testing");
-        sp =  PassportFactory.link("libpassport_test", struct_passer.class);
+        sp =  PassportFactory.link(getLibName(), struct_passer.class);
         pureJava = new PureJava();
         testJNADirect =  new TestLinkJNADirect.JNADirect();
 

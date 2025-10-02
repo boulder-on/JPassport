@@ -12,6 +12,8 @@
 #ifndef FL_DLL_LIBRARY_H
 #define FL_DLL_LIBRARY_H
 
+#include <stdbool.h>
+
 extern double sumD(double d1, double d2);
 extern double sumArrD(double *arr, int count);
 extern double sumDCritical(double d1, double d2);
@@ -98,6 +100,29 @@ struct PassMemoryBlock
     int data_size;
 };
 
+union SimpleUnion
+{
+    int u_i;
+    long u_l;
+    short u_s;
+    float u_f;
+    double u_d;
+};
+
+union UnionWithStruct
+{
+    long u_i;
+    struct PassingData u_pd;
+    short u_s;
+};
+
+union UnionWithArrays
+{
+    long long u_i[5];
+    long long *u_ip;
+};
+
+
 extern double passStruct(struct PassingData* data);
 extern double passComplex(struct ComplexPassing* complex);
 extern double passStructWithArrays(struct PassingArrays* structWithArrays);
@@ -109,7 +134,7 @@ extern int call_CB(callbackFN fn, int, double);
 typedef int (*callbackFNArr) (int*, int);
 extern void call_CBArr(callbackFNArr fn, int*, int);
 
-void* PassPointers(void* hMem);
+extern void* PassPointers(void* hMem);
 
 extern void setAnError(int errval);
 
@@ -117,4 +142,13 @@ extern double passStructArrBlock(struct PassingData data[], int count, int multi
 extern double passStructArrPtr(struct PassingData** data, int count, int multiply);
 
 extern double passStructOfStructs(struct PassingStructs* data);
+
+extern void useSimpleUnion(int idxSrc, int idxDest, union SimpleUnion* simple);
+extern void useUnionWithStruct(struct PassingData *srcVals, union UnionWithStruct* withStruct);
+extern void useUnionWithArray(int direction, union UnionWithArrays* withArrays);
+
+extern void useSimpleUnion2(int idxSrc, int idxDest, union SimpleUnion* simple);
+extern void useUnionWithStruct2(struct PassingData *srcVals, union UnionWithStruct* withStruct);
+extern void useUnionWithArray2(int direction, union UnionWithArrays* withArrays);
+
 #endif //FL_DLL_LIBRARY_H
