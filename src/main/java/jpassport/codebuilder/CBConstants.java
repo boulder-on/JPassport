@@ -1,11 +1,8 @@
 package jpassport.codebuilder;
 
-import jpassport.ErrorCapture;
-import jpassport.Union;
+import jpassport.*;
 import jpassport.annotations.*;
 import jpassport.pointers.GenericPointer;
-import jpassport.PassportException;
-import jpassport.Utils;
 
 import java.lang.annotation.Annotation;
 import java.lang.classfile.CodeBuilder;
@@ -30,6 +27,7 @@ public interface CBConstants {
     ClassDesc CD_ValueLayout = toDesc(ValueLayout.class);
     ClassDesc CD_AddressLayout = toDesc(AddressLayout.class);
     ClassDesc CD_ErrorCapture = toDesc(ErrorCapture.class);
+    ClassDesc CD_UnionFieldIO = toDesc(UnionFieldIO.class);
 
     String INIT_STRUCTS_METHOD_NAME = "initStructs";
 
@@ -158,7 +156,8 @@ public interface CBConstants {
 
     static boolean skipUnionField(Class<?> c, Field f)
     {
-        return isUnion(c) && (hasAnnotation(f, UnionToNativeIdx.class) || hasAnnotation(f, UnionFromNativeIdx.class));
+//        return isUnion(c) && (hasAnnotation(f, UnionToNativeIdx.class) || hasAnnotation(f, UnionFromNativeIdx.class));
+        return isUnion(c) && f.getType().equals(UnionFieldIO.class);
     }
 
     static void verifyUnion(Class<?> c)
@@ -166,30 +165,36 @@ public interface CBConstants {
         if (!isUnion(c))
             return;
 
-        int unionToNativeCount = 0;
-        int unionFromNativeCount = 0;
+        long ioFields = Arrays.stream(c.getDeclaredFields()).filter(f -> f.getType().equals(UnionFieldIO.class)).count();
+        if (ioFields > 1)
+            throw new PassportException("Only one UnionFieldIO field per Union: " + c.getSimpleName());
+        if (ioFields == 0)
+            throw new PassportException("Unions must have one UnionFieldIO field: " + c.getSimpleName());
 
-        for (Field f : c.getDeclaredFields()) {
-            if (hasAnnotation(f, UnionToNativeIdx.class)) {
-                if (f.getType() != int.class)
-                    throw new PassportException("@UnionToNativeIdx must be an int: " + c.getSimpleName() + "." + f.getName());
-                unionToNativeCount++;
-            }
-            if (hasAnnotation(f, UnionFromNativeIdx.class)) {
-                if (f.getType() != int.class)
-                    throw new PassportException("@UnionFromNativeIdx must be an int: " + c.getSimpleName() + "." + f.getName());
-                unionFromNativeCount++;
-            }
-        }
-
-        if (unionToNativeCount == 0)
-            throw new PassportException("Unions must have at least one @UnionToNativeIdx field: " + c.getSimpleName());
-        if (unionToNativeCount > 1)
-            throw new PassportException("Unions can only have one @UnionToNativeIdx field: " + c.getSimpleName());
-        if (unionFromNativeCount == 0)
-            throw new PassportException("Unions must have at least one @UnionFromNativeIdx field: " + c.getSimpleName());
-        if (unionFromNativeCount > 1)
-            throw new PassportException("Unions can only have one @UnionFromNativeIdx field: " + c.getSimpleName());
+//        int unionToNativeCount = 0;
+//        int unionFromNativeCount = 0;
+//
+//        for (Field f : c.getDeclaredFields()) {
+//            if (hasAnnotation(f, UnionToNativeIdx.class)) {
+//                if (f.getType() != int.class)
+//                    throw new PassportException("@UnionToNativeIdx must be an int: " + c.getSimpleName() + "." + f.getName());
+//                unionToNativeCount++;
+//            }
+//            if (hasAnnotation(f, UnionFromNativeIdx.class)) {
+//                if (f.getType() != int.class)
+//                    throw new PassportException("@UnionFromNativeIdx must be an int: " + c.getSimpleName() + "." + f.getName());
+//                unionFromNativeCount++;
+//            }
+//        }
+//
+//        if (unionToNativeCount == 0)
+//            throw new PassportException("Unions must have at least one @UnionToNativeIdx field: " + c.getSimpleName());
+//        if (unionToNativeCount > 1)
+//            throw new PassportException("Unions can only have one @UnionToNativeIdx field: " + c.getSimpleName());
+//        if (unionFromNativeCount == 0)
+//            throw new PassportException("Unions must have at least one @UnionFromNativeIdx field: " + c.getSimpleName());
+//        if (unionFromNativeCount > 1)
+//            throw new PassportException("Unions can only have one @UnionFromNativeIdx field: " + c.getSimpleName());
 
     }
 

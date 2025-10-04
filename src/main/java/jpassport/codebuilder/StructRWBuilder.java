@@ -2,8 +2,6 @@ package jpassport.codebuilder;
 
 import jpassport.*;
 import jpassport.annotations.Array;
-import jpassport.annotations.UnionFromNativeIdx;
-import jpassport.annotations.UnionToNativeIdx;
 import jpassport.pointers.GenericPointer;
 import jpassport.pointers.MemoryBlock;
 
@@ -16,9 +14,7 @@ import java.lang.constant.MethodTypeDesc;
 import java.lang.foreign.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.text.ParseException;
 import java.util.*;
-import java.util.function.Consumer;
 
 import static jpassport.codebuilder.CBConstants.skipUnionField;
 import static jpassport.codebuilder.PassportBuilder.*;
@@ -316,12 +312,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         int recToReadSlot = slots++;
                         if (isUnion) {
                             for (Field f : recordType.getDeclaredFields()) {
-                                if (hasAnnotation(f, UnionToNativeIdx.class))
+                                if (f.getType().equals(UnionFieldIO.class))
                                 {
                                     //load the field index of the union that we are going to write out to memory
                                     cob.aload(inputRecSlot);
-                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(int.class)));
-                                    cob.istore(recToReadSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(CD_UnionFieldIO));
+                                    cob.astore(recToReadSlot);
                                     break;
                                 }
                             }
@@ -337,8 +333,9 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             if (isUnion)
                             {
                                 //if this is not the right field of the union to write to memory, then skip it.
-                                cob.iload(recToReadSlot).loadConstant(ii);
-                                cob.if_icmpne(endLabel);
+                                cob.aload(recToReadSlot).loadConstant(ii).loadConstant(f.getName());
+                                cob.invokevirtual(CD_UnionFieldIO, "toNative", MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_int, ConstantDescs.CD_String));
+                                cob.ifeq(endLabel);
                             }
 
                             Class<?> ftype = f.getType();
@@ -570,7 +567,6 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                             cob.labelBinding(endLabel);
                         }
-
                         cob.aload(memSegSlot).areturn();
                         cob.labelBinding(methodEnd);
                     }));
@@ -720,12 +716,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         int recToReadSlot = slots++;
                         if (isUnion) {
                             for (Field f : recordType.getDeclaredFields()) {
-                                if (hasAnnotation(f, UnionFromNativeIdx.class))
+                                if (f.getType().equals(UnionFieldIO.class))
                                 {
                                     //get the index of the field that we are reading back from the union.
                                     cob.aload(inputRecordSlot);
-                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(int.class)));
-                                    cob.istore(recToReadSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(CD_UnionFieldIO));
+                                    cob.astore(recToReadSlot);
                                     break;
                                 }
                             }
@@ -746,8 +742,9 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             //if this is not the right union field to read back then skip it.
                             if (isUnion)
                             {
-                                cob.iload(recToReadSlot).loadConstant(ii);
-                                cob.if_icmpeq(endIfLabel);
+                                cob.aload(recToReadSlot).loadConstant(ii).loadConstant(f.getName());
+                                cob.invokevirtual(CD_UnionFieldIO, "fromNative", MethodTypeDesc.of(ConstantDescs.CD_boolean, ConstantDescs.CD_int, ConstantDescs.CD_String));
+                                cob.ifne(endIfLabel);
 
                                 cob.aload(inputRecordSlot);
                                 ClassDesc cd = switch (varHandling)
@@ -993,8 +990,8 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             {
                                 //set the same to and from native indexes
                                 cob.aload(inputRecordSlot);
-                                cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(int.class)));
-                                paramDesc.add(ConstantDescs.CD_int);
+                                cob.invokevirtual(toDesc(recordType), f.getName(), MethodTypeDesc.of(CD_UnionFieldIO));
+                                paramDesc.add(CD_UnionFieldIO);
                                 continue;
                             }
 

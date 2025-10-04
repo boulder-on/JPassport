@@ -383,7 +383,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
             String toNativeFieldName = "";
             if (isUnion) {
                 for (Field f : c.getDeclaredFields()) {
-                    if (hasAnnotation(f, UnionToNativeIdx.class))
+                    if (f.getType().equals(UnionFieldIO.class))
                     {
                         toNativeFieldName = f.getName();
                         break;
@@ -403,7 +403,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                 //if the union UnionToNativeIdx annotated field has the index of this field then write to memory.
                 if (isUnion)
-                    sb.append(String.format("\t\tif (rec.%1$s() == %2$d)\n", toNativeFieldName, Element-1));
+                    sb.append(String.format("\t\tif (rec.%1$s().toNative(%2$d, \"%3$s\"))\n", toNativeFieldName, Element-1, f.getName()));
 
                 switch (varHandling)
                 {
@@ -508,7 +508,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
             String toFromNativeFieldName = "";
             if (isUnion) {
                 for (Field f : c.getDeclaredFields()) {
-                    if (hasAnnotation(f, UnionFromNativeIdx.class))
+                    if (f.getType().equals(UnionFieldIO.class))
                     {
                         toFromNativeFieldName = f.getName();
                         break;
@@ -532,7 +532,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 String ifUnionRead = "";
                 // creates a ternary operator to help read back the correct field for unions.
                 if (isUnion)
-                    ifUnionRead = String.format(" (rec.%1$s() != %2$d) ? rec.%3$s() : ", toFromNativeFieldName, Element-1, f.getName());
+                    ifUnionRead = String.format(" rec.%1$s().fromOrigRec(%2$d, \"%3$s\") ? rec.%3$s() : ", toFromNativeFieldName, Element-1, f.getName());
 
                 switch (varHandling)
                 {
@@ -548,14 +548,14 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     case record_array_ptr -> {
                             sb.append(String.format("\t\tvar %1$s = new %2$s[rec.%1$s().length];\n", f.getName(), type.getComponentType().getSimpleName()));
                             if (isUnion)
-                                sb.append(String.format("\t\tif(rec.%1$s() == %2$d)",toFromNativeFieldName, Element-1));
+                                sb.append(String.format("\t\tif(rec.%1$s().fromNative(%2$d, \"%3$s\"))",toFromNativeFieldName, Element-1, f.getName()));
                             sb.append(String.format("\t\treadPtrs%2$s(memStruct.get(ADDRESS, %3$s), %1$s);\n", f.getName(), type.getComponentType().getSimpleName(), offset));
                     }
 
                     case record_array ->{
                             sb.append(String.format("\t\tvar %1$s = new %2$s[rec.%1$s().length];\n", f.getName(), type.getComponentType().getSimpleName()));
                             if (isUnion)
-                                sb.append(String.format("\t\tif(rec.%1$s() == %2$d)",toFromNativeFieldName, Element-1));
+                                sb.append(String.format("\t\tif(rec.%1$s().fromNative(%2$d, \"%3$s\"))",toFromNativeFieldName, Element-1, f.getName()));
                             sb.append(String.format("\t\treadArr%2$s(memStruct.asSlice(%3$s, rec.%1$s().length * %2$sLayout.byteSize()), %1$s);\n", f.getName(), type.getComponentType().getSimpleName(), offset));
                     }
 

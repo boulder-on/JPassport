@@ -655,7 +655,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         }
     }
 
-    private static void println(CodeBuilder cob, String s)
+    static void println(CodeBuilder cob, String s)
     {
         cob.getstatic(toDesc(System.class), "out", toDesc(PrintStream.class)).ldc(s)
                 .invokevirtual(toDesc(PrintStream.class), "println", MethodTypeDesc.of(ConstantDescs.CD_void, ConstantDescs.CD_String));

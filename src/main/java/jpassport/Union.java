@@ -10,6 +10,4 @@ package jpassport;
  */
 public interface Union {
 
-    int NO_TO_NATIVE = -1;
-    int NO_FROM_NATIVE = -1;
 }

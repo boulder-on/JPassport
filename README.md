@@ -425,28 +425,32 @@ public record SimpleUnion (
     short u_s,
     int u_i,
     long u_l,
-    @UnionToNativeIdx  int toNative,   //One union field must be an int with this annoation
-    @UnionFromNativeIdx int fromNative //One union field must be an int with this annoation
+    UnionFieldIO unionIO   //One union field must be of this type
 ) implements Union {}
 
 public interface UnionCalls extends Passport {
     boolean useSimpleUnion(int idx, short value, @RefArg SimpleUnion[] simple);
 }
 
+import static jpassport.UnionFieldIO.fromNativeOnly;
+
 UnionCalls uc = PassportFactory.link(getLibName(), UnionCalls.class);
-SimpleUnion[] suArr  = new SimpleUnion[] {new SimpleUnion(0, 0, 0, Union.NO_TO_NATIVE, 1)};
+SimpleUnion[] suArr  = new SimpleUnion[] {new SimpleUnion(0, 0, 0, fromNativeOnly("u_i"))};
 uc.useSimpleUnion(1, (short)4, suArr);
 ```
 Tha above code needs some explanation. Since there is no analog in Java for a union you need to give
-JPassport hints on how to behave. @UnionToNativeIdx and @UnionFromNativeIdx are those hints.
-These integers are the zero based index of the field in the union to write to or read from native memory.
-Fields with those annotations are NOT part of the real union, they are treated specially by JPassport.
+JPassport hints on how to behave. UnionFieldIO contains those hints. You can use a UnionFieldIO class
+to specify either:
+ - The name of the field to write to or read from native memory
+ - The zero based index of the field in the union to write to or read from native memory
+The UnionFieldIO member of the record is NOT part of the real union, it is treated specially by JPassport.
+The call fromNativeOnly("u_i") specifies that when reading the union back from memory, only read the field named "u_i".
 i.e. the call:
 
 ```Java
-new SimpleUnion(0, 0, 0, Union.NO_TO_NATIVE, 1)
+new SimpleUnion(0, 0, 0, fromNativeOnly(1));
 ```
-Means: do not write any union fields to native memory (Union.NO_TO_NATIVE), but when reading back,
+Means: do not write any union fields to native memory, but when reading back,
 get the int u_i field (the 1 in the call is zero based, so the second field).
 
 The same rules and annotations for records/structs work for records/unions.
@@ -499,8 +503,6 @@ JPassport uses annotations as code generation hints. The available annotations a
 | RefArg (read_back_only=true) | Function argument | If you only need to pass a blank memory space for a method to fill, use this optimization, otherwise the values in the array are copied to memory that is passed to C. |
 | StructPadding                | Record members | See the Javadoc or the above section on structs and records.                                                                                                           |
 | Critical                     | Methods  | Removes some overhead for calling a native method. Cannot be used when callbacks are used. See the JDK's Linker.Option.critical for more details.                      |
-|UnionToNativeIdx              | Record member | If a record implements Union then one integer field with this must be present. That field will determine the union member that's written to native memory              |
-|UnionFromNativeIdx            | Record member | Similar to UniontoNativeIdx, except it is used to determine which member of the union is read back from native memory |
 NOTE: Methods marked with @Critical and that pass primitive arrays will pass the Java heap version of the array
 directly to native code. Any changes to the primitive array in native code will be mirrored in Java. As such, @Critical methods with 
 a primitive array MUST mark the array as @RefArg, otherwise an exception will be thrown.
