@@ -31,7 +31,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
 import static java.lang.foreign.ValueLayout.*;
-import static jpassport.codebuilder.CBConstants.getPaddingBytes;
+import static jpassport.codebuilder.CBConstants.*;
 
 /**
  * A set of methods for converting Java entities to native memory (mostly).
@@ -613,6 +613,9 @@ public class Utils {
         if (!c.isRecord())
             throw new IllegalArgumentException("Can only get size of records, not " + c.getName());
 
+        if (isUnion(c))
+            return size_of_union(c);
+
         long size = 0;
         for (Field f : c.getDeclaredFields())
         {
@@ -623,11 +626,15 @@ public class Utils {
                 size += typeToSize(type);
             else if (type.isRecord())
             {
-                boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
-                if (isPtr)
-                    size += ValueLayout.ADDRESS.byteSize();
-                else
-                    size += size_of(type);
+                if (isUnion(type))
+                    size += size_of_union(type);
+                else {
+                    boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
+                    if (isPtr)
+                        size += ValueLayout.ADDRESS.byteSize();
+                    else
+                        size += size_of(type);
+                }
             }
             else if (String.class.equals(type) || MemoryBlock.class.equals(type))
                 size += ValueLayout.ADDRESS.byteSize();
@@ -646,6 +653,51 @@ public class Utils {
             }
         }
         return size;
+    }
+
+    private static long size_of_union(Class<?> c)
+    {
+        if (!c.isRecord())
+            throw new IllegalArgumentException("Can only get size of records, not " + c.getName());
+
+        // A union is as large as the largest field. This will recursively figure out all
+        // field sizes and choose the largest one.
+        long[] sizes = new long[c.getDeclaredFields().length - 1];
+        int idx = 0;
+        for (Field f : c.getDeclaredFields())
+        {
+            if (skipUnionField(c, f))
+                continue;
+
+            Class<?> type = f.getType();
+            if (type.isPrimitive())
+                sizes[idx++] = typeToSize(type);
+            else if (type.isRecord())
+            {
+                boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
+                if (isPtr)
+                    sizes[idx++] = ValueLayout.ADDRESS.byteSize();
+                else
+                    sizes[idx++] = size_of(type);
+            }
+            else if (String.class.equals(type) || MemoryBlock.class.equals(type))
+                sizes[idx++] = ValueLayout.ADDRESS.byteSize();
+            else if (type.isArray())
+            {
+                Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
+
+                if (arrays.length > 0)
+                {
+                    int length = ((Array) arrays[0]).length();
+                    sizes[idx++] = length * typeToSize(type.getComponentType());
+                }
+                else if (isPointer)
+                    sizes[idx++] = ValueLayout.ADDRESS.byteSize();
+            }
+        }
+        var size = Arrays.stream(sizes).max();
+        return size.orElse(0);
     }
 
     public static MemorySegment toPtr(Arena arena, MemoryBlock mb)
