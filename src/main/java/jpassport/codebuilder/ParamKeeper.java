@@ -8,11 +8,12 @@ import jpassport.Utils;
 import java.lang.annotation.Annotation;
 import java.lang.classfile.CodeBuilder;
 import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDescs;
+import java.lang.constant.MethodTypeDesc;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 
-import static jpassport.codebuilder.CBConstants.CD_MemorySegment;
-import static jpassport.codebuilder.CBConstants.isGenericPtr;
+import static jpassport.codebuilder.CBConstants.*;
 
 
 public class ParamKeeper {
@@ -132,6 +133,43 @@ public class ParamKeeper {
                 break;
         }
     }
+
+    public void loadAutoBoxed(CodeBuilder cob)
+    {
+        autoBox(cob, classtype, stored);
+    }
+
+    public static void autoBox(CodeBuilder cob, Class<?> ctype, int slot)
+    {
+        switch(ParamType.toType(ctype))
+        {
+            case voidType:
+                cob.aconst_null();
+                break;
+            case doubleType:
+                cob.dload(slot);
+                cob.invokestatic(toDesc(Double.class), "valueOf", MethodTypeDesc.of(toDesc(Double.class), ConstantDescs.CD_double));
+                break;
+            case longType:
+                cob.lload(slot);
+                cob.invokestatic(toDesc(Long.class), "valueOf", MethodTypeDesc.of(toDesc(Long.class), ConstantDescs.CD_long));
+                break;
+            case floatType:
+                cob.fload(slot);
+                cob.invokestatic(toDesc(Float.class), "valueOf", MethodTypeDesc.of(toDesc(Float.class), ConstantDescs.CD_float));
+                break;
+            case intType, shortType, byteType, boolType:
+                cob.iload(slot);
+                cob.invokestatic(toDesc(Integer.class), "valueOf", MethodTypeDesc.of(toDesc(Integer.class), ConstantDescs.CD_int));
+                break;
+            default:
+                if (ctype.equals(Arena.class))
+                    break;
+                cob.aload(slot);
+                break;
+        }
+    }
+
 
     public static ParamKeeper classify(Class<?> c)
     {

@@ -39,7 +39,7 @@ public class PassportFactory
     /** This map is used to hold the method handles classes need as they are starting.
      * It's part of the mechanism that allows method handles to be static and final
      */
-    private static final HashMap<Class, HashMap<String, MethodHandle>> mappedHandles = new HashMap<>();
+    private static final HashMap<Class<? extends Passport>, HashMap<String, MethodHandle>> mappedHandles = new HashMap<>();
 
     /**
      * Call this method to generate the library linkage. This version of the method will write the java file and compile
@@ -55,12 +55,17 @@ public class PassportFactory
      */
     public synchronized static <T extends Passport> T link_written(String libraryName, Class<T> interfaceClass) throws Throwable
     {
+        return link_written(libraryName, interfaceClass, false);
+    }
+
+    public synchronized static <T extends Passport> T link_written(String libraryName, Class<T> interfaceClass, boolean withDebug) throws Throwable
+    {
         if (!Passport.class.isAssignableFrom(interfaceClass)) {
             throw new IllegalArgumentException(
                     String.format("Interface (%s) of library=%s does not extend %s",
                             interfaceClass.getSimpleName(), libraryName, Passport.class.getSimpleName()));
         } else {
-            return writeClass(libraryName, interfaceClass);
+            return writeClass(libraryName, interfaceClass, withDebug);
         }
     }
 
@@ -79,19 +84,24 @@ public class PassportFactory
      */
     public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass) throws Throwable
     {
+        return link(libraryName, interfaceClass, false);
+    }
+
+    public synchronized static <T extends Passport> T link(String libraryName, Class<T> interfaceClass, boolean withDebug) throws Throwable
+    {
         if (!Passport.class.isAssignableFrom(interfaceClass)) {
             throw new IllegalArgumentException(
                     String.format("Interface (%s) of library=%s does not extend %s",
                             interfaceClass.getSimpleName(), libraryName, Passport.class.getSimpleName()));
         } else {
-            return buildClass(libraryName, interfaceClass);
+            return buildClass(libraryName, interfaceClass, withDebug);
         }
     }
 
     /**
      * This method should not be called. It is only used internally while the classes are being built
      */
-    public static MethodHandle getHandle(Class interfaceClass, Class implClass, String name)
+    public static MethodHandle getHandle(Class<? extends Passport> interfaceClass, Class<? extends Passport> implClass, String name)
     {
         if (!mappedHandles.containsKey(interfaceClass) && implClass != null)
         {
@@ -99,7 +109,7 @@ public class PassportFactory
             if (annotation == null)
                 throw new PassportException("Prebuild classes must contain the NativeLibrary annotation");
 
-            loadMethodHandles(((NativeLibrary)annotation).name(), interfaceClass);
+            loadMethodHandles((annotation).name(), interfaceClass);
         }
 
         if (!mappedHandles.get(interfaceClass).containsKey(name))
@@ -111,17 +121,17 @@ public class PassportFactory
         return ret;
     }
 
-    private static <T extends Passport> T writeClass(String libName, Class<T> interfaceClass) throws Throwable
+    private static <T extends Passport> T writeClass(String libName, Class<T> interfaceClass, boolean withDebug) throws Throwable
     {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
-        PassportWriter<T> classWriter = new PassportWriter<>(interfaceClass, libName);
+        PassportWriter<T> classWriter = new PassportWriter<>(interfaceClass, libName, withDebug);
 
         return classWriter.build(handles);
     }
 
-    private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass) throws Throwable {
+    private static <T extends Passport> T buildClass(String libName, Class<T> interfaceClass, boolean withDebug) throws Throwable {
         HashMap<String, MethodHandle> handles = loadMethodHandles(libName, interfaceClass);
-        PassportBuilder<T> classWriter = new PassportBuilder<>(interfaceClass);
+        PassportBuilder<T> classWriter = new PassportBuilder<>(interfaceClass, withDebug);
 
         return classWriter.build(handles);
     }

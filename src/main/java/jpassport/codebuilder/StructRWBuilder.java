@@ -32,13 +32,15 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
     private final ClassDesc thisClassDesc;
     private final Class<T> interfaceClass;
     private final HashMap<Class<?>, RecordVariables> groupLayouts = new HashMap<>();
+    private final boolean withDebug;
 
 
 
-    public StructRWBuilder(Class<T> iclass, ClassDesc desc)
+    public StructRWBuilder(Class<T> iclass, ClassDesc desc, boolean withDebug)
     {
         interfaceClass = iclass;
         thisClassDesc = desc;
+        this.withDebug = withDebug;
     }
 
     public void createRecordAccessors(ClassBuilder cbl)
@@ -567,6 +569,17 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                             cob.labelBinding(endLabel);
                         }
+
+                        if (withDebug)
+                        {
+//                            sb.append(String.format("\t\tUtils.structBuilt(this, memStruct, %1$sLayout, \"%1$s\", recs);", c.getSimpleName()));
+
+                            cob.aload(0).aload(memSegSlot).getstatic(groupLayouts.get(recordType).layout);
+                            cob.loadConstant(recordType.getSimpleName()).aload(inputRecSlot);
+                            cob.invokestatic(CD_Utils, "structBuilt", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                    toDesc(Passport.class), CD_MemorySegment, CD_MemoryLayout, ConstantDescs.CD_String, ConstantDescs.CD_Object));
+                        }
+
                         cob.aload(memSegSlot).areturn();
                         cob.labelBinding(methodEnd);
                     }));
@@ -1000,8 +1013,19 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         }
 
                         cob.invokespecial(toDesc(recordType), ConstantDescs.INIT_NAME, MethodTypeDesc.of(ConstantDescs.CD_void, paramDesc), false);
-                        cob.areturn();
+                        int retSlot = slots++;
+                        cob.astore(retSlot);
 
+                        if (withDebug)
+                        {
+                            cob.aload(0).aload(memStructSlot).getstatic(groupLayouts.get(recordType).layout);
+                            cob.loadConstant(recordType.getSimpleName()).aload(retSlot);
+                            cob.invokestatic(CD_Utils, "structReadBack", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                    toDesc(Passport.class), CD_MemorySegment, CD_MemoryLayout, ConstantDescs.CD_String, ConstantDescs.CD_Object));
+
+                        }
+
+                        cob.aload(retSlot).areturn();
                         cob.labelBinding(methodEnd);
                     }));
 

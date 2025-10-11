@@ -14,6 +14,7 @@ package jpassport;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
+import java.util.Optional;
 
 /**
  * An interface needs to extend this interface in order to link to the foreign library.
@@ -21,6 +22,7 @@ import java.util.HashMap;
 public interface Passport {
     HashMap<String, MethodHandle> methods = new HashMap<>();
     HashMap<String, MemorySegment> loadedNames = new HashMap<>();
+    DebugPassport[] debugHook = new DebugPassport[] {null};
 
     /**
      * Lets you know if a specific method was found or not. Generally, all methods must be found
@@ -39,5 +41,15 @@ public interface Passport {
     default boolean hasName(String name)
     {
         return loadedNames.containsKey(name);
+    }
+
+    default void setDebugHook(DebugPassport debug)
+    {
+        debugHook[0] = debug;
+    }
+
+    default Optional<DebugPassport> getDebug()
+    {
+        return debugHook[0] == null ? Optional.empty() : Optional.of(debugHook[0]);
     }
 }

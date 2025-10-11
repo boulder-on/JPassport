@@ -1168,4 +1168,79 @@ public class Utils {
         }
     }
 
+    public static void structBuilt(Passport p, MemorySegment mem, MemoryLayout layout, String name, Object arg)
+    {
+        var debug = p.getDebug();
+        if (debug.isEmpty())
+            return;
+
+        debug.get().structBuilt(mem, layout, name, new Object[] {arg});
+    }
+
+    public static void structBuilt(Passport p, MemorySegment mem, MemoryLayout layout, String name, Object[] arg)
+    {
+        var debug = p.getDebug();
+        if (debug.isEmpty())
+            return;
+
+        debug.get().structBuilt(mem, layout, name, arg);
+    }
+
+    public static void structReadBack(Passport p, MemorySegment mem, MemoryLayout layout, String name, Object rec)
+    {
+        var debug = p.getDebug();
+        if (debug.isEmpty())
+            return;
+
+        debug.get().structReadBack(mem, layout, name, rec);
+    }
+
+    public static void preNativeCall(Passport p, String name, Object ... args)
+    {
+        var debug = p.getDebug();
+        if (debug.isEmpty())
+            return;
+
+        debug.get().preNativeCall(name, args);
+    }
+
+    public static void postNativeCall(Passport p, String name, Object ret, Object ... args)
+    {
+        var debug = p.getDebug();
+        if (debug.isEmpty())
+            return;
+
+        debug.get().postNativeCall(name, ret, args);
+    }
+
+    public static String memToString(MemorySegment mem, MemoryLayout layout, String name)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append(name).append(": ");
+
+        if (layout instanceof StructLayout structLayout) {
+            for (MemoryLayout ml : structLayout.memberLayouts())
+            {
+                if (ml instanceof PaddingLayout pad)
+                {
+                    sb.append("pad bytes=").append(pad.byteSize());
+                }
+                else {
+                    sb.append(ml.name().orElse("<no name>")).append("=0x");
+                    long size = ml.byteSize();
+                    MemorySegment subSeg = mem.asSlice(structLayout.byteOffset(PathElement.groupElement(ml.name().get())), size);
+                    var bytes = subSeg.toArray(JAVA_BYTE);
+                    for (int n = 0; n < bytes.length; ++n)
+                    {
+                        if (n > 0 && n % 4 == 0)
+                            sb.append(",0x");
+                        sb.append(String.format("%02x", bytes[n]));
+                     }
+                }
+                sb.append(", ");
+            }
+        }
+        sb.setLength(sb.length() - 2);
+        return sb.toString();
+    }
 }

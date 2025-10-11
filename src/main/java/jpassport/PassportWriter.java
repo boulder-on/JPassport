@@ -40,6 +40,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
     private final String m_className;
     private final String m_fullClassName;
 
+    private final boolean withDebug;
+
     private static int Class_ID = 1; //Used to make unique package names
 
     private static final Map<Class<?>, String> typeToName = new HashMap<>()
@@ -70,9 +72,9 @@ public class PassportWriter<T extends Passport> implements CBConstants
         }
     };
 
-    public PassportWriter(Class<T> interfaceClass, String libName)
+    public PassportWriter(Class<T> interfaceClass, String libName, boolean withDebug)
     {
-        this(interfaceClass, libName, "jpassport.called_" + Class_ID++, interfaceClass.getSimpleName() + "_impl");
+        this(interfaceClass, libName, "jpassport.called_" + Class_ID++, interfaceClass.getSimpleName() + "_impl", withDebug);
     }
 
     /**
@@ -82,12 +84,13 @@ public class PassportWriter<T extends Passport> implements CBConstants
      * @param packageName The package to make the class for
      * @param className The class name to build
      */
-    public PassportWriter(Class<T> interfaceClass, String libName, String packageName, String className)
+    public PassportWriter(Class<T> interfaceClass, String libName, String packageName, String className, boolean withDebug)
     {
         List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
         Set<Class<?>> extraImports = findAllExtraImports(interfaceMethods);
         m_className = className;
         m_fullClassName = packageName + "." + m_className;
+        this.withDebug = withDebug;
         String structLayouts = buildStructLayouts(extraImports);
 
         var verParts = Version.getVersionParts();
@@ -103,6 +106,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                     %2$s
                     %3$s;
+                    import jpassport.DebugPassport;
                     import jpassport.Utils;
                     import jpassport.PassportFactory;
                     import jpassport.ErrorCapture;
@@ -333,7 +337,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         private MemorySegment storePtrs%1$s(SegmentAllocator scope, %1$s[] recs) {
                             if (recs == null)
                                 return MemorySegment.NULL;
-                            
+                    
                             long addressBytes = ValueLayout.ADDRESS.byteSize();
                             MemorySegment ptr = scope.allocate(addressBytes * recs.length);
                             for (int n = 0; n < recs.length; ++n)
@@ -360,7 +364,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         };
 
                         private MemorySegment store%1$s(SegmentAllocator scope, %1$s[] recs) {
-                            return store%1$s(scope, recs, null);                          
+                            return store%1$s(scope, recs, null);
                         }
                     
                         private MemorySegment store%1$s(SegmentAllocator scope, %1$s[] recs, MemorySegment memStruct) {
@@ -372,7 +376,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                             {
                                 memStruct = scope.allocate(size * recs.length);
                             }
-                            
+                    
                             long offset = 0;
                             for (%1$s rec : recs) {
                                 if (rec == null) continue;
@@ -441,6 +445,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 }
             }
             sb.append("\t\toffset += size;\n\t}\n");
+            if (withDebug)
+                sb.append(String.format("\t\tUtils.structBuilt(this, memStruct, %1$sLayout, \"%1$s\", recs);", c.getSimpleName()));
             sb.append("\n\t\treturn memStruct;\n\t}\n\n");
         }
 
@@ -575,9 +581,9 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         int length = ((Array) arrays[0]).length();
                         sb.append(String.format("\t\tvar %1$s = %6$s memStruct.asSlice(%4$s, %2$d * %5$s.BYTES).toArray(JAVA_%3$s);\n", f.getName(), length, typeToName.get(arrType).toUpperCase(), offset, typeToName.get(arrType), ifUnionRead));
                     }
-                    case primitive_array_ptr -> {
+                    case primitive_array_ptr ->
                         sb.append(String.format("\t\tvar %1$s = %3$s Utils.toArr(memStruct, memStruct.get(ADDRESS, %2$s), rec.%1$s());\n", f.getName(), offset, ifUnionRead));
-                    }
+
                     case memory_block -> {
                         sb.append(String.format("\t\tvar %1$sMS = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
                         sb.append(String.format("\t\tvar %1$s = %2$s MemoryBlock.recreate(%1$sMS, rec.%1$s());\n", f.getName(), ifUnionRead));
@@ -587,12 +593,16 @@ public class PassportWriter<T extends Passport> implements CBConstants
             }
 
             // Building the Record class to return
-            sb.append(String.format("\t\treturn new %s(", c.getSimpleName()));
+            sb.append(String.format("\t\tvar ret = new %s(", c.getSimpleName()));
             for (Field f : c.getDeclaredFields()) {
                 sb.append(f.getName()).append(",");
             }
             sb.setLength(sb.length() - 1);
-            sb.append(");\n\t}\n\n");
+            sb.append(");\n");
+            if (withDebug)
+                sb.append(String.format("\t\tUtils.structReadBack(this, memStruct, %1$sLayout, \"%1$s\", ret);\n", c.getSimpleName()));
+
+            sb.append("\n\treturn ret;\n}\n\n");
         }
 
         return sb.toString();
@@ -777,6 +787,14 @@ public class PassportWriter<T extends Passport> implements CBConstants
         if (bHasAllocatedMemory && !bHasArenaArg)
         {
             tryArgs.append("var scope = Arena.ofConfined();");
+        }
+
+        if (withDebug)
+        {
+            preCall.append(String.format("Utils.preNativeCall(this, \"%1$s\", %2$s);\n", method.getName(), params));
+            String returnName = strCallReturn.isEmpty() ? "null" : "ret";
+            postCall.insert(0, String.format("\nUtils.postNativeCall(this, \"%1$s\", %2$s, %3$s);\n", method.getName(), returnName, params));
+
         }
 
         if (!tryArgs.isEmpty())

@@ -24,6 +24,7 @@ import java.nio.file.Path;
 
 import java.util.*;
 
+import static jpassport.Utils.toDesc;
 import static jpassport.codebuilder.ArgClassification.*;
 import static jpassport.codebuilder.CBConstants.*;
 
@@ -70,15 +71,17 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
     private final ClassDesc thisClassDesc;
     private final HashMap<String, FieldRefEntry> methodHandles = new HashMap<>();
+    private final boolean withDebug;
 
-    public PassportBuilder(Class<T> interfaceClass)
+    public PassportBuilder(Class<T> interfaceClass, boolean withDebug)
     {
-        this(interfaceClass, "jpassport.called_" + Class_ID++, interfaceClass.getSimpleName() + "_impl");
+        this(interfaceClass, "jpassport.called_" + Class_ID++, interfaceClass.getSimpleName() + "_impl", withDebug);
     }
 
-    public PassportBuilder(Class<T> interfaceClass, String packageName, String className)
+    public PassportBuilder(Class<T> interfaceClass, String packageName, String className, boolean withDebug)
     {
         thisClassDesc = ClassDesc.of(packageName, className);
+        this.withDebug = withDebug;
         List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
 
         classBytes = ClassFile.of().build(thisClassDesc, clb ->
@@ -88,7 +91,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             clb.withInterfaces(entry, mainInterface);
             clb.withFlags(ClassFile.ACC_PUBLIC);
 
-            var structBuilder = new StructRWBuilder<>(interfaceClass, thisClassDesc);
+            var structBuilder = new StructRWBuilder<>(interfaceClass, thisClassDesc, withDebug);
             structBuilder.createRecordAccessors(clb);
 
             var classDescHM = toDesc(HashMap.class);
@@ -238,6 +241,24 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 }
                             }
 
+                            if (withDebug)
+                            {
+                                cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
+                                int objArrSlot = ++used;
+                                cob.astore(objArrSlot);
+                                int i = 0;
+                                for (var k : keepers)
+                                {
+                                    cob.aload(objArrSlot).loadConstant(i++);
+                                    k.loadAutoBoxed(cob);
+                                    cob.aastore();
+                                }
+
+                                cob.aload(0).loadConstant(iMethod.getName()).aload(objArrSlot);
+                                cob.invokestatic(CD_Utils, "preNativeCall", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                        toDesc(Passport.class), ConstantDescs.CD_String, ConstantDescs.CD_Object.arrayType()));
+                            }
+
                             cob.aload(0).getstatic(methodHandles.get(iMethod.getName()));
                             for (var k : keepers)
                                 k.loadParam(cob);
@@ -246,6 +267,25 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             int returnSlot = used + 1;
                             var virtMethodRetType = iMethod.getReturnType();
                             used = storeParam(cob, returnSlot, virtMethodRetType);
+
+                            if (withDebug)
+                            {
+                                cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
+                                int objArrSlot = ++used;
+                                cob.astore(objArrSlot);
+                                int i = 0;
+                                for (var k : keepers)
+                                {
+                                    cob.aload(objArrSlot).loadConstant(i++);
+                                    k.loadAutoBoxed(cob);
+                                    cob.aastore();
+                                }
+                                cob.aload(0).loadConstant(iMethod.getName());
+                                ParamKeeper.autoBox(cob, virtMethodRetType, returnSlot);
+                                cob.aload(objArrSlot);
+                                cob.invokestatic(CD_Utils, "postNativeCall", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                        toDesc(Passport.class), ConstantDescs.CD_String, ConstantDescs.CD_Object, ConstantDescs.CD_Object.arrayType()));
+                            }
 
                             var argHandler = ArgClassification.classify(iMethod.getReturnType(), null);
                             switch(argHandler)
@@ -445,6 +485,26 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 keepers.get(ii).stored = used;
                                 keepers.get(ii).type = ParamType.addressType;
                             }
+
+                            if (withDebug)
+                            {
+                                cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
+                                int objArrSlot = ++used;
+                                cob.astore(objArrSlot);
+                                int i = 0;
+                                for (var k : keepers)
+                                {
+                                    cob.aload(objArrSlot).loadConstant(i++);
+                                    k.loadAutoBoxed(cob);
+                                    cob.aastore();
+                                }
+
+                                cob.aload(0).loadConstant(iMethod.getName()).aload(objArrSlot);
+                                cob.invokestatic(CD_Utils, "preNativeCall", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                        toDesc(Passport.class), ConstantDescs.CD_String, ConstantDescs.CD_Object.arrayType()));
+                            }
+
+
                             cob.aload(0).getstatic(methodHandles.get(iMethod.getName()));
 
                             //Move parameters to stack for the native function call
@@ -457,6 +517,25 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             int returnSlot = used + 1;
                             var virtMethodRetType = iMethod.getReturnType();
                             used = storeParam(cob, returnSlot, virtMethodRetType);
+
+                            if (withDebug)
+                            {
+                                cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
+                                int objArrSlot = ++used;
+                                cob.astore(objArrSlot);
+                                int i = 0;
+                                for (var k : keepers)
+                                {
+                                    cob.aload(objArrSlot).loadConstant(i++);
+                                    k.loadAutoBoxed(cob);
+                                    cob.aastore();
+                                }
+                                cob.aload(0).loadConstant(iMethod.getName());
+                                ParamKeeper.autoBox(cob, virtMethodRetType, returnSlot);
+                                cob.aload(objArrSlot);
+                                cob.invokestatic(CD_Utils, "postNativeCall", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                        toDesc(Passport.class), ConstantDescs.CD_String, ConstantDescs.CD_Object, ConstantDescs.CD_Object.arrayType()));
+                            }
 
                             var argHandler = ArgClassification.classify(iMethod.getReturnType(), null);
                             switch(argHandler)
