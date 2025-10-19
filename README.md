@@ -42,7 +42,7 @@ Download the source and run the maven build, or use the maven dependency:
         <dependency>
             <groupId>io.github.boulder-on</groupId>
             <artifactId>JPassport</artifactId>
-            <version>1.2.0-24</version>
+            <version>1.3.0-24</version>
         </dependency>
 
 If you would like to see the Java code or byte code created use:
