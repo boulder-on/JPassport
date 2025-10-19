@@ -455,6 +455,96 @@ get the int u_i field (the 1 in the call is zero based, so the second field).
 
 The same rules and annotations for records/structs work for records/unions.
 
+## Enum
+Enums in C and Java are quite similar, but they have differences that need to be accounted for.
+Primarily, in java, enums are only allowed to have serial values, where in C the members of an enum
+can have any value. Secondarily, java enums only have int values, but in C they can be int or long.
+Technically, in C they can be byte or short as well, but that's less common in modern compilers.
+
+JPassport gives you 3 options for handling enums: basic, custom ints, custom longs. Here are some
+examples:
+
+```C
+//basic
+enum weekdays
+{
+    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
+};
+
+//custom longs
+enum weekends
+{
+    SATURDAY = 0l,
+    SUNDAY = 0xFFFFFFFFF  //NOTE, this value is larger than an int, so must be stored as a float
+};
+
+//custom ints
+enum computer
+{
+    INTEL = 86,
+    AMD = 64
+}
+```
+The JPassport mappings look like:
+```java
+//This standard enum will use the ordinal() values of each enum.
+public enum weekdays {
+  MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
+}
+
+// implements EnumLong so that long values are expected
+public enum weekends implements EnumLong {
+    SATURDAY(0L),
+    SUNDAY(0xFFFFFFFFFL);
+    private final long value;
+    weekends(long v) {
+        value = v;
+    }
+
+    @Override
+    public long getCValue() {
+        return value;
+    }
+}
+
+//implementes EnumInt so that custom integers are used for each value, instead of ordinal()
+public enum computer implements EnumInt {
+    INTEL(86),
+    AMD(64);
+    private final int value;
+    computer(long v) {
+        value = v;
+    }
+
+    @Override
+    public int getCValue() {
+        return value;
+    }
+}
+```
+
+Enums can be passed as method arguments or received as method return values. 
+
+```C
+//C method declaration
+extern enum weekdays todayLong(enum weekdays* ie);
+```
+
+```Java
+//Jpassport equivalent
+public interface EnumLink extends Passport
+{
+    /**
+     * 
+     * @param ie A variable to capture the current weekday in
+     * @return The current weekday
+     */
+    weekdays todayLong(@RefArg weekdays[] ie);
+}
+```
+
+NOTE: Enums are not yet supported in structs.
+
 # Capturing Errors
 FFM has the ability to capture errors that occurred during a call. For instance,
 some C methods will set "errno" during a call. Or in windows GetLastError() can contain 
@@ -607,6 +697,7 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
 # Release Notes
 - 1.3.0-24 (unreleased)
   - Union support
+  - enum support
   - DebugPassport added so that you can set breakpoints in the generated code.
   - Improved efficiency of arrays of structs
   - For critical methods, arrays are passed as java heap memory

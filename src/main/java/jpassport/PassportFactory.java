@@ -15,6 +15,8 @@ package jpassport;
 import jpassport.annotations.NativeLibrary;
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.Critical;
+import jpassport.codebuilder.ArgClassification;
+import jpassport.codebuilder.CBConstants;
 import jpassport.codebuilder.PassportBuilder;
 import jpassport.pointers.FunctionPtr;
 import jpassport.pointers.NamedLookup;
@@ -178,7 +180,7 @@ public class PassportFactory
             }
 
             for (int n = 0; n < parameters.length; ++n) {
-                if (!parameters[n].isPrimitive() && !isSpecialClass(parameters[n]))
+                if (!(parameters[n].isPrimitive() || parameters[n].isEnum()) && !isSpecialClass(parameters[n]))
                     parameters[n] = MemorySegment.class;
             }
 
@@ -349,6 +351,12 @@ public class PassportFactory
             return ValueLayout.JAVA_BOOLEAN;
         if (char.class.equals(type))
             return ValueLayout.JAVA_CHAR;
+
+        var ctype = ArgClassification.classify(type);
+        if (ctype == ArgClassification.enum_long)
+            return ValueLayout.JAVA_LONG;
+        else if (ctype == ArgClassification.enum_int || ctype == ArgClassification.enum_ordinal)
+            return ValueLayout.JAVA_INT;
 
         return ValueLayout.ADDRESS;
     }

@@ -53,6 +53,11 @@ public enum ParamType {
 
     public static ParamType toType(Class<?> c)
     {
+        if (CBConstants.isLongEnum(c))
+            return ParamType.longType;
+        else if (CBConstants.isIntEnum(c) || c.isEnum())
+            return ParamType.intType;
+
         return classToType.getOrDefault(c, ParamType.addressType);
     }
 }

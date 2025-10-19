@@ -2,6 +2,8 @@ package jpassport.codebuilder;
 
 import jpassport.*;
 import jpassport.annotations.*;
+import jpassport.enums.EnumInt;
+import jpassport.enums.EnumLong;
 import jpassport.pointers.GenericPointer;
 
 import java.lang.annotation.Annotation;
@@ -28,6 +30,9 @@ public interface CBConstants {
     ClassDesc CD_AddressLayout = toDesc(AddressLayout.class);
     ClassDesc CD_ErrorCapture = toDesc(ErrorCapture.class);
     ClassDesc CD_UnionFieldIO = toDesc(UnionFieldIO.class);
+    ClassDesc CD_HashMap = toDesc(HashMap.class);
+    ClassDesc CD_EnumLong = toDesc(EnumLong.class);
+    ClassDesc CD_EnumInt = toDesc(EnumInt.class);
 
     String INIT_STRUCTS_METHOD_NAME = "initStructs";
 
@@ -56,7 +61,7 @@ public interface CBConstants {
             cob.aload(idx);
     }
 
-    static int storeParam(CodeBuilder cob, int idx, Class<?> c)
+    static int storeLocalVar(CodeBuilder cob, int idx, Class<?> c)
     {
         if (c.equals(void.class))
             return idx;
@@ -220,6 +225,16 @@ public interface CBConstants {
         return Arrays.asList(c.getInterfaces()).contains(Union.class);
     }
 
+    static boolean isLongEnum(Class<?> c)
+    {
+        return Arrays.asList(c.getInterfaces()).contains(EnumLong.class);
+    }
+
+    static boolean isIntEnum(Class<?> c)
+    {
+        return Arrays.asList(c.getInterfaces()).contains(EnumInt.class);
+    }
+
     static int getPaddingBytes(Field field)
     {
         Annotation[] annotations = field.getAnnotationsByType(StructPadding.class);
@@ -265,6 +280,7 @@ public interface CBConstants {
             if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
                 extraImports.add(retType);
             Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(Class::isEnum).forEach(extraImports::add);
             Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
             Arrays.stream(params).filter(CBConstants::isGenericPtr).forEach(extraImports::add);
         }

@@ -349,11 +349,11 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(primitiveToDescMap.get(ftype)));
                                     int fieldSlot = slots;
-                                    slots = storeParam(cob, fieldSlot, ftype);
+                                    slots = storeLocalVar(cob, fieldSlot, ftype);
 
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
                                     int offsetSlot = slots;
-                                    slots = storeParam(cob, offsetSlot, long.class);
+                                    slots = storeLocalVar(cob, offsetSlot, long.class);
 
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, primitiveToConstName.get(ftype), primativeToVLDescMap.get(ftype));
@@ -371,17 +371,17 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.loadConstant(ii++).laload();
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
                                     int sliceSlot = slots;
-                                    slots = storeParam(cob, sliceSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, sliceSlot, MemorySegment.class);
 
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(arrDesc));
                                     int valueSlot = slots;
-                                    slots = storeParam(cob, valueSlot, ftype);
+                                    slots = storeLocalVar(cob, valueSlot, ftype);
                                     cob.aload(valueSlot);
                                     cob.invokestatic(CD_MemorySegment, "ofArray", MethodTypeDesc.of(CD_MemorySegment, arrDesc), true);
 
                                     int copySlot = slots;
-                                    slots = storeParam(cob, copySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, copySlot, MemorySegment.class);
 
                                     cob.aload(sliceSlot).aload(copySlot);
                                     cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
@@ -395,12 +395,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(arrDesc));
                                     int valueSlot = slots;
-                                    slots = storeParam(cob, valueSlot, ftype);
+                                    slots = storeLocalVar(cob, valueSlot, ftype);
 
                                     cob.aload(arenaSlot).aload(valueSlot).iconst_0();
                                     cob.invokestatic(CD_Utils, "toMS", MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, arrDesc, ConstantDescs.CD_boolean));
                                     int memorySlot = slots;
-                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
@@ -415,17 +415,17 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int fieldSlot = slots;
-                                    slots = storeParam(cob, fieldSlot, ftype);
+                                    slots = storeLocalVar(cob, fieldSlot, ftype);
 
                                     cob.aload(0).aload(arenaSlot).aload(fieldSlot);
                                     cob.invokevirtual(thisClassDesc, "store" + ftype.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(ftype)));
                                     int memorySlot = slots;
-                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
                                     cob.aload(memSegSlot);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
                                     int sliceSlot = slots;
-                                    slots = storeParam(cob, sliceSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, sliceSlot, MemorySegment.class);
 
                                     cob.aload(sliceSlot).aload(memorySlot);
                                     cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
@@ -437,12 +437,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int fieldSlot = slots;
-                                    slots = storeParam(cob, fieldSlot, ftype);
+                                    slots = storeLocalVar(cob, fieldSlot, ftype);
 
                                     cob.aload(0).aload(arenaSlot).aload(fieldSlot);
                                     cob.invokevirtual(thisClassDesc, "store" + ftype.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(ftype)));
                                     int memorySlot = slots;
-                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
@@ -457,12 +457,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     var cd_rec_type = toDesc(rec_type);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     int fieldSlot = slots;
-                                    slots = storeParam(cob, fieldSlot, ftype);
+                                    slots = storeLocalVar(cob, fieldSlot, ftype);
 
                                     cob.aload(0).aload(arenaSlot).aload(fieldSlot);
                                     cob.invokevirtual(thisClassDesc, "storeArr" + rec_type.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, cd_rec_type.arrayType(1)));
                                     int memorySlot = slots;
-                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
                                     cob.aload(memSegSlot);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
@@ -478,12 +478,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     int fieldSlot = slots;
-                                    slots = storeParam(cob, fieldSlot, ftype);
+                                    slots = storeLocalVar(cob, fieldSlot, ftype);
 
                                     cob.aload(0).aload(arenaSlot).aload(fieldSlot);
                                     cob.invokevirtual(thisClassDesc, "storePtr" + rec_type.getSimpleName(), MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, cd_rec_type.arrayType(1)));
                                     int memorySlot = slots;
-                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
@@ -496,11 +496,11 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int gptr = slots;
-                                    slots = storeParam(cob, gptr, ftype);
+                                    slots = storeLocalVar(cob, gptr, ftype);
                                     cob.aload(gptr);
                                     cob.invokevirtual(toDesc(GenericPointer.class), "getPtr", MethodTypeDesc.of(CD_MemorySegment));
                                     int memorySlot = slots;
-                                    slots = storeParam(cob, memorySlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
 
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -514,7 +514,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int addrSlot = slots;
-                                    slots = storeParam(cob, addrSlot, ftype);
+                                    slots = storeLocalVar(cob, addrSlot, ftype);
 
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -529,12 +529,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int addrSlot = slots;
-                                    slots = storeParam(cob, addrSlot, ftype);
+                                    slots = storeLocalVar(cob, addrSlot, ftype);
 
                                     cob.aload(addrSlot).aload(arenaSlot);
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr", MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator));
                                     addrSlot = slots;
-                                    slots = storeParam(cob, addrSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, addrSlot, MemorySegment.class);
 
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -548,12 +548,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(inputRecSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int stringSlot = slots;
-                                    slots = storeParam(cob, stringSlot, ftype);
+                                    slots = storeLocalVar(cob, stringSlot, ftype);
 
                                     cob.aload(stringSlot).aload(arenaSlot);
                                     cob.invokestatic(CD_Utils, "toCString", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_String, CD_SegmentAllocator));
                                     int cstringSlot = slots;
-                                    slots = storeParam(cob, cstringSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, cstringSlot, MemorySegment.class);
 
                                     cob.aload(memSegSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -768,7 +768,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     default -> toDesc(ftype);
                                 };
                                 cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd));
-                                storeParam(cob, fieldSlots[ii], ftype);
+                                storeLocalVar(cob, fieldSlots[ii], ftype);
                                 cob.goto_(endElseLabel).labelBinding(endIfLabel);
                             }
 
@@ -782,7 +782,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(primitiveToDescMap.get(ftype), primativeToVLDescMap.get(f.getType()), ConstantDescs.CD_long));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
                                 }
                                 case primitive_array ->{
                                     var c = ftype.getComponentType();
@@ -796,7 +796,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.getstatic(CD_ValueLayout, primitiveToConstName.get(c), primativeToVLDescMap.get(c));
                                     cob.invokeinterface(CD_MemorySegment, "toArray",
                                             MethodTypeDesc.of(primitiveToDescMap.get(c).arrayType(), primativeToVLDescMap.get(c)));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 //                                    var s_double = memStruct.asSlice(PassingArraysLayoutOffsets[0], 5 * Double.BYTES).toArray(JAVA_DOUBLE);
 
                                 }
@@ -807,7 +807,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(recordSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(arrDesc));
                                     int arrSlot = slots;
-                                    slots = storeParam(cob, arrSlot, ftype);
+                                    slots = storeLocalVar(cob, arrSlot, ftype);
 
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -815,12 +815,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
                                     int msegmentSlot = slots;
-                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.aload(memStructSlot).aload(msegmentSlot).aload(arrSlot);
                                     cob.invokestatic(CD_Utils, "toArr",
                                             MethodTypeDesc.of(arrDesc, CD_MemorySegment, CD_MemorySegment, arrDesc));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
                                 }
 
                                 case record_ -> {
@@ -828,17 +828,17 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
                                     int msegmentSlot = slots;
-                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.aload(cob.parameterSlot(1));
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int recTypeSlot = slots;
-                                    slots = storeParam(cob, recTypeSlot, ftype);
+                                    slots = storeLocalVar(cob, recTypeSlot, ftype);
 
 
                                     cob.aload(0).aload(msegmentSlot).aload(recTypeSlot);
                                     cob.invokevirtual(thisClassDesc, "read" + ftype.getSimpleName(), MethodTypeDesc.of(toDesc(ftype), CD_MemorySegment, toDesc(ftype)));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 
 //                                var ts = readTestStruct(memStruct.asSlice(ComplexStructLayoutOffsets[1]), rec.ts());
 
@@ -850,25 +850,25 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
                                     int msegmentSlot = slots;
-                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.getstatic(groupLayouts.get(ftype).layout).invokeinterface(CD_MemoryLayout, "byteSize", MethodTypeDesc.of(ConstantDescs.CD_long));
                                     int recSizeSlot = slots;
-                                    slots = storeParam(cob, recSizeSlot, long.class);
+                                    slots = storeLocalVar(cob, recSizeSlot, long.class);
 
                                     cob.aload(memStructSlot).aload(msegmentSlot).lload(recSizeSlot);
                                     cob.invokestatic(CD_Utils, "slice", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment, CD_MemorySegment, ConstantDescs.CD_long));
                                     int recSliceSlot = slots;
-                                    slots = storeParam(cob, recSliceSlot, ftype);
+                                    slots = storeLocalVar(cob, recSliceSlot, ftype);
 
                                     cob.aload(cob.parameterSlot(1));
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int recTypeSlot = slots;
-                                    slots = storeParam(cob, recTypeSlot, ftype);
+                                    slots = storeLocalVar(cob, recTypeSlot, ftype);
 
                                     cob.aload(0).aload(recSliceSlot).aload(recTypeSlot);
                                     cob.invokevirtual(thisClassDesc, "read" + ftype.getSimpleName(), MethodTypeDesc.of(toDesc(ftype), CD_MemorySegment, toDesc(ftype)));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 
 //var tsPtr = readTestStruct(Utils.slice(memStruct, memStruct.get(ADDRESS, ComplexStructLayoutOffsets[2]), TestStructLayout.byteSize()), rec.tsPtr());
 
@@ -879,7 +879,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.aload(recordSlot).invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().anewarray(cd_rec_type);
                                     int newArrSlot = slots;
-                                    slots = storeParam(cob, newArrSlot, rec_type);
+                                    slots = storeLocalVar(cob, newArrSlot, rec_type);
 
                                     cob.aload(memStructSlot);
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
@@ -893,12 +893,12 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                                     cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long, ConstantDescs.CD_long));
                                     int msegmentSlot = slots;
-                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.aload(0).aload(msegmentSlot).aload(newArrSlot);
                                     cob.invokevirtual(thisClassDesc, "readArr" + rec_type.getSimpleName(), MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment, cd_rec_type.arrayType(1)));
                                     cob.aload(newArrSlot);
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
                                 }
                                 case record_array_ptr -> {
                                     var rec_type = ftype.getComponentType();
@@ -908,7 +908,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(cd_rec_type.arrayType(1)));
                                     cob.arraylength().anewarray(cd_rec_type);
                                     int newArrSlot = slots;
-                                    slots = storeParam(cob, newArrSlot, rec_type);
+                                    slots = storeLocalVar(cob, newArrSlot, rec_type);
 
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
@@ -916,11 +916,11 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
                                     int memseg = slots;
-                                    slots = storeParam(cob, memseg, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memseg, MemorySegment.class);
                                     cob.aload(0).aload(memseg).aload(newArrSlot);
                                     cob.invokevirtual(thisClassDesc, "readPtrs" + rec_type.getSimpleName(), MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment, cd_rec_type.arrayType(1)));
                                     cob.aload(newArrSlot);
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 //                                    var array_of_ptrs = new TestStruct[rec.array_of_ptrs().length];
 //                                    readPtrsTestStruct(memStruct.get(ADDRESS, PassingStructsLayoutOffsets[2]), array_of_ptrs);
 
@@ -933,14 +933,14 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
                                     int memseg = slots;
-                                    slots = storeParam(cob, memseg, MemorySegment.class);
+                                    slots = storeLocalVar(cob, memseg, MemorySegment.class);
 
                                     var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
                                     cob.new_(CBConstants.toDesc(ftype)).dup();
 
                                     cob.aload(memseg);
                                     cob.invokespecial(CBConstants.toDesc(ftype), ConstantDescs.INIT_NAME, sig);
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 
                                 }
 
@@ -950,7 +950,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 //                                var addr = memStruct.get(ADDRESS, StructWithPrtLayoutOffsets[1]);
 
                                 }
@@ -961,10 +961,10 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
                                     int msegmentSlot = slots;
-                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
                                     cob.aload(msegmentSlot);
                                     cob.invokestatic(CD_Utils, "readString", MethodTypeDesc.of(ConstantDescs.CD_String, CD_MemorySegment));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 //                                var string = Utils.readString(memStruct.get(ADDRESS, ComplexStructLayoutOffsets[3]));
                                 }
                                 case memory_block -> {
@@ -974,16 +974,16 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
                                     int msegmentSlot = slots;
-                                    slots = storeParam(cob, msegmentSlot, MemorySegment.class);
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
 
                                     cob.aload(recordSlot);
                                     cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype)));
                                     int origBlockSlot = slots;
-                                    slots = storeParam(cob, origBlockSlot, MemoryBlock.class);
+                                    slots = storeLocalVar(cob, origBlockSlot, MemoryBlock.class);
 
                                     cob.aload(msegmentSlot).aload(origBlockSlot);
                                     cob.invokestatic(toDesc(MemoryBlock.class), "recreate", MethodTypeDesc.of(toDesc(MemoryBlock.class), CD_MemorySegment, toDesc(MemoryBlock.class)));
-                                    storeParam(cob, fieldSlots[ii], ftype);
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
                                 }
                                 default ->
                                     throw new PassportException(varHandling + " not supported");

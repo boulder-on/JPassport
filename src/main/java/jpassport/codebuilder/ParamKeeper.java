@@ -19,7 +19,7 @@ import static jpassport.codebuilder.CBConstants.*;
 public class ParamKeeper {
     public Class<?> classtype;
     public ParamType type;
-    public int storedOrig, stored;
+    public int storedOrig, stored, tmpvar;
     public Annotation[] annotations;
     public ArgClassification classification;
 
@@ -46,6 +46,10 @@ public class ParamKeeper {
         if (classtype.isArray())
         {
             var atype = classtype.getComponentType();
+
+            if (atype.isEnum())
+                return toDesc(atype).arrayType(1);
+
             var pt = ParamType.toType(atype);
             if (pt != ParamType.addressType && pt.toDesc().isPresent())
                 return pt.toDesc().get().arrayType();
@@ -61,6 +65,8 @@ public class ParamKeeper {
 //                return Utils.toDesc(GenericPointer.class).arrayType();
             return Utils.toDesc(atype).arrayType();
         }
+        else if (classtype.isEnum())
+            return Utils.toDesc(classtype);
 
         if (type.toDesc().isPresent())
             return type.toDesc().get();

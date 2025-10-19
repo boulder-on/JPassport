@@ -6,4 +6,5 @@ module jpassport {
     exports jpassport;
     exports jpassport.annotations;
     exports jpassport.pointers;
+    exports jpassport.enums;
 }

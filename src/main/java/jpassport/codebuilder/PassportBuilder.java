@@ -71,6 +71,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
     private final ClassDesc thisClassDesc;
     private final HashMap<String, FieldRefEntry> methodHandles = new HashMap<>();
+    private final HashMap<Class<?>, FieldRefEntry> enumMaps = new HashMap<>();
     private final boolean withDebug;
 
     public PassportBuilder(Class<T> interfaceClass, boolean withDebug)
@@ -127,33 +128,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     .invokevirtual(thisClassDesc, INIT_STRUCTS_METHOD_NAME, ConstantDescs.MTD_void)
                                     .return_()));
 
-            //Create member variables for each of the method handles to the native methods.
-            var methodTypeDesc = toDesc(MethodHandle.class);
-            for (Method m : interfaceMethods)
-            {
-                String fieldName = m.getName();
-                clb.withField(fieldName, methodTypeDesc, ClassFile.ACC_PRIVATE | ClassFile.ACC_STATIC | ClassFile.ACC_FINAL );
-                nte = clb.constantPool().nameAndTypeEntry(fieldName, methodTypeDesc);
-                var fieldRefEntry = clb.constantPool().fieldRefEntry(clb.constantPool().classEntry(thisClassDesc), nte);
-                methodHandles.put(fieldName, fieldRefEntry);
-            }
-
-            //Create a method that assigns all the method handles for the native methods
-            clb.withMethod(ConstantDescs.CLASS_INIT_NAME,  ConstantDescs.MTD_void,
-                    ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, mb -> mb.withCode(
-                       cob -> {
-
-                           //loads all method handles as static final variables
-                           for (String name : methodHandles.keySet())
-                           {
-                               cob.ldc(toDesc(interfaceClass)).aconst_null().ldc(name);
-                               cob.invokestatic(toDesc(PassportFactory.class), "getHandle",
-                                       MethodTypeDesc.of(toDesc(MethodHandle.class), ConstantDescs.CD_Class, ConstantDescs.CD_Class, ConstantDescs.CD_String));
-                               cob.putstatic(methodHandles.get(name));
-                           }
-                           cob.return_();
-                       }
-                    ));
+            buildMethodHandleVariables(clb, interfaceMethods);
+            buildEnumMaps(clb, interfaceMethods);
+            buildStaticInitialization(interfaceClass, clb);
 
             //Build all implementations of the interface methods
             for (Method m : interfaceMethods)
@@ -179,6 +156,66 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             }
         }
         fullName = packageName + "." + className;
+    }
+
+    private void buildStaticInitialization(Class<T> interfaceClass, ClassBuilder clb) {
+        //Create a method that assigns all the method handles for the native methods
+        clb.withMethod(ConstantDescs.CLASS_INIT_NAME,  ConstantDescs.MTD_void,
+                ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC, mb -> mb.withCode(
+                   cob -> {
+
+                       //loads all method handles as static final variables
+                       for (String name : methodHandles.keySet())
+                       {
+                           cob.ldc(toDesc(interfaceClass)).aconst_null().ldc(name);
+                           cob.invokestatic(toDesc(PassportFactory.class), "getHandle",
+                                   MethodTypeDesc.of(toDesc(MethodHandle.class), ConstantDescs.CD_Class, ConstantDescs.CD_Class, ConstantDescs.CD_String));
+                           cob.putstatic(methodHandles.get(name));
+                       }
+
+                       for (Class<?> enumClass : enumMaps.keySet())
+                       {
+                           cob.ldc(toDesc(enumClass));
+                           if (CBConstants.isLongEnum(enumClass))
+                               cob.invokestatic(CD_Utils, "buildEnumMapLong", MethodTypeDesc.of(CD_HashMap, ConstantDescs.CD_Class));
+                           else
+                               cob.invokestatic(CD_Utils, "buildEnumMapInteger", MethodTypeDesc.of(CD_HashMap, ConstantDescs.CD_Class));
+                           cob.putstatic(enumMaps.get(enumClass));
+                       }
+                       cob.return_();
+                   }
+                ));
+    }
+
+    private void buildMethodHandleVariables(ClassBuilder clb, List<Method> interfaceMethods) {
+        NameAndTypeEntry nte;
+        //Create member variables for each of the method handles to the native methods.
+        var methodTypeDesc = toDesc(MethodHandle.class);
+        for (Method m : interfaceMethods)
+        {
+            String fieldName = m.getName();
+            clb.withField(fieldName, methodTypeDesc, ClassFile.ACC_PRIVATE | ClassFile.ACC_STATIC | ClassFile.ACC_FINAL );
+            nte = clb.constantPool().nameAndTypeEntry(fieldName, methodTypeDesc);
+            var fieldRefEntry = clb.constantPool().fieldRefEntry(clb.constantPool().classEntry(thisClassDesc), nte);
+            methodHandles.put(fieldName, fieldRefEntry);
+        }
+    }
+
+    private void buildEnumMaps(ClassBuilder clb, List<Method> interfaceMethods) {
+        NameAndTypeEntry nte;
+        Set<Class<?>> extraImports = findAllExtraImports(interfaceMethods);
+        var hashMap = toDesc(HashMap.class);
+
+        for (var c : extraImports)
+        {
+            if (!c.isEnum())
+                continue;
+            String fieldName = c.getSimpleName() + "Lookup";
+            clb.withField(fieldName, hashMap, ClassFile.ACC_PRIVATE | ClassFile.ACC_STATIC);
+            nte = clb.constantPool().nameAndTypeEntry(fieldName, hashMap);
+            var fieldRefEntry = clb.constantPool().fieldRefEntry(clb.constantPool().classEntry(thisClassDesc), nte);
+            enumMaps.put(c, fieldRefEntry);
+        }
     }
 
 
@@ -216,8 +253,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             var start = cob.newLabel();
                             cob.labelBinding(start);
 
-                            int used = keepers.stream().mapToInt(ParamKeeper::getSlotCount).sum();
-                            used += 1;
+                            int nextlocalVarSlot = keepers.stream().mapToInt(ParamKeeper::getSlotCount).sum() + 1;
+
                             var arenaSlot = keepers.stream().filter(k -> k.classification == arena).mapToInt(k->k.stored).findFirst();
                             keepers = keepers.stream().filter(k -> k.classification != arena).toList();
 
@@ -226,26 +263,52 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     cob.aload(k.stored).aload(arenaSlot.getAsInt());
                                     cob.invokevirtual(toDesc(MemoryBlock.class), "toPtr",
                                             MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator));
-                                    used++;
-                                    cob.astore(used);
-                                    k.stored = used;
+
+                                    k.stored = nextlocalVarSlot;
                                     k.type = ParamType.addressType;
+                                    nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, MemorySegment.class);
                                 } else if (k.classification == generic_ptr) {
                                     cob.aload(k.stored);
                                     cob.invokevirtual(toDesc(GenericPointer.class), "getPtr",
                                             MethodTypeDesc.of(CD_MemorySegment));
-                                    used++;
-                                    cob.astore(used);
-                                    k.stored = used;
+                                    k.stored = nextlocalVarSlot;
                                     k.type = ParamType.addressType;
+                                    nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, MemorySegment.class);
+                                }
+                                else if (k.classification == enum_long)
+                                {
+                                    cob.aload(k.stored);
+                                    cob.invokevirtual(toDesc(k.classtype), "getCValue",
+                                            MethodTypeDesc.of(ConstantDescs.CD_long));
+                                    k.stored = nextlocalVarSlot;
+                                    k.type = ParamType.longType;
+                                    nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, long.class);
+                                }
+                                else if (k.classification == enum_int)
+                                {
+                                    cob.aload(k.stored);
+                                    cob.invokevirtual(toDesc(k.classtype), "getCValue",
+                                            MethodTypeDesc.of(ConstantDescs.CD_int));
+                                    k.stored = nextlocalVarSlot;
+                                    k.type = ParamType.intType;
+                                    nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, int.class);
+                                }
+                                else if (k.classification == enum_ordinal)
+                                {
+                                    cob.aload(k.stored);
+                                    cob.invokevirtual(ConstantDescs.CD_Enum, "ordinal",
+                                            MethodTypeDesc.of(ConstantDescs.CD_int));
+                                    k.stored = nextlocalVarSlot;
+                                    k.type = ParamType.intType;
+                                    nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, int.class);
                                 }
                             }
 
                             if (withDebug)
                             {
                                 cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
-                                int objArrSlot = ++used;
-                                cob.astore(objArrSlot);
+                                int objArrSlot = nextlocalVarSlot;
+                                nextlocalVarSlot = storeLocalVar(cob, objArrSlot, Object.class);
                                 int i = 0;
                                 for (var k : keepers)
                                 {
@@ -264,15 +327,15 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 k.loadParam(cob);
 
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
-                            int returnSlot = used + 1;
+                            int returnSlot = nextlocalVarSlot;
                             var virtMethodRetType = iMethod.getReturnType();
-                            used = storeParam(cob, returnSlot, virtMethodRetType);
+                            nextlocalVarSlot = storeLocalVar(cob, returnSlot, virtMethodRetType);
 
                             if (withDebug)
                             {
                                 cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
-                                int objArrSlot = ++used;
-                                cob.astore(objArrSlot);
+                                int objArrSlot = nextlocalVarSlot;
+                                nextlocalVarSlot = storeLocalVar(cob, objArrSlot, Object.class);
                                 int i = 0;
                                 for (var k : keepers)
                                 {
@@ -295,8 +358,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     var mtd = MethodTypeDesc.of(cdescString, CD_MemorySegment);
                                     loadParam(cob, returnSlot, iMethod.getReturnType());
                                     cob.invokestatic(CD_Utils, "readString", mtd);
-                                    returnSlot = used;
-                                    storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    returnSlot = nextlocalVarSlot;
+                                    nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
                                 }
                                 case generic_ptr -> {
                                     var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
@@ -304,8 +367,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                                     loadParam(cob, returnSlot,  virtMethodRetType);
                                     cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
-                                    returnSlot = used+1;
-                                    storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    returnSlot = nextlocalVarSlot+1;
+                                    nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
                                 }
                             }
 
@@ -361,10 +424,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             var passedArena = keepers.stream().filter(ParamKeeper::isArena).findFirst();
                             keepers = keepers.stream().filter(k -> !k.isArena()).toList();
 
-                            int used = keepers.stream().mapToInt(ParamKeeper::getSlotCount).sum();
-                            used += 1;
+                            int nextlocalVarSlot = keepers.stream().mapToInt(ParamKeeper::getSlotCount).sum() + 1;
 
-                            int arenaSlot = passedArena.isPresent() ? passedArena.get().stored : used++;
+                            int arenaSlot = passedArena.map(paramKeeper -> paramKeeper.stored).orElse(nextlocalVarSlot);
                             var start = cob.newLabel();
                             cob.labelBinding(start);
                             if (passedArena.isEmpty()) {
@@ -372,7 +434,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 //I could not get arena creation to work. So I coded it in another class
                                 //read that class, take that byte code and insert it here.
                                 iv.ifPresent(cob);
-                                cob.astore(arenaSlot);
+                                nextlocalVarSlot = storeLocalVar(cob, arenaSlot, Arena.class);
                             }
                             var startAutoClose = cob.newLabel();
                             cob.labelBinding(startAutoClose);
@@ -475,22 +537,81 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                         cob.aload(keepers.get(ii).stored).aload(arenaSlot);
                                         cob.invokevirtual(CD_ErrorCapture, "alloc", MethodTypeDesc.of(CD_MemorySegment, CD_Arena));
                                     }
+                                    case enum_long -> {
+                                        cob.aload(keepers.get(ii).stored);
+                                        cob.invokevirtual(toDesc(keepers.get(ii).classtype), "getCValue",
+                                                MethodTypeDesc.of(ConstantDescs.CD_long));
+//                                        nextlocalVarSlot++;
+                                        keepers.get(ii).stored = nextlocalVarSlot;
+                                        keepers.get(ii).type = ParamType.longType;
+                                        nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, long.class);
+                                        continue;
+                                    }
+                                    case enum_int -> {
+                                        cob.aload(keepers.get(ii).stored);
+                                        cob.invokevirtual(toDesc(keepers.get(ii).classtype), "getCValue",
+                                                MethodTypeDesc.of(ConstantDescs.CD_int));
+//                                        nextlocalVarSlot++;
+                                        keepers.get(ii).stored = nextlocalVarSlot;
+                                        keepers.get(ii).type = ParamType.intType;
+                                        nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, int.class);
+                                        continue;
+                                    }
+                                    case enum_ordinal -> {
+                                        cob.aload(keepers.get(ii).stored);
+                                        cob.invokevirtual(ConstantDescs.CD_Enum, "ordinal",
+                                                MethodTypeDesc.of(ConstantDescs.CD_int));
+//                                        nextlocalVarSlot++;
+//                                        cob.istore(nextlocalVarSlot);
+                                        keepers.get(ii).stored = nextlocalVarSlot;
+                                        keepers.get(ii).type = ParamType.intType;
+                                        nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, int.class);
+                                        continue;
+                                    }
+                                    case enum_array -> {
+                                        cob.aload(arenaSlot).aload(keepers.get(ii).stored);
+                                        var enumType = ArgClassification.classify(keepers.get(ii).classtype.getComponentType());
+                                        var argType = ConstantDescs.CD_int.arrayType(1);
+                                        if (enumType == ArgClassification.enum_long)
+                                        {
+                                            cob.invokestatic(CD_Utils, "enumToPrimitiveLong",
+                                                    MethodTypeDesc.of(ConstantDescs.CD_long.arrayType(1), ConstantDescs.CD_Object.arrayType(1)));
+                                            argType = ConstantDescs.CD_long.arrayType(1);
+                                        }
+                                        else
+                                            cob.invokestatic(CD_Utils, "enumToPrimitiveInteger",
+                                                    MethodTypeDesc.of(ConstantDescs.CD_int.arrayType(1), ConstantDescs.CD_Object.arrayType(1)));
+                                        keepers.get(ii).tmpvar = nextlocalVarSlot;
+                                        nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, int[].class);
+
+                                        cob.aload(keepers.get(ii).tmpvar);
+
+                                        if (isRefArgReadBackOnly(keepers.get(ii).annotations))
+                                            cob.iconst_1();
+                                        else
+                                            cob.iconst_0();
+                                        cob.invokestatic(CD_Utils, "toMS",
+                                                MethodTypeDesc.of(CD_MemorySegment,
+                                                        CD_SegmentAllocator, argType, ConstantDescs.CD_boolean));
+
+                                    }
                                     default ->
                                         throw new PassportException(varHandling + " not supported as an argument");
                                 }
 
                                 //update all the stored locations of parameters after they've been converted to MemorySegments
-                                used++;
-                                cob.astore(used);
-                                keepers.get(ii).stored = used;
+//                                nextlocalVarSlot++;
+//                                cob.astore(nextlocalVarSlot);
+                                keepers.get(ii).stored = nextlocalVarSlot;
                                 keepers.get(ii).type = ParamType.addressType;
+                                nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, MemorySegment.class);
                             }
 
                             if (withDebug)
                             {
                                 cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
-                                int objArrSlot = ++used;
-                                cob.astore(objArrSlot);
+                                int objArrSlot = nextlocalVarSlot;
+                                nextlocalVarSlot = storeLocalVar(cob, objArrSlot, Object.class);
                                 int i = 0;
                                 for (var k : keepers)
                                 {
@@ -514,15 +635,19 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             //call the native method
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
                             //capture the return of the native method
-                            int returnSlot = used + 1;
+                            int returnSlot = nextlocalVarSlot;
                             var virtMethodRetType = iMethod.getReturnType();
-                            used = storeParam(cob, returnSlot, virtMethodRetType);
+                            if (isLongEnum(virtMethodRetType))
+                                virtMethodRetType = long.class;
+                            else if (isIntEnum(virtMethodRetType) || virtMethodRetType.isEnum())
+                                virtMethodRetType = int.class;
+                            nextlocalVarSlot = storeLocalVar(cob, returnSlot, virtMethodRetType);
 
                             if (withDebug)
                             {
                                 cob.bipush(keepers.size()).anewarray(ConstantDescs.CD_Object);
-                                int objArrSlot = ++used;
-                                cob.astore(objArrSlot);
+                                int objArrSlot = nextlocalVarSlot;
+                                nextlocalVarSlot = storeLocalVar(cob, objArrSlot, Object.class);
                                 int i = 0;
                                 for (var k : keepers)
                                 {
@@ -545,8 +670,8 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     var mtd = MethodTypeDesc.of(cdescString, CD_MemorySegment);
                                     loadParam(cob, returnSlot, iMethod.getReturnType());
                                     cob.invokestatic(CD_Utils, "readString", mtd);
-                                    returnSlot = used;
-                                    storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    returnSlot = nextlocalVarSlot;
+                                    nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
                                 }
                                 case generic_ptr -> {
                                     var sig = MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment);
@@ -554,8 +679,16 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                                     loadParam(cob, returnSlot,  virtMethodRetType);
                                     cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
-                                    returnSlot = used;
-                                    storeParam(cob, returnSlot, iMethod.getReturnType());
+                                    returnSlot = nextlocalVarSlot;
+                                    nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
+                                }
+                                case enum_long,enum_int, enum_ordinal -> {
+                                    cob.getstatic(enumMaps.get(iMethod.getReturnType()));
+                                    ParamKeeper.autoBox(cob, argHandler == enum_long ? long.class : int.class, returnSlot);
+                                    cob.invokevirtual(CD_HashMap, "get", MethodTypeDesc.of(ConstantDescs.CD_Object, ConstantDescs.CD_Object));
+                                    cob.checkcast(toDesc(iMethod.getReturnType()));
+                                    returnSlot = nextlocalVarSlot;
+                                    nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
                                 }
                             }
 
@@ -620,6 +753,27 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                         cob.aload(k.storedOrig).aload(k.stored);
                                         cob.invokevirtual(CD_ErrorCapture, "readAfter",
                                                 MethodTypeDesc.of(ConstantDescs.CD_void, CD_MemorySegment));
+                                    }
+                                    case enum_array -> {
+                                        var etype = k.classtype.getComponentType();
+                                        var enumType = ArgClassification.classify(etype);
+                                        var primitiveType = enumType == enum_long ? ConstantDescs.CD_long.arrayType(1) : ConstantDescs.CD_int.arrayType(1);
+
+                                        cob.aload(k.tmpvar).aload(k.stored);
+                                        cob.invokestatic(CD_Utils, "toArr", MethodTypeDesc.of(ConstantDescs.CD_void, primitiveType, CD_MemorySegment));
+                                        cob.aload(k.tmpvar).aload(k.storedOrig);
+                                        cob.getstatic(enumMaps.get(etype));
+                                        if (enumType == enum_long)
+                                        {
+                                            cob.invokestatic(CD_Utils, "primitiveToEnumLong",
+                                                    MethodTypeDesc.of(ConstantDescs.CD_void, primitiveType,
+                                                            ConstantDescs.CD_Object.arrayType(1), CD_HashMap));
+                                        }
+                                        else {
+                                            cob.invokestatic(CD_Utils, "primitiveToEnumInteger",
+                                                    MethodTypeDesc.of(ConstantDescs.CD_void, primitiveType,
+                                                            ConstantDescs.CD_Object.arrayType(1), CD_HashMap));
+                                        }
                                     }
                                 }
                             }
@@ -719,7 +873,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         for (var mm : classModel.methods())
         {
-            if (!mm.methodName().stringValue().equals("initStructs"))
+            if (!mm.methodName().stringValue().equals("todayTransfer"))
                 continue;
             System.out.println("============================================");
             System.out.println(mm.methodName());

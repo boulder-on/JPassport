@@ -92,6 +92,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
         m_fullClassName = packageName + "." + m_className;
         this.withDebug = withDebug;
         String structLayouts = buildStructLayouts(extraImports);
+        String enumLookups = buildEnumLookups(extraImports);
 
         var verParts = Version.getVersionParts();
 
@@ -141,7 +142,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 buildExtraImports(extraImports),
                 importInterface,
                 m_className, interfaceClass.getSimpleName(),
-                structLayouts,
+                structLayouts + enumLookups,
                 verParts[0], verParts[1], verParts[2],
                 Runtime.version().version().getFirst(),
                 m_className, libName));
@@ -310,6 +311,22 @@ public class PassportWriter<T extends Passport> implements CBConstants
         }
 
         return allStructs.toString();
+    }
+
+    private String buildEnumLookups(Set<Class<?>> records)
+    {
+        StringBuilder sbLookups = new StringBuilder();
+
+        for (Class<?> c : records) {
+            if (!c.isEnum())
+                continue;
+
+            var type = ArgClassification.classify(c);
+            String autoBoxType = type == ArgClassification.enum_long ? "Long" : "Integer";
+            sbLookups.append(String.format("\tprivate static final HashMap<%1$s, Object> %2$sLookup = Utils.buildEnumMap%1$s(%2$s.class);\n", autoBoxType, c.getSimpleName()));
+        }
+
+        return sbLookups.toString();
     }
 
 
@@ -643,6 +660,14 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     strCallReturn = "var ret = (MemorySegment)";
                     strReturn = "return new " + retType.getName() + "(ret);";
                 }
+                case enum_long -> {
+                    strCallReturn = "var ret = (long)";
+                    strReturn = String.format("return (%1$s)%1$sLookup.get(ret);", retType.getSimpleName());
+                }
+                case enum_int, enum_ordinal -> {
+                    strCallReturn = "var ret = (int)";
+                    strReturn = String.format("return (%1$s)%1$sLookup.get(ret);", retType.getSimpleName());
+                }
                 default -> {
                     strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
                     strReturn = "return ret;";
@@ -768,6 +793,37 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     postCall.append(String.format("v%1$d.readAfter(vv%1$d);\n", v));
                     params.append(String.format("vv%1$d,", v));
                 }
+                case enum_long, enum_int -> {
+                    preCall.append(String.format("var vv%1$d = v%1$d.getCValue();\n", v));
+                    params.append("vv").append(v).append(',');
+                }
+                case enum_ordinal -> {
+                    preCall.append(String.format("var vv%1$d = v%1$d.ordinal();\n", v));
+                    params.append("vv").append(v).append(',');
+                }
+                case enum_array -> {
+                    bHasAllocatedMemory = true;
+
+                    var enumType = ArgClassification.classify(parameter.getComponentType());
+                    if (enumType == ArgClassification.enum_long)
+                        preCall.append(String.format("var tmp%1$d = Utils.enumToPrimitiveLong(v%1$d);\n", v));
+                    else
+                        preCall.append(String.format("var tmp%1$d = Utils.enumToPrimitiveInteger(v%1$d);\n", v));
+
+                    preCall.append(String.format("var vv%1$d = Utils.toMS(scope, tmp%1$d, %2$s);\n", v,
+                            isRefArgReadBackOnly(methodArgs[v - 1])));
+                    params.append("vv").append(v).append(',');
+
+                    if (isRefArg)
+                    {
+                        postCall.append(String.format("Utils.toArr(tmp%1$d, vv%1$d);\n", v));
+                        if (enumType == ArgClassification.enum_long)
+                            postCall.append(String.format("Utils.primitiveToEnumLong(tmp%1$d, v%1$d, %2$sLookup);\n", v, parameter.getComponentType().getSimpleName()));
+                        else
+                            postCall.append(String.format("Utils.primitiveToEnumInteger(tmp%1$d, v%1$d, %2$sLookup);\n", v, parameter.getComponentType().getSimpleName()));
+                    }
+                }
+
                 default ->
                     params.append("v").append(v).append(",");
 

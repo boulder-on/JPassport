@@ -122,6 +122,21 @@ union UnionWithArrays
     long long *u_ip;
 };
 
+enum intEnum
+{
+    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
+};
+
+enum longEnum
+{
+    SATURDAY = 0l,
+    SUNDAY = 0xFFFFFFFFF
+};
+
+extern unsigned long long passEnum(enum intEnum ie, enum longEnum le);
+extern enum intEnum todayInt(enum intEnum* ie);
+extern enum longEnum todayLong(enum longEnum* ie);
+extern void todayTransfer(enum intEnum ie, enum intEnum* ie2, enum longEnum le, enum longEnum *le2);
 
 extern double passStruct(struct PassingData* data);
 extern double passComplex(struct ComplexPassing* complex);

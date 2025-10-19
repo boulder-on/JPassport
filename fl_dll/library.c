@@ -625,3 +625,27 @@ void useUnionWithArray(int direction, union UnionWithArrays* withArrays) {
 void useUnionWithArray2(int direction, union UnionWithArrays* withArrays) {
     useUnionWithArray(direction, withArrays);
 }
+
+unsigned long long passEnum(enum intEnum ie, enum longEnum le)
+{
+//    printf("%lld, %lld\n", sizeof(enum intEnum), sizeof(enum longEnum) );
+    return (long long)ie + le;
+}
+
+enum intEnum todayInt(enum intEnum* ie)
+{
+    *ie = FRIDAY;
+    return FRIDAY;
+}
+
+enum longEnum todayLong(enum longEnum* le)
+{
+    *le = SUNDAY;
+    return SUNDAY;
+}
+
+void todayTransfer(enum intEnum ie, enum intEnum* ie2, enum longEnum le, enum longEnum *le2)
+{
+    *ie2 = ie;
+    *le2 = le;
+}

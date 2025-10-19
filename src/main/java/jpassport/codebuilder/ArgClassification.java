@@ -32,7 +32,11 @@ public enum ArgClassification {
     generic_ptr_array,
     memory_block,
     arena,
-    error_capture;
+    error_capture,
+    enum_ordinal,
+    enum_int,
+    enum_long,
+    enum_array;
 
     public static ArgClassification classify(Class<?> arg) {
         return classify(arg, new Annotation[0]);
@@ -52,6 +56,16 @@ public enum ArgClassification {
             return generic_ptr_array;
         if (arg.isArray() && String.class.equals(arg.getComponentType()))
             return string_array;
+        if (arg.isEnum())
+        {
+            if (isLongEnum(arg))
+                return enum_long;
+            if (isIntEnum(arg))
+                return enum_int;
+            return enum_ordinal;
+        }
+        if (arg.isArray() && arg.getComponentType().isEnum())
+            return enum_array;
 
         if (arg.isRecord())
             return record_;
