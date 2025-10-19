@@ -321,9 +321,25 @@ public class PassportFactory
 
     public static List<Method> getDeclaredMethods(Class<?> interfaceClass) {
         Method[] methods = interfaceClass.getDeclaredMethods();
-        return Arrays.stream(methods).
+        List<Method> allMethods = new ArrayList<>(Arrays.asList(methods));
+
+        // Support multiple inheritance of other interfaces that extend Passport
+        var ifc = interfaceClass.getInterfaces();
+        for (var parent : ifc)
+        {
+            //recursively find all methods we need to implement
+            if (parent.isInterface() && isPassport(parent))
+                allMethods.addAll(getDeclaredMethods(parent));
+        }
+
+        return allMethods.stream().
                 filter(method -> !Modifier.isStatic(method.getModifiers())).
                 filter(method -> !method.isDefault()).toList();
+    }
+
+    private static boolean isPassport(Class<?> c)
+    {
+        return Arrays.asList(c.getInterfaces()).contains(Passport.class);
     }
 
     static List<Field> getDeclaredNames(Class<?> interfaceClass) {

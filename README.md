@@ -699,6 +699,7 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
   - Union support
   - enum support
   - DebugPassport added so that you can set breakpoints in the generated code.
+  - Added support for extending other interfaces that extend Passport
   - Improved efficiency of arrays of structs
   - For critical methods, arrays are passed as java heap memory
   - Added direct jextract and JNA Direct performance comparison

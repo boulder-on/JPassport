@@ -279,9 +279,8 @@ public interface CBConstants {
 
             if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
                 extraImports.add(retType);
-            Arrays.stream(params).filter(Class::isRecord).forEach(extraImports::add);
-            Arrays.stream(params).filter(Class::isEnum).forEach(extraImports::add);
-            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(Class::isRecord).forEach(extraImports::add);
+            Arrays.stream(params).filter(c -> c.isRecord() || c.isEnum()).forEach(extraImports::add);
+            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(c -> c.isRecord() || c.isEnum()).forEach(extraImports::add);
             Arrays.stream(params).filter(CBConstants::isGenericPtr).forEach(extraImports::add);
         }
 
