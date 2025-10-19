@@ -14,6 +14,8 @@ package jpassport;
 
 import jpassport.annotations.Array;
 import jpassport.annotations.Ptr;
+import jpassport.enums.EnumInt;
+import jpassport.enums.EnumLong;
 import jpassport.pointers.GenericPointer;
 import jpassport.pointers.MemoryBlock;
 
@@ -1166,6 +1168,81 @@ public class Utils {
         {
             throw new Error(th);
         }
+    }
+
+    public static HashMap<Long, Object> buildEnumMapLong(Class<? extends EnumLong> enumClass)
+    {
+        var enumValues = enumClass.getEnumConstants();
+        HashMap<Long, Object> ret = new HashMap<>();
+
+        for (var eVal: enumValues)
+        {
+            if (eVal instanceof EnumLong el)
+                ret.put(el.getCValue(), eVal);
+        }
+        return ret;
+    }
+
+    public static long[] enumToPrimitiveLong(Object[] vals)
+    {
+        if (vals == null)
+            return  null;
+        long[] ret = new long[vals.length];
+        for (int n = 0; n < vals.length; ++n)
+        {
+            switch (vals[n]) {
+                case null -> ret[n] = -1;
+                case EnumLong el -> ret[n] = el.getCValue();
+                default ->
+                        throw new PassportException("Unknown object cannot be converted to C Enum value. " + vals[n]);
+            }
+        }
+        return ret;
+    }
+
+    public static void primitiveToEnumLong(long[] vals, Object[] ret, HashMap<Long, Object> enumMap)
+    {
+        for (int n = 0; n < vals.length; ++n)
+            ret[n] = enumMap.getOrDefault(vals[n], null);
+    }
+
+    public static int[] enumToPrimitiveInteger(Object[] vals)
+    {
+        if (vals == null)
+            return  null;
+        int[] ret = new int[vals.length];
+        for (int n = 0; n < vals.length; ++n)
+        {
+            switch (vals[n]) {
+                case null -> ret[n] = -1;
+                case EnumInt el -> ret[n] = el.getCValue();
+                case Enum<?> e -> ret[n] = e.ordinal();
+                default ->
+                        throw new PassportException("Unknown object cannot be converted to C Enum value. " + vals[n]);
+            }
+        }
+        return ret;
+    }
+
+    public static HashMap<Integer, Object> buildEnumMapInteger(Class<?> enumClass)
+    {
+        var enumValues = enumClass.getEnumConstants();
+        HashMap<Integer, Object> ret = new HashMap<>();
+
+        for (var eVal: enumValues)
+        {
+            if (eVal instanceof EnumInt ei)
+                ret.put(ei.getCValue(), eVal);
+            else if (eVal instanceof Enum<?> ee)
+                ret.put(ee.ordinal(), ee);
+        }
+        return ret;
+    }
+
+    public static void primitiveToEnumInteger(int[] vals, Object[] ret, HashMap<Integer, Object> enumMap)
+    {
+        for (int n = 0; n < vals.length; ++n)
+            ret[n] = enumMap.getOrDefault(vals[n], null);
     }
 
     public static void structBuilt(Passport p, MemorySegment mem, MemoryLayout layout, String name, Object arg)
