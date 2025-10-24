@@ -329,6 +329,11 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             cob.invokevirtual(methodTypeDesc, "invokeExact", methodSigVirt );
                             int returnSlot = nextlocalVarSlot;
                             var virtMethodRetType = iMethod.getReturnType();
+                            if (isLongEnum(virtMethodRetType))
+                                virtMethodRetType = long.class;
+                            else if (isIntEnum(virtMethodRetType) || virtMethodRetType.isEnum())
+                                virtMethodRetType = int.class;
+
                             nextlocalVarSlot = storeLocalVar(cob, returnSlot, virtMethodRetType);
 
                             if (withDebug)
@@ -367,7 +372,15 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
                                     loadParam(cob, returnSlot,  virtMethodRetType);
                                     cob.invokespecial(toDesc(iMethod.getReturnType()), ConstantDescs.INIT_NAME, sig);
-                                    returnSlot = nextlocalVarSlot+1;
+                                    returnSlot = nextlocalVarSlot;
+                                    nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
+                                }
+                                case enum_long,enum_int, enum_ordinal -> {
+                                    cob.getstatic(enumMaps.get(iMethod.getReturnType()));
+                                    ParamKeeper.autoBox(cob, argHandler == enum_long ? long.class : int.class, returnSlot);
+                                    cob.invokevirtual(CD_HashMap, "get", MethodTypeDesc.of(ConstantDescs.CD_Object, ConstantDescs.CD_Object));
+                                    cob.checkcast(toDesc(iMethod.getReturnType()));
+                                    returnSlot = nextlocalVarSlot;
                                     nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
                                 }
                             }
@@ -873,7 +886,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         for (var mm : classModel.methods())
         {
-            if (!mm.methodName().stringValue().equals("todayTransfer"))
+            if (!mm.methodName().stringValue().equals("toRetEnum"))
                 continue;
             System.out.println("============================================");
             System.out.println(mm.methodName());

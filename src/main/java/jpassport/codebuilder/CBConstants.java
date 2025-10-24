@@ -271,17 +271,20 @@ public interface CBConstants {
             Class<?>[] params = m.getParameterTypes();
 
             if (!isValidArgType(retType))
-                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + retType.getSimpleName() + " not supported.");
+                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, Records or Enum. " + retType.getSimpleName() + " not supported.");
 
             List<Class<?>> invalid = Arrays.stream(params).filter(p -> !isValidArgType(p)).toList();
             if (!invalid.isEmpty())
-                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, or Records. " + invalid.get(0).getSimpleName() + " not supported.");
+                throw new PassportException(m.getName() + ". Types in the interface must by primitive, arrays of primitives, String, Records or Enum. " + invalid.get(0).getSimpleName() + " not supported.");
 
             if (retType.isRecord() || (retType.isArray() && retType.getComponentType().isRecord()) || isGenericPtr(retType))
                 extraImports.add(retType);
             Arrays.stream(params).filter(c -> c.isRecord() || c.isEnum()).forEach(extraImports::add);
             Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(c -> c.isRecord() || c.isEnum()).forEach(extraImports::add);
             Arrays.stream(params).filter(CBConstants::isGenericPtr).forEach(extraImports::add);
+
+            if (retType.isEnum())
+                extraImports.add(retType);
         }
 
         extraImports.remove(String.class);

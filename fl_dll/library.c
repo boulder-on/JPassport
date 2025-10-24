@@ -649,3 +649,8 @@ void todayTransfer(enum intEnum ie, enum intEnum* ie2, enum longEnum le, enum lo
     *ie2 = ie;
     *le2 = le;
 }
+
+enum retEnum toRetEnum(int v)
+{
+    return v;
+}

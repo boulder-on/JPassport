@@ -41,12 +41,18 @@ public class TestEnums {
         public static longEnum[] ptr(longEnum e) {return new longEnum[]{e}; }
     };
 
+    public enum retEnum
+    {
+        value0, value1, value2
+    };
+
     public interface EnumLink extends Passport
     {
         long passEnum(intEnum ie, longEnum le);
         intEnum todayInt(@RefArg intEnum[] ie);
         longEnum todayLong(@RefArg longEnum[] ie);
         void todayTransfer(intEnum ie, @RefArg intEnum[] ie2, longEnum le, @RefArg longEnum[] le2);
+        retEnum toRetEnum(int v);
     }
 
     record Link (PassType type, EnumLink link) {}
@@ -92,6 +98,18 @@ public class TestEnums {
             link.link.todayTransfer(intEnum.THURSDAY, ptrToday, longEnum.SUNDAY, ptrTodayL);
             assertEquals(intEnum.THURSDAY, ptrToday[0]);
             assertEquals(longEnum.SUNDAY, ptrTodayL[0]);
+        }
+    }
+
+    @Test
+    public void testReturnEnum()
+    {
+        for (var link : PassingEnums)
+        {
+            var ret = link.link.toRetEnum(0);
+            assertEquals(retEnum.value0, ret);
+            ret = link.link.toRetEnum(2);
+            assertEquals(retEnum.value2, ret);
         }
     }
 

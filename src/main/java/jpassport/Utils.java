@@ -753,8 +753,13 @@ public class Utils {
 
             // If the next piece of memory we are adding crosses the byte alignement barrier
             // then we need to pad the struct to alow byte alignment
-            if (curSize + nextItemSize > nextBarrier && nextBarrier - curSize > 0)
+//            if ((curSize + nextItemSize) % byteBarrier != 0)
+//                memLayout.add(MemoryLayout.paddingLayout((curSize + nextItemSize) % byteBarrier));
+//            if (curSize + nextItemSize > nextBarrier && nextBarrier - curSize > 0)
+//                memLayout.add(MemoryLayout.paddingLayout(nextBarrier - curSize));
+            if (curSize + nextItemSize > nextBarrier && (curSize + nextItemSize ) % byteBarrier != 0 && nextBarrier - curSize > 0)
                 memLayout.add(MemoryLayout.paddingLayout(nextBarrier - curSize));
+
             memLayout.add(layout[n]);
 
             curSize = memLayout.stream().mapToLong(MemoryLayout::byteSize).sum();
