@@ -334,4 +334,28 @@ public class TestJPassport
         }
     }
 
+    @Test
+    public void testBooleans()
+    {
+        for (var testFL : testClass) {
+
+            assertEquals(true, testFL.link.isTrue(true));
+            assertEquals(false, testFL.link.isTrue(false));
+
+            boolean[] arr1 = new boolean[4];
+            testFL.link.stripe(arr1.length, arr1);
+            assertArrayEquals(new boolean[]{true, false, true, false}, arr1);
+
+            arr1 = new boolean[] {true, true, false};
+            boolean[] arr2 = new boolean[] {true, true, false};
+            boolean[] arr3 = new boolean[] {true, false, false};
+            boolean[] ret = new boolean[1];
+
+            testFL.link.compareBool(arr1.length, arr1, arr2, ret);
+            assertTrue(ret[0]);
+            testFL.link.compareBool(arr1.length, arr1, arr3, ret);
+            assertFalse(ret[0]);
+        }
+
+    }
 }

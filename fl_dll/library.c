@@ -654,3 +654,29 @@ enum retEnum toRetEnum(int v)
 {
     return v;
 }
+
+bool isTrue(bool b)
+{
+    return b;
+}
+
+void stripe(int count, bool* vals)
+{
+    for (int n = 0; n < count; ++n)
+        vals[n] = (n % 2 == 0) ? true : false;
+}
+
+bool compareBool(int count, const bool* b1,const bool* b2, bool* ret)
+{
+    ret[0] = true;
+
+    for (int n = 0; n < count; ++n)
+    {
+        if (b1[n] != b2[n])
+        {
+            ret[0] = false;
+            break;
+        }
+    }
+    return ret[0];
+}

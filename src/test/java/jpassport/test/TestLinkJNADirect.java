@@ -261,6 +261,14 @@ public class TestLinkJNADirect
         {
 
         }
+        public boolean isTrue(boolean b){ return b;}
+        public void stripe(int count,  @RefArg boolean[] vals){
+
+        }
+        public boolean compareBool(int count, boolean[] b1, boolean[] b2, @RefArg boolean[] ret)
+        {
+            return true;
+        }
 
 
     }

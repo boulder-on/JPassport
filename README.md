@@ -698,6 +698,7 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
 - 1.3.1-24
   - Fixed a bug where if an enum value was only used as a return and never an argument then class generation caused an exception
   - Fixed a bug in the calculation of struct sizes
+  - Added support for arrays of booleans as arguments
 - 1.3.0-24
   - Union support
   - enum support

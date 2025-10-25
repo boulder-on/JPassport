@@ -95,4 +95,9 @@ public interface TestLink extends Passport, Library {
     Pointer PassPointers(Pointer hMem);
 
     void setAnError(ErrorCapture errs, int errval);
+
+    boolean isTrue(boolean b);
+    void stripe(int count,  @RefArg boolean[] vals);
+    boolean compareBool(int count, boolean[] b1, boolean[] b2, @RefArg boolean[] ret);
+
 }

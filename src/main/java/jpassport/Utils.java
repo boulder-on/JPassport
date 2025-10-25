@@ -359,6 +359,54 @@ public class Utils {
         return slice(seg, addr, origArray.length * JAVA_SHORT.byteSize()).toArray(JAVA_SHORT);
     }
 
+    /* Boolean ///////////////////////////////////////////////////////////////// */
+
+    public static MemorySegment toMS(SegmentAllocator scope, boolean[] arr, boolean isReadBackOnly) {
+        if (arr == null)
+            return MemorySegment.NULL;
+        return toMS(scope, convert(arr), isReadBackOnly);
+    }
+
+    public static MemorySegment toMS(boolean[] arr) {
+        if (arr == null)
+            return MemorySegment.NULL;
+        return MemorySegment.ofArray(convert(arr));
+    }
+
+    public static void toArr(boolean[] arr, MemorySegment segment) {
+        if (arr == null)
+            return;
+
+        byte[] data = new byte[arr.length];
+        toArr(data, segment);
+        for (int n = 0; n < arr.length; ++n)
+            arr[n] = data[n] > 0;
+
+//        MemorySegment.copy(segment, JAVA_BOOLEAN, 0, arr, 0, arr.length);
+    }
+
+    public static boolean[] toArr(MemorySegment seg, MemorySegment addr, boolean[] origArray) {
+        if (MemorySegment.NULL.equals(addr) || origArray == null)
+            return null;
+
+        byte[] arr = slice(seg, addr, origArray.length * JAVA_BYTE.byteSize()).toArray(JAVA_BYTE);
+        boolean[] ret = new boolean[arr.length];
+        for (int n = 0; n < ret.length; ++n)
+            ret[n] = arr[n] > 0;
+        return ret;
+    }
+
+    private static byte[] convert(boolean[] arr)
+    {
+        if (arr == null)
+            return null;
+
+        byte[] converted = new byte[arr.length];
+        for (int n = 0; n < arr.length; ++n)
+            converted[n] = arr[n] ? (byte)1 : (byte)0;
+
+        return converted;
+    }
 
     /* Byte ///////////////////////////////////////////////////////////////// */
 
@@ -753,10 +801,6 @@ public class Utils {
 
             // If the next piece of memory we are adding crosses the byte alignement barrier
             // then we need to pad the struct to alow byte alignment
-//            if ((curSize + nextItemSize) % byteBarrier != 0)
-//                memLayout.add(MemoryLayout.paddingLayout((curSize + nextItemSize) % byteBarrier));
-//            if (curSize + nextItemSize > nextBarrier && nextBarrier - curSize > 0)
-//                memLayout.add(MemoryLayout.paddingLayout(nextBarrier - curSize));
             if (curSize + nextItemSize > nextBarrier && (curSize + nextItemSize ) % byteBarrier != 0 && nextBarrier - curSize > 0)
                 memLayout.add(MemoryLayout.paddingLayout(nextBarrier - curSize));
 

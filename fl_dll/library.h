@@ -172,4 +172,7 @@ extern void useSimpleUnion2(int idxSrc, int idxDest, union SimpleUnion* simple);
 extern void useUnionWithStruct2(struct PassingData *srcVals, union UnionWithStruct* withStruct);
 extern void useUnionWithArray2(int direction, union UnionWithArrays* withArrays);
 
+extern bool isTrue(bool b);
+extern void stripe(int count, bool* vals);
+extern bool compareBool(int count, const bool* b1, const bool* b2, bool* ret);
 #endif //FL_DLL_LIBRARY_H
