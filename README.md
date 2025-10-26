@@ -635,6 +635,7 @@ JPassport uses annotations as code generation hints. The available annotations a
 | RefArg (read_back_only=true) | Function argument | If you only need to pass a blank memory space for a method to fill, use this optimization, otherwise the values in the array are copied to memory that is passed to C. |
 | StructPadding                | Record members | See the Javadoc or the above section on structs and records.                                                                                                           |
 | Critical                     | Methods  | Removes some overhead for calling a native method. Cannot be used when callbacks are used. See the JDK's Linker.Option.critical for more details.                      |
+| NativeName                   | Methods | Allows you to specify the name of the native function your interface method maps to, in the case that it does not simply map to the interface method name              |
 NOTE: Methods marked with @Critical and that pass primitive arrays will pass the Java heap version of the array
 directly to native code. Any changes to the primitive array in native code will be mirrored in Java. As such, @Critical methods with 
 a primitive array MUST mark the array as @RefArg, otherwise an exception will be thrown.
@@ -695,6 +696,8 @@ JPassport itself only requires **Java 24 or later** to build and run. There are 
 
 
 # Release Notes
+- 1.4.0-24
+  - Added NativeName annotation to allow remapping of native functions to a different name in your interface
 - 1.3.1-24
   - Fixed a bug where if an enum value was only used as a return and never an argument then class generation caused an exception
   - Fixed a bug in the calculation of struct sizes

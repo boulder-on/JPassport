@@ -32,6 +32,11 @@ public class PureJava implements TestLink
 
     }
 
+    public double sumDoubles(double d, double d2)
+    {
+        return sumD(d, d2);
+    }
+
     @Override
     public double sumD(double d, double d2) {
         return d + d2;

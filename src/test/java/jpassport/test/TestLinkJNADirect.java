@@ -58,6 +58,10 @@ public class TestLinkJNADirect
 
         }
 
+        public double sumDoubles(double d, double d2)
+        {
+            return sumD(d, d2);
+        }
 
 
         @Override

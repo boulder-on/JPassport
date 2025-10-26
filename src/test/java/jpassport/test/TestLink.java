@@ -13,14 +13,11 @@ package jpassport.test;
 
 import com.sun.jna.Library;
 import jpassport.ErrorCapture;
-import jpassport.annotations.Critical;
+import jpassport.annotations.*;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.NamedLookup;
 import jpassport.Passport;
 import jpassport.pointers.Pointer;
-import jpassport.annotations.NotRequired;
-import jpassport.annotations.PtrPtrArg;
-import jpassport.annotations.RefArg;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -41,6 +38,10 @@ public interface TestLink extends Passport, Library {
     void functionDoesNotExist(double v);
 
     double sumD(double d, double d2);
+
+    @NativeName(name="sumD")
+    double sumDoubles(double d, double d2);
+
     double sumArrD(@RefArg double[] d, int len);
     @Critical
     double sumDCritical(double d, double d2);

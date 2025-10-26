@@ -358,4 +358,13 @@ public class TestJPassport
         }
 
     }
+
+    @Test
+    public void testFunctionRenaming()
+    {
+        for (var testFL : testClass) {
+            assertEquals(testFL.link.sumD(4, 5), testFL.link.sumDoubles(4, 5));
+        }
+
+    }
 }

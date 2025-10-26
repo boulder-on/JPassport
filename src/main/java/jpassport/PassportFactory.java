@@ -13,6 +13,7 @@ package jpassport;
 
 
 import jpassport.annotations.NativeLibrary;
+import jpassport.annotations.NativeName;
 import jpassport.annotations.NotRequired;
 import jpassport.annotations.Critical;
 import jpassport.codebuilder.ArgClassification;
@@ -194,7 +195,14 @@ public class PassportFactory
             else
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 
-            var addr = lookup.find(method.getName()).orElse(null);
+            String nativeName = method.getName();
+            if (method.isAnnotationPresent(NativeName.class))
+            {
+                var nn = method.getAnnotation(NativeName.class);
+                nativeName = nn.name();
+            }
+
+            var addr = lookup.find(nativeName).orElse(null);
             if (addr == null && method.getAnnotation(NotRequired.class) == null)
                 throw new PassportException("Could not find method in library: " + method.getName());
 
