@@ -1,0 +1,63 @@
+# Release Notes
+- 1.4.0-24
+    - Added NativeName annotation to allow remapping of native functions to a different name in your interface
+- 1.3.1-24
+    - Fixed a bug where if an enum value was only used as a return and never an argument then class generation caused an exception
+    - Fixed a bug in the calculation of struct sizes
+    - Added support for arrays of booleans as arguments
+- 1.3.0-24
+    - Union support
+    - enum support
+    - DebugPassport added so that you can set breakpoints in the generated code.
+    - Added support for extending other interfaces that extend Passport
+    - Improved efficiency of arrays of structs
+    - For critical methods, arrays are passed as java heap memory
+    - Added direct jextract and JNA Direct performance comparison
+    - Made all method handles static final
+    - Fixed handling of nulls in structs/records
+    - Improved efficiency of null handling
+    - Removed dead code
+    - Updated code generation to work with inner classes
+    - Removed m_ from generated code variable names
+- 1.2.0-24
+    - Moved all record/struct reading and writing to the Classfile API instead of reflection (for speed)
+    - Added MemoryBlock as a valid struct member
+    - Code reorganization to hide classes that are not part of the API that a programmer needs to care about.
+    - Fixed some issue passing booleans.
+    - Added ErrorCapture
+    - Cleanup the code that writes a java class (PassportFactory.link_written())
+    - Deprecated the proxy implementation
+    - Added support for arrays of structs > length 1
+    - Added support for arrays of pointers to structs.
+    - Fixed an issue calculating the size of a struct
+- 1.1.0-24
+    - Add support for building classes with the Classfile API
+- 1.0.1-22
+    - Fixed an issue where System libraries could not be loaded (ex. malloc).
+- 1.0.0-22
+    - Full 1.0 since Java 22 has gone GA and the foreign function API is now official
+    - Added MemoryBlock as a method argument to pass allocated memory to a foreign function.
+    - An Arena can now be an argument to a method. The Arena will be used for allocations during the call. In some cases this may be an optimization.
+- 0.7.0-22
+    - Support Java 22
+    - Added support for arrays of GenericPointer
+    - Added Pointer as a sub-class of GenericPointer for better JNA compatability
+    - Added the ability to use a Proxy object rather than writing a full new class
+        - Using a Proxy is faster to create, but slower to invoke. Proxies are much slower than invoking a normal method, but the code to handle the native call is much less optimized as well.
+    - The RefArg annotation can be added to an interface to indicate that all arrays should be read back after a call.
+- 0.6.0-21
+    - Support Java 21
+    - Make specifying byte padding in records/structs optional.
+- 0.6
+    - Added the version of Java the library uses to the version (0.6.0-[java version])
+    - Added GenericPointer returns and method arguments.
+    - Added @NotRequired annotation for methods that may not exist.
+    - Default functions in the interface are now ignored.
+- 0.5
+    - Added the GenericPointer class to help with returning things like win32 HANDLEs
+    - Added RefArg(read_back_only = true) to optimize the returning of reference arguments.
+- 0.5
+    - Fixed and issue where zero argument methods would not compile
+    - Fixed issues where passing and receiving null values caused their own NullPointerExceptions
+- 0.4
+    - Original release
