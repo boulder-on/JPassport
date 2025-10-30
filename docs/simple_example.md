@@ -51,3 +51,8 @@ Once the class is compiled, to use it:
 ```java
 Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
 ```
+## Example code for primitives and memory blocks
+- [primitive_examples.c](../fl_dll/primitive_examples.c)
+- [primitive_examples.h](../fl_dll/primitive_examples.h)
+- [Java interface - TestLink.java](../src/test/java/jpassport/test/TestLink.java)
+- [JUnit tests - TestJPassport.java](../src/test/java/jpassport/test/TestJPassport.java)

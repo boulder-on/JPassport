@@ -5,9 +5,8 @@ JPassport works like [Java Native Access (JNA)](https://github.com/java-native-a
 Similar to JNA, you declare a Java interface that is bound to the external C library using method names.  
 The goal of this project is to provide a JNA-like experience for anyone wanting to access native code.
 
-JNA is a much more mature project than this one and, it supports Java 8 and earlier. I am NOT a JNA expert.
-JPassport was able to build on new language features to make this library (hopefully) simpler to use 
-(ex. I think my struct support is cleaner because I could rely on the formal structure of records). 
+JNA is a much more mature project than this one and, it supports Java 8 and earlier. 
+JPassport was able to build on new language features to make this library (hopefully) simpler to use.
 If you cannot use a recent Java version then JNA is your best bet. However, if you can use a recent JRE then 
 this library is much lighter weight than JNA (100 kb vs 3+ MB) and the programing should be simpler
 for many cases. I also hope that in simple cases, changing to JPassport from existing JNA code shouldn't be
@@ -17,13 +16,15 @@ The FFM team maintain a tool called [JExtract](https://github.com/openjdk/panama
 Java code to access the native code described in the header. In order to use the code it generates you need 
 to be somewhat familiar with FFM and, if I understand correctly,
 for proper struct support you need to have it generate code for each platform you want to support. 
-In terms of performance, JExtract and JPassport are nearly identical. Since JExtract leaves you dealing
+In terms of [performance](docs/performance.md), JExtract and JPassport are nearly identical. Since JExtract leaves you dealing
 directly with FFM calls it could get performance gains by directly optimizing the calls you make (ex.
 you do not need to read back all fields in a struct). 
 
 Whether jextract or JPassport is a better tool for you depends on a) how large is your C API, b) where do 
 you want the cognitive load. For large header files, jextract will create the code very quickly and
-it will be correct (i.e. argument ordering will always be right). Since you need to build the interface
+it will be correct (i.e. argument ordering will always be right). However, in my experiment using jextract
+on [blis](https://github.com/flame/blis) I found that jextract produced a truly unusable API (>125k lines of code). 
+Since you need to build the interface
 file and records yourself in JPassport, you could make a mistake. Jextract puts the cognitive load on every
 function call you make, since you need to know lots about FFM to use the generated code. JPassport puts
 the cognitive load on building the interfaces and records. When using JPassport you do not need to know

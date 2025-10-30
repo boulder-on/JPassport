@@ -39,3 +39,6 @@ ffmImpl.passComplex(passComplex);
 ```
 The DebugPassport interface allows you to set break points in code, or just print statements, so you can see where
 things might be going wrong. Utils.memToString() can be a handy function to see what it in the native memory.
+
+## Example code
+- [JUnit tests - TestDebug.java](../src/test/java/jpassport/test/TestDebug.java)

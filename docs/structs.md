@@ -65,3 +65,9 @@ Structs often require padding bytes to align on 4 or 8 byte boundaries. JPasspor
 calculates this padding automatically based on your platform. However, if it's done
 wrong then you can use the  @StructPadding annotation to implement custom padding.
 You can also you this annotation to ignore sections of a struct you don't care about.
+
+## Example code
+- [struct_examples.c](../fl_dll/struct_examples.c)
+- [struct_examples.h](../fl_dll/struct_examples.h)
+- [Java Interface - TestStructCalls.java](../src/test/java/jpassport/test/structs/TestStructCalls.java)
+- [JUnit tests - TestUsingStructs.java](../src/test/java/jpassport/test/structs/TestUsingStructs.java)

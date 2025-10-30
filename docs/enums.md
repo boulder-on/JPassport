@@ -87,3 +87,8 @@ public interface EnumLink extends Passport
 ```
 
 NOTE: Enums are not yet supported in structs.
+
+## Example code
+- [enum_examples.c](../fl_dll/enum_examples.c)
+- [enum_examples.h](../fl_dll/enum_examples.h)
+- [JUnit tests - TestEnums.java](../src/test/java/jpassport/test/TestEnums.java)

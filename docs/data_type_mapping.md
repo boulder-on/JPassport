@@ -66,3 +66,9 @@ Without the @RefArg, when ref[] is returned it will not have been updated.
 
 @RefArg can be used to annotate your entire interface. In that case, all methods
 that use arrays will be handled as reference arguments.
+
+## Example code for primitives and memory blocks
+- [primitive_examples.c](../fl_dll/primitive_examples.c)
+- [primitive_examples.h](../fl_dll/primitive_examples.h)
+- [Java interface - TestLink.java](../src/test/java/jpassport/test/TestLink.java)
+- [JUnit tests - TestJPassport.java](../src/test/java/jpassport/test/TestJPassport.java)

@@ -322,17 +322,6 @@ public class TestJPassport
 
     }
 
-    @Test
-    public void testErrorCapture()
-    {
-        for (var testFL : testClass) {
-            ErrorCapture ec = new ErrorCapture();
-            testFL.link.setAnError(ec, 10);
-
-            if (Utils.getPlatform() != Utils.Platform.Windows)
-                assertEquals(10, ec.getError("errno"));
-        }
-    }
 
     @Test
     public void testBooleans()

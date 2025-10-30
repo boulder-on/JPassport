@@ -57,3 +57,8 @@ Means: do not write any union fields to native memory, but when reading back,
 get the int u_i field (the 1 in the call is zero based, so the second field).
 
 The same rules and annotations for records/structs work for records/unions.
+
+## Example code
+- [union_examples.c](../fl_dll/union_examples.c)
+- [union_examples.h](../fl_dll/union_examples.h)
+- [JUnit tests - TestUnions.java](../src/test/java/jpassport/test/unions/TestUnions.java)

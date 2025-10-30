@@ -261,10 +261,6 @@ public class TestLinkJNADirect
             return hMem;
         }
 
-        public void setAnError(ErrorCapture errs, int errval)
-        {
-
-        }
         public boolean isTrue(boolean b){ return b;}
         public void stripe(int count,  @RefArg boolean[] vals){
 

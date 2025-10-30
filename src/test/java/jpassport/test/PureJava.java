@@ -313,10 +313,6 @@ public class PureJava implements TestLink
         return hMem;
     }
 
-    public void setAnError(ErrorCapture errs, int errval)
-    {
-
-    }
 
     public double passStruct(PassingDataJP[] data)
     {

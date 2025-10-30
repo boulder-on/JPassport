@@ -32,3 +32,8 @@ errors that the JVM found before returning from the native call.
 NOTE: The errors that are returned are done by name. Each platform will
 have different names available. Calling ErrorCapture.toString() will show
 you all that are available.
+
+## Example code
+- [error_capture_example.c](../fl_dll/error_capture_example.c)
+- [error_capture_example.h](../fl_dll/error_capture_example.h)
+- [JUnit tests - TestErrCapture.java](../src/test/java/jpassport/test/TestErrCapture.java)
