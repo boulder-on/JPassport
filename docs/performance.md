@@ -81,4 +81,5 @@ of the code to the programmer.
 
 (Tests were run on Windows 11 with an i7-10850H.)
 
-
+## Code
+- [PassportJMH](../src/test/java/jpassport/test/comparison/CPassportJMH.java)

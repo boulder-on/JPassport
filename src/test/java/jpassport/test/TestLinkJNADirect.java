@@ -12,11 +12,10 @@
 package jpassport.test;
 
 import com.sun.jna.Native;
-import jpassport.ErrorCapture;
 import jpassport.pointers.MemoryBlock;
 import jpassport.pointers.Pointer;
 import jpassport.annotations.RefArg;
-import jpassport.test.performance.PerfTest;
+import jpassport.test.comparison.PerfTest;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;

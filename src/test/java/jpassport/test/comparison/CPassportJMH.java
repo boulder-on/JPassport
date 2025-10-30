@@ -5,7 +5,6 @@ import jpassport.test.PureJava;
 import jpassport.test.TestLinkJNADirect;
 import jpassport.test.extracted.PassingData;
 import jpassport.test.extracted.library_h;
-import jpassport.test.performance.PerfTest;
 import jpassport.test.structs.PassingArrays;
 import org.openjdk.jmh.annotations.*;
 

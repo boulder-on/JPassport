@@ -9,13 +9,11 @@
  *
  * A copy is also included in the downloadable source code.
  */
-package jpassport.test.performance;
+package jpassport.test.comparison;
 
 import com.sun.jna.Library;
 import jpassport.Passport;
 import jpassport.annotations.Critical;
-import jpassport.annotations.RefArg;
-import jpassport.test.structs.ComplexStruct;
 
 public interface PerfTest extends Passport, Library {
     @Critical
