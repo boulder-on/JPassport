@@ -92,7 +92,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             clb.withInterfaces(entry, mainInterface);
             clb.withFlags(ClassFile.ACC_PUBLIC);
 
-            var structBuilder = new StructRWBuilder<>(interfaceClass, thisClassDesc, withDebug);
+            buildEnumMaps(clb, interfaceMethods);
+
+            var structBuilder = new StructRWBuilder<>(interfaceClass, thisClassDesc, enumMaps, withDebug);
             structBuilder.createRecordAccessors(clb);
 
             var classDescHM = toDesc(HashMap.class);
@@ -129,7 +131,6 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     .return_()));
 
             buildMethodHandleVariables(clb, interfaceMethods);
-            buildEnumMaps(clb, interfaceMethods);
             buildStaticInitialization(interfaceClass, clb);
 
             //Build all implementations of the interface methods
@@ -886,7 +887,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
 
         for (var mm : classModel.methods())
         {
-            if (!mm.methodName().stringValue().equals("toRetEnum"))
+            if (!mm.methodName().stringValue().equals("readEnumSimpleArraysStruct"))
                 continue;
             System.out.println("============================================");
             System.out.println(mm.methodName());

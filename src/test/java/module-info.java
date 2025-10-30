@@ -13,7 +13,6 @@ module test.passport {
     requires jdk.jdi;
 
     exports jpassport.test;
-    exports jpassport.test.performance;
     exports jpassport.test.structs;
     exports jpassport.test.callback;
     exports jpassport.test.comparison;

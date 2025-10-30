@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 
+import static jpassport.codebuilder.ArgClassification.enum_long;
 import static jpassport.codebuilder.CBConstants.*;
 
 /***
@@ -252,6 +253,10 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 {
                     case primitive ->
                         sbLayout.append(String.format("\t\t%s.withName(\"%s\"),\n",typeToCName.get(type), f.getName()));
+                    case enum_ordinal, enum_int ->
+                        sbLayout.append(String.format("\t\t%s.withName(\"%s\"),\n",typeToCName.get(int.class), f.getName()));
+                    case enum_long ->
+                        sbLayout.append(String.format("\t\t%s.withName(\"%s\"),\n",typeToCName.get(long.class), f.getName()));
 
                     case record_ -> {
                         requiresMap.get(c).add(type);
@@ -267,15 +272,21 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         int length = ((Array) arrays[0]).length();
                         sbLayout.append(String.format("\t\tMemoryLayout.sequenceLayout(%d, %sLayout).withName(\"%s\"),\n", length, type.getComponentType().getSimpleName(), f.getName()));
                     }
-                    case string_, mem_segment, generic_ptr, memory_block, primitive_array_ptr, record_array_ptr ->
+                    case string_, mem_segment, generic_ptr, memory_block, primitive_array_ptr, record_array_ptr, enum_array_ptr ->
                         sbLayout.append(String.format("\t\tADDRESS.withName(\"%s\"),\n", f.getName()));
 
-                    case primitive_array -> {
+                    case primitive_array, enum_array -> {
                         Annotation[] arrays = f.getAnnotationsByType(Array.class);
                         if (arrays.length == 0)
                             throw new PassportException("Arrays in structs must be annotated with Array or Ptr: " + c.getSimpleName() + "." + f.getName());
                         int length = ((Array) arrays[0]).length();
                         Class<?> arrType = type.getComponentType();
+                        //an array of enums is treated like an array of ints or longs
+                        if (arrType.isEnum())
+                        {
+                            var enumType = ArgClassification.classify(type.getComponentType());
+                            arrType = enumType == enum_long ? long.class : int.class;
+                        }
 
                         sbLayout.append(String.format("\t\tMemoryLayout.sequenceLayout(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
                     }
@@ -322,7 +333,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 continue;
 
             var type = ArgClassification.classify(c);
-            String autoBoxType = type == ArgClassification.enum_long ? "Long" : "Integer";
+            String autoBoxType = type == enum_long ? "Long" : "Integer";
             sbLookups.append(String.format("\tprivate static final HashMap<%1$s, Object> %2$sLookup = Utils.buildEnumMap%1$s(%2$s.class);\n", autoBoxType, c.getSimpleName()));
         }
 
@@ -457,6 +468,29 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                     case memory_block ->
                             sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s().toPtr(scope));\n", f.getName(), offset));
+                    case enum_ordinal ->
+                            sb.append(String.format("\t\tmemStruct.set(JAVA_%2$s, %3$s, rec.%1$s().ordinal());\n", f.getName(), typeToName.get(int.class).toUpperCase(), offset));
+                    case enum_int ->
+                            sb.append(String.format("\t\tmemStruct.set(JAVA_%2$s, %3$s, rec.%1$s().getCValue());\n", f.getName(), typeToName.get(int.class).toUpperCase(), offset));
+                    case enum_long ->
+                            sb.append(String.format("\t\tmemStruct.set(JAVA_%2$s, %3$s, rec.%1$s().getCValue());\n", f.getName(), typeToName.get(long.class).toUpperCase(), offset));
+                    case enum_array -> {
+                         var etype = ArgClassification.classify(f.getType().getComponentType());
+                         if (etype == enum_long)
+                             sb.append(String.format("\t\tvar vv%1d = Utils.enumToPrimitiveLong(rec.%2$s());\n", Element, f.getName()));
+                         else
+                            sb.append(String.format("\t\tvar vv%1$d = Utils.enumToPrimitiveInteger(rec.%2$s());\n", Element, f.getName()));
+                        sb.append(String.format("\t\tmemStruct.asSlice(%1$s).copyFrom(MemorySegment.ofArray(vv%2$d));\n", offset, Element));
+                    }
+                    case enum_array_ptr -> {
+                        var etype = ArgClassification.classify(f.getType().getComponentType());
+                        if (etype == enum_long)
+                            sb.append(String.format("\t\tvar vv%1d = Utils.enumToPrimitiveLong(rec.%2$s());\n", Element, f.getName()));
+                        else
+                            sb.append(String.format("\t\tvar vv%1$d = Utils.enumToPrimitiveInteger(rec.%2$s());\n", Element, f.getName()));
+
+                        sb.append(String.format("\t\tmemStruct.set(ADDRESS, %1$s, Utils.toMS(scope, vv%2$d, false));\n", offset, Element));
+                    }
 
                     default -> throw new PassportException("Type not supported in a struct: " + f.getType() + ", " + c.getSimpleName() +"." + f.getName());
                 }
@@ -604,6 +638,38 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     case memory_block -> {
                         sb.append(String.format("\t\tvar %1$sMS = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
                         sb.append(String.format("\t\tvar %1$s = %2$s MemoryBlock.recreate(%1$sMS, rec.%1$s());\n", f.getName(), ifUnionRead));
+                    }
+                    case enum_ordinal, enum_int, enum_long -> {
+                        Class<?> etype = varHandling == enum_long ? long.class : int.class;
+                        sb.append(String.format("\t\tvar %1$stmp = %4$s memStruct.get(JAVA_%2$s, %3$s);\n", f.getName(), typeToName.get(etype).toUpperCase(), offset, ifUnionRead));
+                        sb.append(String.format("\t\tvar %1$s = (%2$s)%2$sLookup.get(%1$stmp);",f.getName(), type.getSimpleName()));
+                    }
+                    case enum_array -> {
+                        Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                        Class<?> arrType = type.getComponentType();
+                        int length = ((Array) arrays[0]).length();
+                        var etype = ArgClassification.classify(arrType);
+                        Class<?> eClass = etype == enum_long ? long.class : int.class;
+                        String boxedName = etype == enum_long ? "Long" : "Integer";
+                        sb.append(String.format("\t\tvar %1$stmp = %6$s memStruct.asSlice(%4$s, %2$d * %5$s.BYTES).toArray(JAVA_%3$s);\n",
+                                f.getName(), length, typeToName.get(eClass).toUpperCase(), offset, boxedName, ifUnionRead));
+                        sb.append(String.format("\t\tvar %1$s = new %2$s[%3$d];\n", f.getName(), arrType.getSimpleName(), length));
+                        if (etype == enum_long)
+                            sb.append(String.format("\t\tUtils.primitiveToEnumLong(%1$stmp, %1$s, %2$sLookup);\n", f.getName(), arrType.getSimpleName()));
+                        else
+                            sb.append(String.format("\t\tUtils.primitiveToEnumInteger(%1$stmp, %1$s, %2$sLookup);\n", f.getName(), arrType.getSimpleName()));
+                    }
+                    case enum_array_ptr -> {
+                        Class<?> arrType = type.getComponentType();
+                        var etype = ArgClassification.classify(arrType);
+                        String ptype = etype == enum_long ? "long" : "int";
+
+                        sb.append(String.format("\t\tvar %1$stmp = %3$s Utils.toArr(memStruct, memStruct.get(ADDRESS, %2$s), new %4$s [rec.%1$s().length]);\n", f.getName(), offset, ifUnionRead, ptype));
+                        sb.append(String.format("\t\tvar %1$s = %1$stmp == null ? null : new %2$s[rec.%1$s().length];\n", f.getName(), arrType.getSimpleName()));
+                        if (etype == enum_long)
+                            sb.append(String.format("\t\tUtils.primitiveToEnumLong(%1$stmp, %1$s, %2$sLookup);\n", f.getName(), arrType.getSimpleName()));
+                        else
+                            sb.append(String.format("\t\tUtils.primitiveToEnumInteger(%1$stmp, %1$s, %2$sLookup);\n", f.getName(), arrType.getSimpleName()));
                     }
                     default -> throw new PassportException("Type not supported in a struct: " + f.getType() + ", " + c.getSimpleName() +"." + f.getName());
                 }
@@ -805,7 +871,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     bHasAllocatedMemory = true;
 
                     var enumType = ArgClassification.classify(parameter.getComponentType());
-                    if (enumType == ArgClassification.enum_long)
+                    if (enumType == enum_long)
                         preCall.append(String.format("var tmp%1$d = Utils.enumToPrimitiveLong(v%1$d);\n", v));
                     else
                         preCall.append(String.format("var tmp%1$d = Utils.enumToPrimitiveInteger(v%1$d);\n", v));
@@ -817,7 +883,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     if (isRefArg)
                     {
                         postCall.append(String.format("Utils.toArr(tmp%1$d, vv%1$d);\n", v));
-                        if (enumType == ArgClassification.enum_long)
+                        if (enumType == enum_long)
                             postCall.append(String.format("Utils.primitiveToEnumLong(tmp%1$d, v%1$d, %2$sLookup);\n", v, parameter.getComponentType().getSimpleName()));
                         else
                             postCall.append(String.format("Utils.primitiveToEnumInteger(tmp%1$d, v%1$d, %2$sLookup);\n", v, parameter.getComponentType().getSimpleName()));

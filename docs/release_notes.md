@@ -2,6 +2,7 @@
 - 1.4.0-24
     - Added NativeName annotation to allow remapping of native functions to a different name in your interface
     - Reorganized documentation and example code for greater accessibility
+    - Making enums work as struct fields
 - 1.3.1-24
     - Fixed a bug where if an enum value was only used as a return and never an argument then class generation caused an exception
     - Fixed a bug in the calculation of struct sizes

@@ -36,7 +36,8 @@ public enum ArgClassification {
     enum_ordinal,
     enum_int,
     enum_long,
-    enum_array;
+    enum_array,
+    enum_array_ptr;
 
     public static ArgClassification classify(Class<?> arg) {
         return classify(arg, new Annotation[0]);
@@ -108,6 +109,18 @@ public enum ArgClassification {
             return isPointer ? record_ptr : record_;
         if (arg.isArray() && arg.getComponentType().isRecord())
             return isPointer || isPtr2Ptr ? record_array_ptr : record_array;
+
+        if (arg.isEnum())
+        {
+            if (isLongEnum(arg))
+                return enum_long;
+            if (isIntEnum(arg))
+                return enum_int;
+            return enum_ordinal;
+        }
+        if (arg.isArray() && arg.getComponentType().isEnum())
+            return isPointer ? enum_array_ptr : enum_array;
+
 
         if (MemorySegment.class.equals(arg))
             return mem_segment;

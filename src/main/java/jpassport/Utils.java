@@ -868,7 +868,17 @@ public class Utils {
 
     public static void primitiveToEnumLong(long[] vals, Object[] ret, HashMap<Long, Object> enumMap)
     {
-        for (int n = 0; n < vals.length; ++n)
+        if (ret == null)
+            return;
+
+        if (vals == null)
+        {
+            Arrays.fill(ret, null);
+            return;
+        }
+
+        int len = Math.min(vals.length, ret.length);
+        for (int n = 0; n < len; ++n)
             ret[n] = enumMap.getOrDefault(vals[n], null);
     }
 
@@ -907,7 +917,16 @@ public class Utils {
 
     public static void primitiveToEnumInteger(int[] vals, Object[] ret, HashMap<Integer, Object> enumMap)
     {
-        for (int n = 0; n < vals.length; ++n)
+        if (ret == null)
+            return;
+        if (vals == null)
+        {
+            Arrays.fill(ret, null);
+            return;
+        }
+
+        int len = Math.min(vals.length, ret.length);
+        for (int n = 0; n < len; ++n)
             ret[n] = enumMap.getOrDefault(vals[n], null);
     }
 

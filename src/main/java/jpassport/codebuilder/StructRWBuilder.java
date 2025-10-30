@@ -9,6 +9,7 @@ import java.lang.annotation.Annotation;
 import java.lang.classfile.*;
 import java.lang.classfile.constantpool.FieldRefEntry;
 import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDesc;
 import java.lang.constant.ConstantDescs;
 import java.lang.constant.MethodTypeDesc;
 import java.lang.foreign.*;
@@ -16,6 +17,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 
+import static jpassport.codebuilder.ArgClassification.*;
 import static jpassport.codebuilder.CBConstants.skipUnionField;
 import static jpassport.codebuilder.PassportBuilder.*;
 import static jpassport.Utils.toDesc;
@@ -32,14 +34,16 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
     private final ClassDesc thisClassDesc;
     private final Class<T> interfaceClass;
     private final HashMap<Class<?>, RecordVariables> groupLayouts = new HashMap<>();
+    private final HashMap<Class<?>, FieldRefEntry> enumMaps;
     private final boolean withDebug;
 
 
 
-    public StructRWBuilder(Class<T> iclass, ClassDesc desc, boolean withDebug)
+    public StructRWBuilder(Class<T> iclass, ClassDesc desc, HashMap<Class<?>, FieldRefEntry> enumMaps, boolean withDebug)
     {
         interfaceClass = iclass;
         thisClassDesc = desc;
+        this.enumMaps = enumMaps;
         this.withDebug = withDebug;
     }
 
@@ -138,9 +142,14 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
             switch (varHandling)
             {
-                case primitive -> {
-                    ClassDesc prim = primativeToVLDescMap.get(ftype);
-                    String constName = primitiveToConstName.get(ftype);
+                case primitive, enum_ordinal, enum_int, enum_long -> {
+                    Class<?> vtype = ftype;
+                    //enums are handled just like primitive longs or int
+                    if (ftype.isEnum())
+                        vtype = varHandling == ArgClassification.enum_long ? long.class : int.class;
+
+                    ClassDesc prim = primativeToVLDescMap.get(vtype);
+                    String constName = primitiveToConstName.get(vtype);
 
                     cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
                     cob.getstatic(CD_ValueLayout, constName, prim);
@@ -149,9 +158,14 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             MethodTypeDesc.of(CD_MemoryLayout, ConstantDescs.CD_String));
                     cob.aastore();
                 }
-                case primitive_array -> {
+                case primitive_array, enum_array -> {
                     int layoutSlot = firstAvailableSlot++;
                     var ptype = ftype.getComponentType();
+                    if (ptype.isEnum())
+                    {
+                        var et = ArgClassification.classify(ptype);
+                        ptype = et == enum_long ? long.class : int.class;
+                    }
                     Annotation[] arrays = f.getAnnotationsByType(Array.class);
                     if (arrays.length == 0)
                         throw new PassportException("Struct members that are primitive arrays must either be @Ptr or @Array(length=n) - " + recordType.getSimpleName() + "." + f.getName());
@@ -190,7 +204,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
 
                     cob.aastore();
                 }
-                case primitive_array_ptr, record_ptr, string_, mem_segment, memory_block, generic_ptr, record_array_ptr -> {
+                case primitive_array_ptr, record_ptr, string_, mem_segment, memory_block, generic_ptr, record_array_ptr, enum_array_ptr -> {
                     cob.aload(memLayoutArrSlot).loadConstant(idx++); //for the later array store
                     cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
                     cob.loadConstant(f.getName());
@@ -363,6 +377,32 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "set",
                                             MethodTypeDesc.of(ConstantDescs.CD_void, primativeToVLDescMap.get(ftype), ConstantDescs.CD_long, primitiveToDescMap.get(ftype)));
                                 }
+                                case enum_ordinal, enum_int, enum_long -> {
+                                    cob.aload(inputRecSlot);
+                                    var enumType = toDesc(ftype);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(enumType));
+
+                                    String methodName = varHandling == enum_ordinal ? "ordinal" : "getCValue";
+                                    var retType = varHandling == enum_long ? ConstantDescs.CD_long : ConstantDescs.CD_int;
+                                    var nativeType = varHandling == enum_long ? long.class : int.class;
+                                    cob.invokevirtual(enumType, methodName, MethodTypeDesc.of(retType));
+                                    int fieldSlot = slots;
+                                    slots = storeLocalVar(cob, fieldSlot, nativeType);
+
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
+                                    int offsetSlot = slots;
+                                    slots = storeLocalVar(cob, offsetSlot, long.class);
+
+                                    cob.aload(memSegSlot);
+                                    cob.getstatic(CD_ValueLayout, primitiveToConstName.get(nativeType), primativeToVLDescMap.get(nativeType));
+                                    cob.lload(offsetSlot);
+                                    loadParam(cob, fieldSlot, nativeType);
+
+                                    cob.invokeinterface(CD_MemorySegment, "set",
+                                            MethodTypeDesc.of(ConstantDescs.CD_void, primativeToVLDescMap.get(nativeType), ConstantDescs.CD_long, primitiveToDescMap.get(nativeType)));
+                                }
+
+
                                 case primitive_array -> {
                                     var arrDesc = primitiveToDescMap.get(ftype.getComponentType()).arrayType();
 //                                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
@@ -387,9 +427,47 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
                                     cob.pop();
 //                                        memStruct.asSlice(PassingArraysLayoutOffsets[0] + offset).copyFrom(MemorySegment.ofArray(rec.s_double()));
+                                }
+                                case enum_array -> {
+                                    var arrDesc = toDesc(ftype.getComponentType()).arrayType();
+                                    var compType = ArgClassification.classify(ftype.getComponentType());
 
+                                    cob.aload(memSegSlot);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets);
+                                    cob.loadConstant(ii++).laload();
+                                    cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
+                                    int sliceSlot = slots;
+                                    slots = storeLocalVar(cob, sliceSlot, MemorySegment.class);
+
+                                    cob.aload(inputRecSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(arrDesc));
+                                    ClassDesc ptype;
+
+                                    if (compType == enum_long) {
+                                        cob.invokestatic(CD_Utils, "enumToPrimitiveLong",
+                                                MethodTypeDesc.of(ConstantDescs.CD_long.arrayType(1), ConstantDescs.CD_Object.arrayType(1)));
+                                        ptype = ConstantDescs.CD_long.arrayType(1);
+                                    }
+                                    else {
+                                        cob.invokestatic(CD_Utils, "enumToPrimitiveInteger",
+                                                MethodTypeDesc.of(ConstantDescs.CD_int.arrayType(1), ConstantDescs.CD_Object.arrayType(1)));
+                                        ptype = ConstantDescs.CD_int.arrayType(1);
+                                    }
+
+                                    int valueSlot = slots;
+                                    slots = storeLocalVar(cob, valueSlot, ftype);
+                                    cob.aload(valueSlot);
+                                    cob.invokestatic(CD_MemorySegment, "ofArray", MethodTypeDesc.of(CD_MemorySegment, ptype), true);
+
+                                    int copySlot = slots;
+                                    slots = storeLocalVar(cob, copySlot, MemorySegment.class);
+
+                                    cob.aload(sliceSlot).aload(copySlot);
+                                    cob.invokeinterface(CD_MemorySegment, "copyFrom", MethodTypeDesc.of(CD_MemorySegment, CD_MemorySegment));
+                                    cob.pop();
 
                                 }
+
                                 case primitive_array_ptr -> {
                                     var arrDesc = primitiveToDescMap.get(ftype.getComponentType()).arrayType();
                                     cob.aload(inputRecSlot);
@@ -408,6 +486,49 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "set",
                                             MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
                                     //memStruct.set(ADDRESS, PassingArraysLayoutOffsets[3] + offset, Utils.toMS(scope, rec.s_doublePtr(), false));
+
+                                }
+                                case enum_array_ptr -> {
+                                    var arrDesc = toDesc(ftype.getComponentType()).arrayType();
+                                    var compType = ArgClassification.classify(ftype.getComponentType());
+
+//                                    cob.aload(memSegSlot);
+//                                    cob.getstatic(groupLayouts.get(recordType).offsets);
+//                                    cob.loadConstant(ii++).laload();
+//                                    cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long));
+//                                    int sliceSlot = slots;
+//                                    slots = storeLocalVar(cob, sliceSlot, MemorySegment.class);
+
+                                    cob.aload(inputRecSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(arrDesc));
+                                    ClassDesc ptype;
+                                    Class<?> pctype;
+
+                                    if (compType == enum_long) {
+                                        cob.invokestatic(CD_Utils, "enumToPrimitiveLong",
+                                                MethodTypeDesc.of(ConstantDescs.CD_long.arrayType(1), ConstantDescs.CD_Object.arrayType(1)));
+                                        ptype = ConstantDescs.CD_long.arrayType(1);
+                                        pctype = long[].class;
+                                    }
+                                    else {
+                                        cob.invokestatic(CD_Utils, "enumToPrimitiveInteger",
+                                                MethodTypeDesc.of(ConstantDescs.CD_int.arrayType(1), ConstantDescs.CD_Object.arrayType(1)));
+                                        ptype = ConstantDescs.CD_int.arrayType(1);
+                                        pctype = int[].class;
+                                    }
+
+                                    int valueSlot = slots;
+                                    slots = storeLocalVar(cob, valueSlot, pctype);
+                                    cob.aload(arenaSlot).aload(valueSlot).iconst_0();
+                                    cob.invokestatic(CD_Utils, "toMS", MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, ptype, ConstantDescs.CD_boolean));
+                                    int memorySlot = slots;
+                                    slots = storeLocalVar(cob, memorySlot, MemorySegment.class);
+                                    cob.aload(memSegSlot);
+                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii++).laload();
+                                    cob.aload(memorySlot);
+                                    cob.invokeinterface(CD_MemorySegment, "set",
+                                            MethodTypeDesc.of(ConstantDescs.CD_void, CD_AddressLayout, ConstantDescs.CD_long, CD_MemorySegment));
 
                                 }
                                 case record_ -> {
@@ -747,6 +868,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                             if (skipUnionField(recordType, f))
                                 continue;
 
+
                             var ftype = f.getType();
                             var varHandling = ArgClassification.classify(f);
                             Label endIfLabel = cob.newLabel();
@@ -772,16 +894,31 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                 cob.goto_(endElseLabel).labelBinding(endIfLabel);
                             }
 
-
                             switch (varHandling)
                             {
                                 case primitive -> {
-//                                var s_int = memStruct.get(JAVA_INT, TestStructLayoutOffsets[0]);
                                     cob.aload(memStructSlot);
                                     cob.getstatic(CD_ValueLayout, primitiveToConstName.get(f.getType()), primativeToVLDescMap.get(f.getType()));
                                     cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
                                     cob.invokeinterface(CD_MemorySegment, "get",
                                             MethodTypeDesc.of(primitiveToDescMap.get(ftype), primativeToVLDescMap.get(f.getType()), ConstantDescs.CD_long));
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
+                                }
+                                case enum_ordinal, enum_int ,enum_long -> {
+                                    Class<?> etype = varHandling == enum_long ? long.class : int.class;
+
+                                    cob.aload(memStructSlot);
+                                    cob.getstatic(CD_ValueLayout, primitiveToConstName.get(etype), primativeToVLDescMap.get(etype));
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
+                                    cob.invokeinterface(CD_MemorySegment, "get",
+                                            MethodTypeDesc.of(primitiveToDescMap.get(etype), primativeToVLDescMap.get(etype), ConstantDescs.CD_long));
+                                    int primitiveSlot = slots;
+                                    slots = storeLocalVar(cob, primitiveSlot, etype);
+
+                                    cob.getstatic(enumMaps.get(ftype));
+                                    ParamKeeper.autoBox(cob, etype, primitiveSlot);
+                                    cob.invokevirtual(CD_HashMap, "get", MethodTypeDesc.of(ConstantDescs.CD_Object, ConstantDescs.CD_Object));
+                                    cob.checkcast(toDesc(ftype));
                                     storeLocalVar(cob, fieldSlots[ii], ftype);
                                 }
                                 case primitive_array ->{
@@ -797,6 +934,35 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokeinterface(CD_MemorySegment, "toArray",
                                             MethodTypeDesc.of(primitiveToDescMap.get(c).arrayType(), primativeToVLDescMap.get(c)));
                                     storeLocalVar(cob, fieldSlots[ii], ftype);
+//                                    var s_double = memStruct.asSlice(PassingArraysLayoutOffsets[0], 5 * Double.BYTES).toArray(JAVA_DOUBLE);
+
+                                }
+                                case enum_array ->{
+                                    var eVar = ArgClassification.classify(ftype.getComponentType());
+                                    var pType = eVar == enum_long ? long.class : int.class;
+
+                                    Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                                    cob.aload(memStructSlot);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
+                                    int length = ((Array) arrays[0]).length();
+                                    cob.loadConstant((long)length * byteSize(pType));
+                                    cob.invokeinterface(CD_MemorySegment, "asSlice", MethodTypeDesc.of(CD_MemorySegment, ConstantDescs.CD_long, ConstantDescs.CD_long));
+                                    cob.getstatic(CD_ValueLayout, primitiveToConstName.get(pType), primativeToVLDescMap.get(pType));
+                                    cob.invokeinterface(CD_MemorySegment, "toArray",
+                                            MethodTypeDesc.of(primitiveToDescMap.get(pType).arrayType(), primativeToVLDescMap.get(pType)));
+
+                                    cob.dup().arraylength().anewarray(toDesc(ftype.getComponentType()));
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
+                                    cob.aload(fieldSlots[ii]).getstatic(enumMaps.get(ftype.getComponentType()));
+
+
+                                    if (eVar == enum_long)
+                                        cob.invokestatic(CD_Utils, "primitiveToEnumLong", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                ConstantDescs.CD_long.arrayType(1), ConstantDescs.CD_Object.arrayType(1), CD_HashMap));
+                                    else
+                                        cob.invokestatic(CD_Utils, "primitiveToEnumInteger", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                ConstantDescs.CD_int.arrayType(1), ConstantDescs.CD_Object.arrayType(1), CD_HashMap));
+//                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 //                                    var s_double = memStruct.asSlice(PassingArraysLayoutOffsets[0], 5 * Double.BYTES).toArray(JAVA_DOUBLE);
 
                                 }
@@ -821,6 +987,48 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     cob.invokestatic(CD_Utils, "toArr",
                                             MethodTypeDesc.of(arrDesc, CD_MemorySegment, CD_MemorySegment, arrDesc));
                                     storeLocalVar(cob, fieldSlots[ii], ftype);
+                                }
+
+                                case enum_array_ptr -> {
+                                    var eVar = ArgClassification.classify(ftype.getComponentType());
+                                    var pType = eVar == enum_long ? long.class : int.class;
+
+                                    var arrDesc = primitiveToDescMap.get(pType).arrayType();
+                                    cob.aload(recordSlot);
+                                    cob.invokevirtual(recDesc, f.getName(), MethodTypeDesc.of(toDesc(ftype.getComponentType()).arrayType(1)));
+                                    int arrSlot = slots;
+                                    slots = storeLocalVar(cob, arrSlot, ftype);
+
+                                    cob.aload(memStructSlot);
+                                    cob.getstatic(CD_ValueLayout, "ADDRESS", CD_AddressLayout);
+                                    cob.getstatic(groupLayouts.get(recordType).offsets).loadConstant(ii).laload();
+                                    cob.invokeinterface(CD_MemorySegment, "get",
+                                            MethodTypeDesc.of(CD_MemorySegment, CD_AddressLayout, ConstantDescs.CD_long));
+                                    int msegmentSlot = slots;
+                                    slots = storeLocalVar(cob, msegmentSlot, MemorySegment.class);
+
+                                    TypeKind pArrType = eVar == enum_long ? TypeKind.LONG : TypeKind.INT;
+                                    cob.aload(memStructSlot).aload(msegmentSlot).aload(arrSlot).arraylength().newarray(pArrType);
+                                    cob.invokestatic(CD_Utils, "toArr",
+                                            MethodTypeDesc.of(arrDesc, CD_MemorySegment, CD_MemorySegment, arrDesc));
+                                    int refArrSlot = slots;
+                                    slots = storeLocalVar(cob,refArrSlot, int[].class);
+
+                                    cob.aload(refArrSlot);
+                                    cob.dup().arraylength().anewarray(toDesc(ftype.getComponentType()));
+                                    storeLocalVar(cob, fieldSlots[ii], ftype);
+
+
+                                    cob.aload(refArrSlot);
+                                    cob.aload(fieldSlots[ii]).getstatic(enumMaps.get(ftype.getComponentType()));
+
+
+                                    if (eVar == enum_long)
+                                        cob.invokestatic(CD_Utils, "primitiveToEnumLong", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                ConstantDescs.CD_long.arrayType(1), ConstantDescs.CD_Object.arrayType(1), CD_HashMap));
+                                    else
+                                        cob.invokestatic(CD_Utils, "primitiveToEnumInteger", MethodTypeDesc.of(ConstantDescs.CD_void,
+                                                ConstantDescs.CD_int.arrayType(1), ConstantDescs.CD_Object.arrayType(1), CD_HashMap));
                                 }
 
                                 case record_ -> {
@@ -1133,7 +1341,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
         if (primitiveToDescMap.containsKey(c))
             return primitiveToDescMap.get(c);
 
-        if (c.isRecord() || MemoryBlock.class.equals(c))
+        if (c.isRecord() || c.isEnum() || MemoryBlock.class.equals(c))
             return CBConstants.toDesc(c);
         if (c.equals(String.class))
             return ConstantDescs.CD_String;
@@ -1145,7 +1353,7 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
             return primitiveToDescMap.get(c.getComponentType()).arrayType(1);
         if (is2DArrayOfPrimitives(c))
             return primitiveToDescMap.get(c.getComponentType()).arrayType(2);
-        if (c.isArray() && c.getComponentType().isRecord())
+        if (c.isArray() && (c.getComponentType().isRecord() || c.getComponentType().isEnum()))
             return CBConstants.toDesc(c.getComponentType()).arrayType(1);
 
         throw new PassportException("Record fields can only be primitive, records, or arrays of either. Not: " + c.getName());
