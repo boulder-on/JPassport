@@ -53,6 +53,7 @@ struct EnumArraysStruct
     enum longEnum weekend;
     enum longEnum weekends[2];
     int countWeekends;
+    enum longEnum *weekendPtr;
 };
 
 extern unsigned long long passEnum(enum intEnum ie, enum longEnum le);

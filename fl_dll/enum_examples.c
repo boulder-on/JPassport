@@ -66,5 +66,5 @@ extern void passComplexStructEnum(struct EnumArraysStruct *enums)
     enums->weekend = SUNDAY;
     enums->weekends[0] = SATURDAY;
     enums->weekends[1] = SUNDAY;
-
+    enums->weekendPtr = NULL;
 }

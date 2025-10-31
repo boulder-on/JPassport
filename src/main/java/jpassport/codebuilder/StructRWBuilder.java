@@ -1014,9 +1014,22 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                                     int refArrSlot = slots;
                                     slots = storeLocalVar(cob,refArrSlot, int[].class);
 
+                                    //if the memory we get back is null then we need to put null in the record
+                                    int localVarII = ii;
                                     cob.aload(refArrSlot);
-                                    cob.dup().arraylength().anewarray(toDesc(ftype.getComponentType()));
-                                    storeLocalVar(cob, fieldSlots[ii], ftype);
+                                    cob.ifThenElse(Opcode.IFNONNULL, bcb -> {
+                                            bcb.aload(refArrSlot);
+                                            bcb.arraylength().anewarray(toDesc(ftype.getComponentType()));
+                                            storeLocalVar(bcb, fieldSlots[localVarII], ftype);
+                                        },
+                                            bcb -> {
+                                            bcb.aconst_null();
+                                            storeLocalVar(bcb, fieldSlots[localVarII], ftype);
+                                        });
+
+//                                    cob.aload(refArrSlot);
+//                                    cob.dup().arraylength().anewarray(toDesc(ftype.getComponentType()));
+//                                    storeLocalVar(cob, fieldSlots[ii], ftype);
 
 
                                     cob.aload(refArrSlot);

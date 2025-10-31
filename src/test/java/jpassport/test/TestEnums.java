@@ -99,7 +99,9 @@ public class TestEnums {
         errCodes error,
         longEnum weekend,
         @Array(length = 2) longEnum[] weekends,
-        int countWeekends){}
+        int countWeekends,
+        @Ptr longEnum[] weekendPtr
+        ){}
 
 
     public interface EnumLink extends Passport
@@ -219,7 +221,7 @@ public class TestEnums {
             var inArr2 = new intEnum[] {intEnum.TUESDAY, intEnum.THURSDAY, intEnum.MONDAY};
 
             var arg = new EnumArraysStruct(inArr1, 3, inArr2,
-                    errCodes.no_err, SATURDAY, new longEnum[2], 0);
+                    errCodes.no_err, SATURDAY, new longEnum[2], 1, new longEnum[]{SATURDAY});
 
             EnumArraysStruct[] pass = new EnumArraysStruct[] {arg};
             link.link.passComplexStructEnum(pass);
@@ -229,6 +231,7 @@ public class TestEnums {
             assertEquals(errCodes.no_file, pass[0].error);
             assertEquals(SATURDAY, pass[0].weekends()[0]);
             assertEquals(SUNDAY, pass[0].weekends()[1]);
+            assertNull(pass[0].weekendPtr);
         }
     }
 }
