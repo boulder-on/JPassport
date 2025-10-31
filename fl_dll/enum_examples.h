@@ -56,6 +56,14 @@ struct EnumArraysStruct
     enum longEnum *weekendPtr;
 };
 
+union EnumUnion
+{
+    int u_i;
+    enum errCodes u_err;
+    enum intEnum u_weekday;
+    enum longEnum u_weekend;
+};
+
 extern unsigned long long passEnum(enum intEnum ie, enum longEnum le);
 extern enum intEnum todayInt(enum intEnum* ie);
 extern enum longEnum todayLong(enum longEnum* ie);
@@ -66,5 +74,8 @@ extern void readBackErrCode(int setErr, enum errCodes* code);
 extern long long passSimpleEnumStruct(struct EnumStruct *enums);
 extern void passEnumWArrStruct(struct EnumSimpleArraysStruct *enums);
 extern void passComplexStructEnum(struct EnumArraysStruct *enums);
+
+extern void nullEnumArgs(enum intEnum* ie, enum longEnum* le);
+extern void enumwithUnion(int field, long long  value, union EnumUnion* eu);
 
 #endif //FOREIGN_LINK_ENUM_EXAMPLES_H

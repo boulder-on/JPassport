@@ -22,6 +22,22 @@ enum longEnum todayLong(enum longEnum* le)
     return SUNDAY;
 }
 
+void nullEnumArgs(enum intEnum* ie, enum longEnum* le)
+{
+    ie = NULL;
+    le = NULL;
+}
+
+void enumwithUnion(int field, long long value, union EnumUnion* eu)
+{
+    if (field == 1)
+        eu->u_err = (int)value;
+    else if (field == 2)
+        eu->u_weekday = (int)value;
+    else if (field == 3)
+        eu->u_weekend = value;
+}
+
 void todayTransfer(enum intEnum ie, enum intEnum* ie2, enum longEnum le, enum longEnum *le2)
 {
     *ie2 = ie;

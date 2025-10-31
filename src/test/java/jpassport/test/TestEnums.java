@@ -1,13 +1,11 @@
 package jpassport.test;
 
-import jpassport.Utils;
+import jpassport.*;
 import jpassport.annotations.Array;
 import jpassport.annotations.Ptr;
 import jpassport.annotations.RefArg;
 import jpassport.enums.EnumInt;
 import jpassport.enums.EnumLong;
-import jpassport.Passport;
-import jpassport.PassportFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -103,6 +101,19 @@ public class TestEnums {
         @Ptr longEnum[] weekendPtr
         ){}
 
+    public record EnumUnion
+            (int u_i,
+            errCodes u_err,
+            intEnum u_weekday,
+            longEnum u_weekend,
+             UnionFieldIO unionIO
+            )implements Union{
+
+        public static EnumUnion[] ptr(UnionFieldIO io)
+        {
+            return new EnumUnion[] {new EnumUnion(0, errCodes.no_err, intEnum.MONDAY, SATURDAY, io)};
+        }
+    }
 
     public interface EnumLink extends Passport
     {
@@ -115,6 +126,8 @@ public class TestEnums {
         long passSimpleEnumStruct(@RefArg EnumStruct[] enums);
         void passEnumWArrStruct(@RefArg EnumSimpleArraysStruct[] enums);
         void passComplexStructEnum(@RefArg EnumArraysStruct[] enums);
+        void nullEnumArgs(@RefArg intEnum[] ie, @RefArg longEnum[] le);
+        void enumwithUnion(int field, long value, @RefArg EnumUnion[] eu);
     }
 
     record Link (PassType type, EnumLink link) {}
@@ -234,4 +247,43 @@ public class TestEnums {
             assertNull(pass[0].weekendPtr);
         }
     }
+
+    @Test
+    public void testNullArgs()
+    {
+        for (var link : PassingEnums) {
+            var ptrIE = intEnum.ptr();
+            var ptrLE = longEnum.ptr();
+
+            link.link.nullEnumArgs(ptrIE, ptrLE);
+            assertNull(ptrIE[0]);
+            assertNull(ptrLE[0]);
+
+            ptrIE = intEnum.ptr(intEnum.THURSDAY);
+            ptrLE = longEnum.ptr(SUNDAY);
+
+            link.link.nullEnumArgs(ptrIE, ptrLE);
+            assertNull(ptrIE[0]);
+            assertNull(ptrLE[0]);
+        }
+    }
+
+    @Test
+    public void testUnionEnum()
+    {
+        for (var link : PassingEnums) {
+            var ptr = EnumUnion.ptr(UnionFieldIO.nativeIO(0, 1));
+            link.link.enumwithUnion(1, errCodes.no_file.getCValue(), ptr);
+            assertEquals(errCodes.no_file, ptr[0].u_err());
+
+            ptr = EnumUnion.ptr(UnionFieldIO.nativeIO(0, 2));
+            link.link.enumwithUnion(2, intEnum.THURSDAY.ordinal(), ptr);
+            assertEquals(intEnum.THURSDAY, ptr[0].u_weekday());
+
+            ptr = EnumUnion.ptr(UnionFieldIO.nativeIO(0, 3));
+            link.link.enumwithUnion(3, SUNDAY.getCValue(), ptr);
+            assertEquals(SUNDAY, ptr[0].u_weekend());
+        }
+    }
+
 }
