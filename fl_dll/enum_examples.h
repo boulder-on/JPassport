@@ -75,7 +75,6 @@ extern long long passSimpleEnumStruct(struct EnumStruct *enums);
 extern void passEnumWArrStruct(struct EnumSimpleArraysStruct *enums);
 extern void passComplexStructEnum(struct EnumArraysStruct *enums);
 
-extern void nullEnumArgs(enum intEnum* ie, enum longEnum* le);
 extern void enumwithUnion(int field, long long  value, union EnumUnion* eu);
 
 #endif //FOREIGN_LINK_ENUM_EXAMPLES_H

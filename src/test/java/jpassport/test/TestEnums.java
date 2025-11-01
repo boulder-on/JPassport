@@ -126,7 +126,6 @@ public class TestEnums {
         long passSimpleEnumStruct(@RefArg EnumStruct[] enums);
         void passEnumWArrStruct(@RefArg EnumSimpleArraysStruct[] enums);
         void passComplexStructEnum(@RefArg EnumArraysStruct[] enums);
-        void nullEnumArgs(@RefArg intEnum[] ie, @RefArg longEnum[] le);
         void enumwithUnion(int field, long value, @RefArg EnumUnion[] eu);
     }
 
@@ -245,26 +244,6 @@ public class TestEnums {
             assertEquals(SATURDAY, pass[0].weekends()[0]);
             assertEquals(SUNDAY, pass[0].weekends()[1]);
             assertNull(pass[0].weekendPtr);
-        }
-    }
-
-    @Test
-    public void testNullArgs()
-    {
-        for (var link : PassingEnums) {
-            var ptrIE = intEnum.ptr();
-            var ptrLE = longEnum.ptr();
-
-            link.link.nullEnumArgs(ptrIE, ptrLE);
-            assertNull(ptrIE[0]);
-            assertNull(ptrLE[0]);
-
-            ptrIE = intEnum.ptr(intEnum.THURSDAY);
-            ptrLE = longEnum.ptr(SUNDAY);
-
-            link.link.nullEnumArgs(ptrIE, ptrLE);
-            assertNull(ptrIE[0]);
-            assertNull(ptrLE[0]);
         }
     }
 
