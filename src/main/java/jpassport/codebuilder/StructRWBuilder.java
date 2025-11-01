@@ -725,8 +725,6 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         var methodStart = cob.newLabel();
                         cob.labelBinding(methodStart);
                         var methodEnd = cob.newLabel();
-                        int nextSlot =  cob.parameterSlot(1) + 1;
-                        cob.localVariable(nextSlot, "ret", CD_MemorySegment, methodStart, methodEnd);
 
                         int arraySlot = cob.parameterSlot(1);
                         int recSlot = arraySlot+1;
@@ -734,8 +732,6 @@ public class StructRWBuilder<T extends Passport> implements CBConstants{
                         cob.aload(0).aload(cob.parameterSlot(0)).aload(recSlot);
                         cob.invokevirtual(thisClassDesc, "store" + recordType.getSimpleName(),
                                 MethodTypeDesc.of(CD_MemorySegment, CD_SegmentAllocator, toDesc(recordType)));
-                        cob.astore(nextSlot);
-                        cob.aload(nextSlot);
                         cob.areturn();
                         cob.labelBinding(methodEnd);
                     }));
