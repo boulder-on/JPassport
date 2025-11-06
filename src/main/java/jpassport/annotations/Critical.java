@@ -15,6 +15,6 @@ import java.lang.annotation.Target;
  * option when linking non-critical functions is likely to have adverse effects, such as loss of performance, or JVM crashes.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 public @interface Critical {
 }
