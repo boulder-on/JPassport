@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "union_examples.h"
 
-void useSimpleUnion(int idxSrc, int idxDest, union SimpleUnion* simple)
+void useSimpleUnion(int idxSrc, int idxDest, SimpleUnion* simple)
 {
     if (idxSrc < 0 || idxSrc > 4 || idxDest < 0 || idxDest > 4)
         return;
@@ -48,12 +48,12 @@ void useSimpleUnion(int idxSrc, int idxDest, union SimpleUnion* simple)
     }
 }
 
-void useSimpleUnion2(int idxSrc, int idxDest, union SimpleUnion* simple)
+void useSimpleUnion2(int idxSrc, int idxDest, SimpleUnion* simple)
 {
     useSimpleUnion(idxSrc, idxDest, simple);
 }
 
-void useUnionWithStruct(struct PassingData *srcVals, union UnionWithStruct* withStruct)
+void useUnionWithStruct(PassingData *srcVals, UnionWithStruct* withStruct)
 {
     withStruct->u_pd.s_int = srcVals->s_int;
     withStruct->u_pd.s_long = srcVals->s_long;
@@ -61,12 +61,12 @@ void useUnionWithStruct(struct PassingData *srcVals, union UnionWithStruct* with
     withStruct->u_pd.s_double = srcVals->s_double;
 }
 
-void useUnionWithStruct2(struct PassingData *srcVals, union UnionWithStruct* withStruct)
+void useUnionWithStruct2(PassingData *srcVals, UnionWithStruct* withStruct)
 {
     useUnionWithStruct(srcVals, withStruct);
 }
 
-void useUnionWithArray(int direction, union UnionWithArrays* withArrays) {
+void useUnionWithArray(int direction, UnionWithArrays* withArrays) {
     if (direction == 1) {
         long long *data = malloc(sizeof (long long) * 5);
         for (int n = 0; n < 5; ++n)
@@ -87,6 +87,6 @@ void useUnionWithArray(int direction, union UnionWithArrays* withArrays) {
 
 }
 
-void useUnionWithArray2(int direction, union UnionWithArrays* withArrays) {
+void useUnionWithArray2(int direction, UnionWithArrays* withArrays) {
     useUnionWithArray(direction, withArrays);
 }

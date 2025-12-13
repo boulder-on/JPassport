@@ -6,7 +6,7 @@
 #include <strings.h>
 #include "struct_examples.h"
 
-double passStruct(struct PassingData* data)
+double passStruct(PassingData* data)
 {
     if (data == NULL)
         return -1;
@@ -20,7 +20,7 @@ double passStruct(struct PassingData* data)
     return ret;
 }
 
-double passComplex(struct ComplexPassing* complex)
+double passComplex(ComplexPassing* complex)
 {
     double ret = passStruct(&complex->s_passingData);
     ret += passStruct(complex->s_ptrPassingData);
@@ -40,7 +40,7 @@ double passComplex(struct ComplexPassing* complex)
     return ret;
 }
 
-double passStructWithArrays(struct PassingArrays* structWithArrays)
+double passStructWithArrays(PassingArrays* structWithArrays)
 {
     if (structWithArrays == NULL)
         return -1;
@@ -78,7 +78,7 @@ double passStructWithArrays(struct PassingArrays* structWithArrays)
     return ret;
 }
 
-void passMemoryBlock(struct PassMemoryBlock* memoryBlock)
+void passMemoryBlock(PassMemoryBlock* memoryBlock)
 {
     for (int n =0; n < memoryBlock->data_size; ++n)
     {
@@ -86,7 +86,7 @@ void passMemoryBlock(struct PassMemoryBlock* memoryBlock)
     }
 }
 
-extern double passStructArrBlock(struct PassingData data[], int count, int multiply)
+extern double passStructArrBlock(PassingData data[], int count, int multiply)
 {
     double sum = 0;
 
@@ -101,7 +101,7 @@ extern double passStructArrBlock(struct PassingData data[], int count, int multi
     return sum;
 }
 
-extern double passStructArrPtr(struct PassingData** data, int count, int multiply)
+extern double passStructArrPtr(PassingData** data, int count, int multiply)
 {
     double sum = 0;
 
@@ -116,14 +116,14 @@ extern double passStructArrPtr(struct PassingData** data, int count, int multipl
     return sum;
 }
 
-double printStruct(struct PassingData* data, char* extra)
+double printStruct(PassingData* data, char* extra)
 {
     double ret = (double)data->s_long + data->s_float + data->s_int + data->s_double;
 //    printf("%s - %f = %d + %lld + %f + %f\n",extra, ret, data->s_int, data->s_long, data->s_float, data->s_double);
     return ret;
 }
 
-double passStructOfStructs(struct PassingStructs* data)
+double passStructOfStructs(PassingStructs* data)
 {
     double sum = printStruct(&data->s_simple, "no loop");
 

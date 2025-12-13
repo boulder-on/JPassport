@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <stdbool.h>
+#include <string.h>
 
 double sumD(const double d1, const double d2)
 {
@@ -339,8 +340,9 @@ char* mallocString(const char* origString)
     if (origString == NULL)
         return NULL;
 
-    char* ret = malloc(strlen(origString) * sizeof(char));
-    strcpy(ret, origString);
+    unsigned int size = strlen(origString) * sizeof(char);
+    char* ret = malloc(size);
+    strncpy(ret, origString, size);
     return ret;
 }
 

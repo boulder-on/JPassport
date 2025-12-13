@@ -4,77 +4,77 @@
 
 #ifndef FOREIGN_LINK_ENUM_EXAMPLES_H
 #define FOREIGN_LINK_ENUM_EXAMPLES_H
-enum intEnum
+typedef enum
 {
     MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY
-};
+}intEnum;
 
-enum errCodes
+typedef enum
 {
     no_err = 0,
     no_file = 10,
     no_permission = 200,
     no_socket = 2100
-};
+}errCodes;
 
 
-enum longEnum
+typedef enum
 {
     SATURDAY = 0l,
     SUNDAY = 0xFFFFFFFFF
-};
+}longEnum;
 
-enum retEnum
+typedef enum
 {
     value0, value1, value2
-};
+}retEnum;
 
-struct EnumStruct
+typedef struct
 {
     int ivalue;
-    enum intEnum eiValue;
+    intEnum eiValue;
     long long lvalue;
-    enum longEnum elValue;
-};
+    longEnum elValue;
+}EnumStruct;
 
-struct EnumSimpleArraysStruct
+typedef struct
 {
-    enum intEnum allDays[3];
+    intEnum allDays[3];
     int countDays;
-    enum intEnum *allDaysPtr;
-};
+    intEnum *allDaysPtr;
+}EnumSimpleArraysStruct;
 
-struct EnumArraysStruct
+typedef struct
 {
-    enum intEnum allDays[3];
+    intEnum allDays[3];
     int countDays;
-    enum intEnum *allDaysPtr;
-    enum errCodes error;
-    enum longEnum weekend;
-    enum longEnum weekends[2];
+    intEnum *allDaysPtr;
+    errCodes error;
+    longEnum weekend;
+    longEnum weekends[2];
     int countWeekends;
-    enum longEnum *weekendPtr;
-};
+    longEnum *weekendPtr;
+}EnumArraysStruct;
 
-union EnumUnion
+typedef union
 {
     int u_i;
-    enum errCodes u_err;
-    enum intEnum u_weekday;
-    enum longEnum u_weekend;
-};
+    errCodes u_err;
+    intEnum u_weekday;
+    longEnum u_weekend;
+}EnumUnion;
 
-extern unsigned long long passEnum(enum intEnum ie, enum longEnum le);
-extern enum intEnum todayInt(enum intEnum* ie);
-extern enum longEnum todayLong(enum longEnum* ie);
-extern void todayTransfer(enum intEnum ie, enum intEnum* ie2, enum longEnum le, enum longEnum *le2);
-extern enum retEnum toRetEnum(int v);
+extern unsigned long long passEnum(intEnum ie, longEnum le);
+extern intEnum todayInt(intEnum* ie);
+extern longEnum todayLong(longEnum* ie);
+extern void todayTransfer(intEnum ie, intEnum* ie2, longEnum le, longEnum *le2);
+extern retEnum toRetEnum(int v);
 
-extern void readBackErrCode(int setErr, enum errCodes* code);
-extern long long passSimpleEnumStruct(struct EnumStruct *enums);
-extern void passEnumWArrStruct(struct EnumSimpleArraysStruct *enums);
-extern void passComplexStructEnum(struct EnumArraysStruct *enums);
+extern void readBackErrCode(int setErr, errCodes* code);
+extern long long passSimpleEnumStruct(EnumStruct *enums);
+extern void passEnumWArrStruct(EnumSimpleArraysStruct *enums);
+extern void passComplexStructEnum(EnumArraysStruct *enums);
 
-extern void enumwithUnion(int field, long long  value, union EnumUnion* eu);
+extern void enumwithUnion(int field, long long  value, EnumUnion* eu);
 
 #endif //FOREIGN_LINK_ENUM_EXAMPLES_H

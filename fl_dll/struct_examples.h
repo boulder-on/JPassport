@@ -5,31 +5,31 @@
 #ifndef FOREIGN_LINK_STRUCT_EXAMPLES_H
 #define FOREIGN_LINK_STRUCT_EXAMPLES_H
 
-struct PassingData
+typedef struct
 {
     int s_int;
     long long s_long;
     float s_float;
     double s_double;
-};
+}PassingData;
 
-struct ComplexPassing
+typedef struct
 {
     int s_ID;
-    struct PassingData s_passingData;
-    struct PassingData* s_ptrPassingData;
+    PassingData s_passingData;
+    PassingData* s_ptrPassingData;
     char* s_string;
-};
+}ComplexPassing;
 
-struct PassingStructs
+typedef struct
 {
-    struct PassingData s_simple;
-    struct PassingData array_data[3];
+    PassingData s_simple;
+    PassingData array_data[3];
     int countofPtrs;
-    struct PassingData** s_ptrtoptr;
-};
+    PassingData** s_ptrtoptr;
+}PassingStructs;
 
-struct PassingArrays
+typedef struct
 {
     double s_double[5];
     long long s_long[8];
@@ -37,21 +37,21 @@ struct PassingArrays
     double* s_doublePtr;
     long long s_longPtrCount;
     long long* s_longPtr;
-};
+}PassingArrays;
 
-struct PassMemoryBlock
+typedef struct
 {
     char *data;
     int data_size;
-};
+}PassMemoryBlock;
 
-extern double passStruct(struct PassingData* data);
-extern double passComplex(struct ComplexPassing* complex);
-extern double passStructWithArrays(struct PassingArrays* structWithArrays);
-extern void passMemoryBlock(struct PassMemoryBlock* memoryBlock);
-extern double passStructOfStructs(struct PassingStructs* data);
-extern double passStructArrBlock(struct PassingData data[], int count, int multiply);
-extern double passStructArrPtr(struct PassingData** data, int count, int multiply);
+extern double passStruct(PassingData* data);
+extern double passComplex(ComplexPassing* complex);
+extern double passStructWithArrays(PassingArrays* structWithArrays);
+extern void passMemoryBlock(PassMemoryBlock* memoryBlock);
+extern double passStructOfStructs(PassingStructs* data);
+extern double passStructArrBlock(PassingData data[], int count, int multiply);
+extern double passStructArrPtr(PassingData** data, int count, int multiply);
 
 
 #endif //FOREIGN_LINK_STRUCT_EXAMPLES_H

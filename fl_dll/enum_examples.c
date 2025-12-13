@@ -5,24 +5,24 @@
 #include <stdio.h>
 #include "enum_examples.h"
 
-unsigned long long passEnum(enum intEnum ie, enum longEnum le)
+unsigned long long passEnum(intEnum ie, longEnum le)
 {
     return (long long)ie + le;
 }
 
-enum intEnum todayInt(enum intEnum* ie)
+intEnum todayInt(intEnum* ie)
 {
     *ie = FRIDAY;
     return FRIDAY;
 }
 
-enum longEnum todayLong(enum longEnum* le)
+longEnum todayLong(longEnum* le)
 {
     *le = SUNDAY;
     return SUNDAY;
 }
 
-void enumwithUnion(int field, long long value, union EnumUnion* eu)
+void enumwithUnion(int field, long long value, EnumUnion* eu)
 {
     if (field == 1)
         eu->u_err = (int)value;
@@ -32,42 +32,42 @@ void enumwithUnion(int field, long long value, union EnumUnion* eu)
         eu->u_weekend = value;
 }
 
-void todayTransfer(enum intEnum ie, enum intEnum* ie2, enum longEnum le, enum longEnum *le2)
+void todayTransfer(intEnum ie, intEnum* ie2, longEnum le, longEnum *le2)
 {
     *ie2 = ie;
     *le2 = le;
 }
 
-enum retEnum toRetEnum(int v)
+retEnum toRetEnum(int v)
 {
     return v;
 }
 
-void readBackErrCode(int setErr, enum errCodes* code)
+void readBackErrCode(int setErr, errCodes* code)
 {
     code[0] = setErr;
 }
 
-extern void passEnumWArrStruct(struct EnumSimpleArraysStruct *enums)
+extern void passEnumWArrStruct(EnumSimpleArraysStruct *enums)
 {
     for (int n = 0; n < 3; ++n) {
-        enum intEnum tmp = enums->allDays[n];
+        intEnum tmp = enums->allDays[n];
         enums->allDays[n] = enums->allDaysPtr[n];
         enums->allDaysPtr[n] = tmp;
     }
 }
 
-long long passSimpleEnumStruct(struct EnumStruct *enums)
+long long passSimpleEnumStruct(EnumStruct *enums)
 {
     enums->eiValue = enums->ivalue;
     enums->elValue = enums->lvalue;
     return enums->ivalue + enums->lvalue;
 }
 
-extern void passComplexStructEnum(struct EnumArraysStruct *enums)
+extern void passComplexStructEnum(EnumArraysStruct *enums)
 {
     for (int n = 0; n < 3; ++n) {
-        enum intEnum tmp = enums->allDays[n];
+        intEnum tmp = enums->allDays[n];
         enums->allDays[n] = enums->allDaysPtr[n];
         enums->allDaysPtr[n] = tmp;
     }
