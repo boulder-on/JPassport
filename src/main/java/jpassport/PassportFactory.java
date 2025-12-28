@@ -150,8 +150,7 @@ public class PassportFactory
     public static HashMap<String, MethodHandle> loadMethodHandles(String libName, Class<? extends Passport> interfaceClass)
     {
         if (libName != null) {
-            if (Utils.getPlatform().equals(Utils.Platform.Windows) && !libName.endsWith(".dll"))
-                libName = libName + ".dll";
+            libName = System.mapLibraryName(libName);
 
             File libPath = new File(libName);
             System.load(libPath.getAbsolutePath());
