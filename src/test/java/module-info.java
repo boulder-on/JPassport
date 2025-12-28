@@ -8,7 +8,6 @@ module test.passport {
     requires jmh.core;
     requires jmh.generator.annprocess;
 
-    requires commons.csv;
     requires java.desktop;
     requires jdk.jdi;
 
