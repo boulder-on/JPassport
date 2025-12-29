@@ -30,6 +30,7 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -37,12 +38,34 @@ import java.util.*;
  *
  *
  */
-public class PassportFactory
-{
-    /** This map is used to hold the method handles classes need as they are starting.
+public class PassportFactory {
+    /**
+     * This map is used to hold the method handles classes need as they are starting.
      * It's part of the mechanism that allows method handles to be static and final
      */
     private static final HashMap<Class<? extends Passport>, HashMap<String, MethodHandle>> mappedHandles = new HashMap<>();
+
+    public record WritingDetails(
+            Class interfaceClass,
+            String outputClassName,
+            String outputClassPackage,
+            boolean withDebug,
+            String libraryName,
+            Path destinationFolder
+    ){}
+
+    public static void write(WritingDetails details) throws Throwable
+    {
+        if (!Passport.class.isAssignableFrom(details.interfaceClass)) {
+            throw new IllegalArgumentException(
+                    String.format("Interface (%s) of library=%s does not extend %s",
+                            details.interfaceClass.getSimpleName(), details.libraryName, Passport.class.getSimpleName()));
+        }
+
+        PassportWriter classWriter = new PassportWriter<>(details);
+
+        classWriter.write(details.destinationFolder);
+    }
 
     /**
      * Call this method to generate the library linkage. This version of the method will write the java file and compile
@@ -137,6 +160,42 @@ public class PassportFactory
         PassportBuilder<T> classWriter = new PassportBuilder<>(interfaceClass, withDebug);
 
         return classWriter.build(handles);
+    }
+
+    public static MethodHandle loadMethodHandle(String libName, String methodName, FunctionDescriptor fd, boolean isCritical, boolean hasErrCap)
+    {
+        if (libName != null) {
+            libName = System.mapLibraryName(libName);
+
+            File libPath = new File(libName);
+            System.load(libPath.getAbsolutePath());
+        }
+        Linker cLinker = Linker.nativeLinker();
+        //if no library name is given then it must be a system library
+        SymbolLookup lookup = libName == null ? cLinker.defaultLookup() : SymbolLookup.loaderLookup();
+
+        var addr = lookup.find(methodName);
+        if (addr.isPresent()) {
+
+            MethodHandle methodHandle;
+
+            List<Linker.Option> options = new ArrayList<>();
+            if (isCritical)
+                options.add(Linker.Option.critical(true));
+
+            if (hasErrCap)
+                options.add(Linker.Option.captureCallState(ErrorCapture.getErrNames()));
+
+            Linker.Option[] linkeroptions = options.toArray(new Linker.Option[0]);
+            if (linkeroptions.length == 0)
+                methodHandle = cLinker.downcallHandle(addr.get(), fd);
+            else
+                methodHandle = cLinker.downcallHandle(addr.get(), fd, linkeroptions);
+
+            return methodHandle;
+        }
+
+        return null;
     }
 
         /**
@@ -238,7 +297,7 @@ public class PassportFactory
      * @param c The Class to check.
      * @return True if the given class type will be passed to the native method.
      */
-    private static boolean isSpecialClass(Class<?> c)
+    static boolean isSpecialClass(Class<?> c)
     {
         return Arena.class.equals(c) || ErrorCapture.class.equals(c);
     }
@@ -356,7 +415,7 @@ public class PassportFactory
     }
 
 
-    private static MemoryLayout classToMemory(Class<?> type)
+    static MemoryLayout classToMemory(Class<?> type)
     {
         if (double.class.equals(type))
             return ValueLayout.JAVA_DOUBLE;

@@ -38,18 +38,27 @@ Linked L = PassportFactory.link("libforeign", Linked.class);
 int n = L.string_length("hello");   
 double sum = L.sumArrD(new double[] {1, 2, 3}, 3);
 ```
+## Writing the code ahead of time
 
 You can get JPassport to write out a java file for you that you can hand tweak and put in your codebase.
-```java
-PassportWriter pw = new PassportWriter(Linked.class);
 
-//writes out the java code to the given folder
-pw.writeModule(Path.of('output_location'));
+If you are using GraalVM to build native code then you will need this method - pre-writing the code avoids
+all runtime reflection. Also, by avoiding runtime reflection, this is technique has the shortest start-up time.
+
+```java
+var details = new PassportFactory.WritingDetails(Linked.class,  //the interface to build FFM bindings for
+        "Linked_impl",    //The name of the class to build
+        "jpassport.test",   //The package the class should be built in
+        false,              //Should there be debug bindings?
+        getLibName(),       //The name of the library
+        Path.of("src/test/java/jpassport/test") );  //The folder to write the .java file into
+
+PassportFactory.write(details);
 ```
 
-Once the class is compiled, to use it:
+Once the class is written to your source tree, to use it:
 ```java
-Linked l = new Linked_Impl(PassportFactory.loadMethodHandles("libforeign", Linked.class));
+var linked = new Linked_Impl();
 ```
 ## Example code for primitives and memory blocks
 - [primitive_examples.c](../fl_dll/primitive_examples.c)

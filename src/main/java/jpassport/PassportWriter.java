@@ -9,6 +9,10 @@ import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.MemoryLayout;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -19,6 +23,8 @@ import java.nio.file.Path;
 import java.util.*;
 
 
+import static jpassport.PassportFactory.classToMemory;
+import static jpassport.PassportFactory.isSpecialClass;
 import static jpassport.codebuilder.ArgClassification.enum_long;
 import static jpassport.codebuilder.CBConstants.*;
 
@@ -40,6 +46,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
     private final StringBuilder m_moduleSource = new StringBuilder();
     private final String m_className;
     private final String m_fullClassName;
+    private final String m_libName;
 
     private final boolean withDebug;
 
@@ -73,6 +80,14 @@ public class PassportWriter<T extends Passport> implements CBConstants
         }
     };
 
+    public PassportWriter(PassportFactory.WritingDetails details)
+    {
+        this(details.interfaceClass(), details.libraryName(),
+                details.outputClassPackage(),
+                details.outputClassName(),
+                details.withDebug());
+    }
+
     public PassportWriter(Class<T> interfaceClass, String libName, boolean withDebug)
     {
         this(interfaceClass, libName, "jpassport.called_" + Class_ID++, interfaceClass.getSimpleName() + "_impl", withDebug);
@@ -87,6 +102,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
      */
     public PassportWriter(Class<T> interfaceClass, String libName, String packageName, String className, boolean withDebug)
     {
+        m_libName = libName;
+
         List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
         Set<Class<?>> extraImports = findAllExtraImports(interfaceMethods);
         m_className = className;
@@ -138,6 +155,10 @@ public class PassportWriter<T extends Passport> implements CBConstants
                             this.methods.putAll(methods);
                         }
 
+                        public %11$s()
+                        {
+                        }
+
                     """,
                 packageName,
                 buildExtraImports(extraImports),
@@ -146,7 +167,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 structLayouts + enumLookups,
                 verParts[0], verParts[1], verParts[2],
                 Runtime.version().version().getFirst(),
-                m_className, libName));
+                m_className, m_libName));
 
         m_source.append(buildStoreStructFunction(extraImports));
         m_source.append(buildReadStructFunction(extraImports));
@@ -691,6 +712,58 @@ public class PassportWriter<T extends Passport> implements CBConstants
         return sb.toString();
     }
 
+    private void buildMethodMeta(Method method)
+    {
+        Class<?> retType = method.getReturnType();
+        Class<?>[] parameters = method.getParameterTypes();
+        for (int n = 0; n < parameters.length; ++n) {
+            if (!(parameters[n].isPrimitive() || parameters[n].isEnum()) && !isSpecialClass(parameters[n]))
+                parameters[n] = MemorySegment.class;
+        }
+
+        String[] memoryLayout = Arrays.stream(parameters)
+                .filter(p -> !isSpecialClass(p)).
+                map(this::classToMemory).toArray(String[]::new);
+
+        if (void.class.equals(retType))
+            m_source.append(String.format("\tstatic FunctionDescriptor fd_%s =  FunctionDescriptor.ofVoid(", method.getName()));
+        else
+        {
+            m_source.append(String.format("\tstatic FunctionDescriptor fd_%s =  FunctionDescriptor.of(%s,", method.getName(), classToMemory(retType)));
+        }
+        for (String s:memoryLayout)
+            m_source.append(s).append(",");
+        m_source.setLength(m_source.length()-1);
+        m_source.append(");\n");
+    }
+
+    String classToMemory(Class<?> type)
+    {
+        if (double.class.equals(type))
+            return "ValueLayout.JAVA_DOUBLE";
+        if (int.class.equals(type))
+            return "ValueLayout.JAVA_INT";
+        if (float.class.equals(type))
+            return "ValueLayout.JAVA_FLOAT";
+        if (short.class.equals(type))
+            return "ValueLayout.JAVA_SHORT";
+        if (byte.class.equals(type))
+            return "ValueLayout.JAVA_BYTE";
+        if (long.class.equals(type))
+            return "ValueLayout.JAVA_LONG";
+        if (boolean.class.equals(type))
+            return "ValueLayout.JAVA_BOOLEAN";
+        if (char.class.equals(type))
+            return "ValueLayout.JAVA_CHAR";
+
+        var ctype = ArgClassification.classify(type);
+        if (ctype == ArgClassification.enum_long)
+            return "ValueLayout.JAVA_LONG";
+        else if (ctype == ArgClassification.enum_int || ctype == ArgClassification.enum_ordinal)
+            return "ValueLayout.JAVA_INT";
+
+        return "ValueLayout.ADDRESS";
+    }
 
     /**
      * This method is used to create the code to support a single interface method.
@@ -699,6 +772,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
      */
     private void addMethod(Method method, Class<?> retType, Class<T> interfaceClass)
     {
+        buildMethodMeta(method);
         StringBuilder args = new StringBuilder();
         StringBuilder params = new StringBuilder();
         StringBuilder tryArgs = new StringBuilder();
@@ -922,8 +996,24 @@ public class PassportWriter<T extends Passport> implements CBConstants
         if (!tryArgs.isEmpty())
             tryArgs.insert(0, "(").append(")");
 
+        String nativeName = method.getName();
+        if (method.isAnnotationPresent(NativeName.class))
+        {
+            var nn = method.getAnnotation(NativeName.class);
+            nativeName = nn.name();
+        }
+
+        Class<?>[] parameters = method.getParameterTypes();
+        boolean hasErrorCapture = parameters.length > 0 && parameters[0].equals(ErrorCapture.class);
+
+
         m_source.append(String.format("""
-                                private static final MethodHandle %1$s = PassportFactory.getHandle(%10$s.class, %11$s.class, "%1$s");
+                                private static final MethodHandle %1$s;
+                                 static {
+                                    %1$s = PassportFactory.loadMethodHandle("%12$s", "%13$s", fd_%1$s, %14$b,  %15$b);
+                                    if (%1$s != null)
+                                        methods.put("%1$s", %1$s);
+                                 }
                                 public %2$s %1$s(%3$s)
                                 {
                                     try %4$s {
@@ -945,7 +1035,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 preCall.toString().replace("\n", "\n\t\t\t"),
                 strCallReturn, params,
                 postCall.toString().replace("\n", "\n\t\t\t"),
-                strReturn, interfaceClass.getSimpleName(), m_className));
+                strReturn, interfaceClass.getSimpleName(), m_className,
+                m_libName, nativeName, isCriticalMethod ,hasErrorCapture));
     }
 
     public List<Path> writeModule(Path buildRoot) throws IOException
@@ -993,6 +1084,12 @@ public class PassportWriter<T extends Passport> implements CBConstants
     }
 
 
+    void write(Path sourceRoot) throws Throwable
+    {
+        m_source.append("\n}");
+        Path sourceFile = sourceRoot.resolve(m_className + ".java");
+        Files.writeString(sourceFile, m_source);
+    }
 
 
 
