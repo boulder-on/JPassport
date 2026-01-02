@@ -1,8 +1,8 @@
 # Structs
 
 The most reasonable analog of a struct in C is a Java record. The analogy is not
-perfect because records are immutible. But for JPassport, records are very
-handy because of their wel defined format. Using records to model structs allows
+perfect because records are immutable. But for JPassport, records are very
+handy because of their well-defined format. Using records to model structs allows
 them to be handled fully automatically with very few extra hints required from you.
 
 ```
