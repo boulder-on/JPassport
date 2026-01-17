@@ -340,7 +340,7 @@ char* mallocString(const char* origString)
     if (origString == NULL)
         return NULL;
 
-    unsigned int size = strlen(origString) * sizeof(char);
+    unsigned int size = (strlen(origString) + 1)* sizeof(char);
     char* ret = malloc(size);
     strncpy(ret, origString, size);
     return ret;

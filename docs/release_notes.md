@@ -1,5 +1,6 @@
 # Release Notes
 - 1.4.0-24
+    - Adding a native code to passport interface generator
     - Added NativeName annotation to allow remapping of native functions to a different name in your interface
     - Reorganized documentation and example code for greater accessibility
     - Making enums work as struct fields

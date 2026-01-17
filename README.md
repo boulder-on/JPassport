@@ -37,6 +37,7 @@ Java 22. The [Class-file API](https://docs.oracle.com/en/java/javase/24/docs/api
 
 # Contents
 * **[Getting Started](#Getting-Started)**
+* **[Automatically generating JPassport interfaces](docs/code_generation.md)**
 * **[Calling native code](docs/simple_example.md)**
 * **[Callbacks](docs/creating_callbacks.md)**
 * **[Data type mapping](docs/data_type_mapping.md)**

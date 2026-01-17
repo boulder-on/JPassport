@@ -9,8 +9,8 @@
  *
  * A copy is also included in the downloadable source code.
  */
-#ifndef FL_DLL_LIBRARY_H
-#define FL_DLL_LIBRARY_H
+#ifndef FOREIGN_LINK_PRIMITIVE_EXAMPLES_H
+#define FOREIGN_LINK_PRIMITIVE_EXAMPLES_H
 
 #include <stdbool.h>
 
@@ -71,4 +71,4 @@ extern void* PassPointers(void* hMem);
 extern bool isTrue(bool b);
 extern void stripe(int count, bool* vals);
 extern bool compareBool(int count, const bool* b1, const bool* b2, bool* ret);
-#endif //FL_DLL_LIBRARY_H
+#endif //FOREIGN_LINK_PRIMITIVE_EXAMPLES_H
