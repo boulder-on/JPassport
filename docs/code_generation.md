@@ -32,8 +32,6 @@ The generated code will not be optimized perfectly for any given native API.
   - This can be expensive if all you meant was to send a native method blank memory and read back a resonse
 - Things like void* may be better handled with a MemoryBlock, but instead default to byte[]
 - char* are always converted to String arguments. Maybe they should be byte[]?
-- simple typedefs are not handled. ex. typedef int MySpecialIntType
-  - This will be handled eventually in an update.
 
 It's really important to look at the documentation for the native code you are calling and make sure that the
 generated interface function is reasonable
