@@ -1,4 +1,5 @@
 package jpassport.parser;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -37,7 +38,7 @@ public class HeaderToPassport {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
-            System.err.println("Usage: [path to header] [path to destination] [package] [extra include folders ; delimited]");
+            System.err.println("Usage: [path to header] [path to destination] [package] [extra include folders " + File.pathSeparator +" delimited]");
             System.exit(1);
         }
 
@@ -47,7 +48,8 @@ public class HeaderToPassport {
         packageName = args[2];
         interfaceName = headerName.replace(".", "_");
 
-        var folderNames = args[3].split(";");
+
+        var folderNames = args[3].split(File.pathSeparator);
         includeFolders.add(headerPath.getParent());
         for (String folderName : folderNames) {
             includeFolders.add(Path.of(folderName));
@@ -59,14 +61,17 @@ public class HeaderToPassport {
         String header = loadHeaderRecursive(baseDir, headerName, new HashSet<>());
 
         Path tmpHeader = CPreprocess.createTmpHeader(header);
+        System.out.println("Tmp file created: " + tmpHeader);
         var processedFile = CPreprocess.preprocess(tmpHeader, new String[0]);
-        Files.delete(tmpHeader);
+        System.out.println("Preprocessed file: " + processedFile);
+//        Files.delete(tmpHeader);
 
         if (processedFile.isPresent()) {
             header = Files.readString(processedFile.get());
-            Files.delete(processedFile.get());
+//            Files.delete(processedFile.get());
         }
 
+        parseTypedefs(header);
         List<CFunction> functions = parseFunctions(header);
         List<CRecord> records = parseRecords(header);
         List<CEnum> enums = parseEnums(header);
@@ -127,6 +132,7 @@ public class HeaderToPassport {
         visited.add(fileName);
 
         Path file = baseDir.resolve(fileName);
+        System.out.println("Including: " + file);
         String text = Files.readString(file);
 
         //find multi line comments and remove them
@@ -143,7 +149,8 @@ public class HeaderToPassport {
         for (String s : lines)
         {
             int idx=  s.indexOf("//");
-            if (idx > 0)  //the comment starts somewhere on the line, so clip off the end of the line
+            //In blis.h I found #line 1 ".//file.h" - If the // is in a preprocessor then ignore it
+            if (idx > 0 && !s.trim().startsWith("#"))  //the comment starts somewhere on the line, so clip off the end of the line
                 s = s.substring(0, idx);
             else if (idx == 0) //if the line starts with a comment then just throw it away
                 continue;
@@ -231,17 +238,56 @@ public class HeaderToPassport {
         return false;
     }
 
+    record CAlias(String alias, String replace){
+
+        String clean(String orig) {
+            String regEx = "\\s*" + alias.replace(" ", "\\s+") + "(\\*+\\s+|\\s+)";
+            Pattern p = Pattern.compile(regEx, Pattern.DOTALL);
+
+            Matcher m = p.matcher(orig);
+            while (m.find()) {
+                String found = m.group(0);
+                int ptrCount = found.length() - found.replace("*", "").length();
+
+                if (ptrCount == 0)
+                    orig = orig.replace(found, replace + " ");
+                else{
+                    String ptrs = "";
+                    for (int i = 0; i < ptrCount; i++)
+                        ptrs = ptrs + "*";
+
+                    orig = orig.replace(found, replace + ptrs + " ");
+
+                }
+
+            }
+
+            return orig;
+        }
+    }
+
+    private static List<CAlias> commonAliases = List.of(
+            new CAlias("unsigned char", "byte"),
+            new CAlias("unsigned short", "short"),
+            new CAlias("unsigned int", "int"),
+            new CAlias("unsigned long", "long"),
+            new CAlias("unsigned long long", "long"),
+            new CAlias("long long", "long"),
+            new CAlias("long double", "double")
+    );
+
+    private static String cleanCommonAliases(String orig) {
+        for (var c : commonAliases) {
+            orig = c.clean(orig);
+        }
+        return orig;
+    }
+
     static ArgDef splitArg(String argDef)
     {
         argDef = argDef.trim();
-
         argDef = argDef.replace("const ", "");
-        if (argDef.startsWith("long long"))
-            argDef = argDef.replace("long long", "long");
-        else if (argDef.startsWith("unsigned long long"))
-            argDef = argDef.replace("unsigned long long", "long");
-        else if (argDef.startsWith("long double"))
-            argDef = argDef.replace("long double", "double");
+        argDef = cleanCommonAliases(argDef);
 
 
         if (argDef.isEmpty()){
@@ -303,6 +349,58 @@ public class HeaderToPassport {
     // ============================================================
     // STRUCT / UNION PARSING
     // ============================================================
+
+    static void parseTypedefs(String text) {
+        //"typedef\\s*(long|int|char|short)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?";
+
+//        "typedef\\s*(long|int|char|short|float|double|long long|long double|unsigned long long|long int|unsigned)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
+
+            Pattern p = Pattern.compile(
+                "typedef\\s*(unsigned\\s+short|short|" +
+                        "unsigned\\s+int|long\\s+int|int|" +
+                        "unsigned\\s+long\\s+long|lon\\s+long|unsigned\\s+long|long|" +
+                        "unsgined\\s+char|char|" +
+                        "float|" +
+                        "long\\s+double|double|" +
+                        "bool)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
+                Pattern.DOTALL);
+
+        Matcher m = p.matcher(text);
+        while (m.find()) {
+
+            String typeDefOrig = m.group();
+            String cleanTypeDef = cleanCommonAliases(typeDefOrig);
+            String[] parts = cleanTypeDef.split("\\s+");
+
+            String type = parts[1];
+            String name = parts[2];
+
+            if (!typeDefToNative.containsKey(name))
+            {
+                Type t;
+                if (typeDefToNative.containsKey(type))
+                {
+                    t = typeDefToNative.get(type);
+                    typeDefToNative.put(name, t);
+                }
+                else
+                    warnings.add("WARNING: typdef " + name + " cannot be found.");
+            }
+        }
+    }
+
+    record Type(String name, boolean isNative){}
+
+    private static HashMap<String, Type> typeDefToNative = new HashMap<>();
+
+    static {
+        typeDefToNative.put("char", new Type("char", true));
+        typeDefToNative.put("short", new Type("short", true));
+        typeDefToNative.put("int", new Type("int", true));
+        typeDefToNative.put("long", new Type("long", true));
+        typeDefToNative.put("float", new Type("float", true));
+        typeDefToNative.put("double", new Type("double", true));
+    }
 
     static List<CRecord> parseRecords(String text) {
         List<CRecord> list = new ArrayList<>();
