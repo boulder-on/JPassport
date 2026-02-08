@@ -62,13 +62,16 @@ public class HeaderToPassport {
 
         Path tmpHeader = CPreprocess.createTmpHeader(header);
         System.out.println("Tmp file created: " + tmpHeader);
-        var processedFile = CPreprocess.preprocess(tmpHeader, new String[0]);
+        String[] extraArgs = new String[args.length - 4];
+        for (int n = 4; n < args.length; n++)
+            extraArgs[n-4] = args[n];
+        var processedFile = CPreprocess.preprocess(tmpHeader, extraArgs);
         System.out.println("Preprocessed file: " + processedFile);
-//        Files.delete(tmpHeader);
+        Files.delete(tmpHeader);
 
         if (processedFile.isPresent()) {
             header = Files.readString(processedFile.get());
-//            Files.delete(processedFile.get());
+            Files.delete(processedFile.get());
         }
 
         parseTypedefs(header);
@@ -160,32 +163,7 @@ public class HeaderToPassport {
 
         //there should be no comments left in this text
         text = sb.toString();
-        StringBuilder combined = new StringBuilder(text);
-
-        for (Include inc : parseIncludes(text)) {
-            if (inc.isUserHeader) {
-                boolean found = false;
-                for (Path p : includeFolders) {
-                    try {
-                        combined.append("\n")
-                                .append(loadHeaderRecursive(p, inc.file, visited));
-                        found = true;
-                        break;
-                    } catch (IOException e) {
-                        //ignore
-                    }
-                }
-                if (!found) {
-                    System.err.println("Failed to find include file: " + inc.file);
-                }
-            }
-        }
-
-        //strip the includes out of the output so that they do not confuse the pre-processor
-        StringBuilder recombined = new StringBuilder();
-        combined.toString().lines().filter(s -> !s.trim().startsWith("#include")).forEach(s -> recombined.append(s).append("\n"));
-
-        return recombined.toString();
+        return text;
     }
 
     // ============================================================
@@ -215,6 +193,8 @@ public class HeaderToPassport {
                 }
             }
 
+            if (returnType.contains("__cdecl"))
+                continue;
             list.add(new CFunction(splitArg(returnType + " dummy"), name, parameters));
 
             if (!warnings.isEmpty())
@@ -250,13 +230,13 @@ public class HeaderToPassport {
                 int ptrCount = found.length() - found.replace("*", "").length();
 
                 if (ptrCount == 0)
-                    orig = orig.replace(found, replace + " ");
+                    orig = orig.replace(found, " " + replace + " ");
                 else{
                     String ptrs = "";
                     for (int i = 0; i < ptrCount; i++)
                         ptrs = ptrs + "*";
 
-                    orig = orig.replace(found, replace + ptrs + " ");
+                    orig = orig.replace(found, " " + replace + ptrs + " ");
 
                 }
 
@@ -273,7 +253,8 @@ public class HeaderToPassport {
             new CAlias("unsigned long", "long"),
             new CAlias("unsigned long long", "long"),
             new CAlias("long long", "long"),
-            new CAlias("long double", "double")
+            new CAlias("long double", "double"),
+            new CAlias("size_t", "long")
     );
 
     private static String cleanCommonAliases(String orig) {
@@ -287,12 +268,13 @@ public class HeaderToPassport {
     {
         argDef = argDef.trim();
         argDef = argDef.replace("const ", "");
+        argDef = argDef.replace("__stdcall ", "");
         argDef = cleanCommonAliases(argDef);
 
 
         if (argDef.isEmpty()){
             warnings.add("WARNING: there seems to be a problem with an argument definition. Is there an extra comma?");
-            return new ArgDef("error", "error", "");
+            return new ArgDef("error", "error", "", true, argDef);
         }
 
         String[] parts = argDef.split("\\s+");
@@ -307,7 +289,7 @@ public class HeaderToPassport {
         if (parts.length != 2)
         {
             warnings.add("ERROR: I don't know how to parse the argument: " + argDef);
-            return new ArgDef("error", "error", "");
+            return new ArgDef("error", "error", "", true,  argDef);
         }
 
         String type = parts[0].replace("[]", "*");
@@ -343,7 +325,7 @@ public class HeaderToPassport {
             ptr = name.substring(start, end+1);
             name = name.replace(ptr, "");
         }
-        return new ArgDef(type, name,  ptr);
+        return new ArgDef(type, name,  ptr, false, argDef);
     }
 
     // ============================================================
@@ -358,7 +340,7 @@ public class HeaderToPassport {
             Pattern p = Pattern.compile(
                 "typedef\\s*(unsigned\\s+short|short|" +
                         "unsigned\\s+int|long\\s+int|int|" +
-                        "unsigned\\s+long\\s+long|lon\\s+long|unsigned\\s+long|long|" +
+                        "unsigned\\s+long\\s+long|long\\s+long|unsigned\\s+long|long|" +
                         "unsgined\\s+char|char|" +
                         "float|" +
                         "long\\s+double|double|" +
@@ -375,6 +357,9 @@ public class HeaderToPassport {
             String type = parts[1];
             String name = parts[2];
 
+            if (name.endsWith(";"))
+                name = name.substring(0, name.length() - 1);
+
             if (!typeDefToNative.containsKey(name))
             {
                 Type t;
@@ -389,17 +374,28 @@ public class HeaderToPassport {
         }
     }
 
-    record Type(String name, boolean isNative){}
+    record Type(String name, boolean isNative, String ptr){}
 
     private static HashMap<String, Type> typeDefToNative = new HashMap<>();
 
     static {
-        typeDefToNative.put("char", new Type("char", true));
-        typeDefToNative.put("short", new Type("short", true));
-        typeDefToNative.put("int", new Type("int", true));
-        typeDefToNative.put("long", new Type("long", true));
-        typeDefToNative.put("float", new Type("float", true));
-        typeDefToNative.put("double", new Type("double", true));
+        typeDefToNative.put("char", new Type("char", true, ""));
+        typeDefToNative.put("short", new Type("short", true, ""));
+        typeDefToNative.put("int", new Type("int", true, ""));
+        typeDefToNative.put("long", new Type("long", true, ""));
+        typeDefToNative.put("float", new Type("float", true, ""));
+        typeDefToNative.put("double", new Type("double", true, ""));
+        typeDefToNative.put("size_t", new Type("long", true, ""));
+        typeDefToNative.put("HANDLE", new Type("long", true, ""));
+
+        typeDefToNative.put("PVOID", new Type("byte", true, "*"));
+        typeDefToNative.put("LPVOID", new Type("byte", true, "*"));
+        typeDefToNative.put("LPCSTR", new Type("char", true, "*"));
+        typeDefToNative.put("LPCWSTR", new Type("char", true, "*"));
+        typeDefToNative.put("PDWORD", new Type("long", true, "*"));
+        typeDefToNative.put("ULONG64", new Type("long", true, ""));
+        typeDefToNative.put("BOOLEAN", new Type("boolean", true, ""));
+        typeDefToNative.put("PBOOL", new Type("boolean", true, "*"));
     }
 
     static List<CRecord> parseRecords(String text) {
@@ -646,6 +642,9 @@ public class HeaderToPassport {
     // ============================================================
 
     static String formatParam(ArgDef p) {
+        if (p.error)
+            return p.origText;
+
         long ptrCount = p.ptr.chars().filter(ch -> ch == '*' || ch == '[').count();
         String javaType = mapType(p, false);
 
@@ -666,8 +665,18 @@ public class HeaderToPassport {
     // ============================================================
 
     static String mapType(ArgDef def, boolean isReturn) {
+        if (def.error)
+            return def.origText;
+
         String t = def.type.trim();
-        long ptrCount =  def.ptr.chars().filter(ch -> ch == '*').count();
+        String ptr = def.ptr;
+        if (typeDefToNative.containsKey(t))
+        {
+            ptr = typeDefToNative.get(t).ptr;
+            t = typeDefToNative.get(t).name;
+        }
+
+        long ptrCount =  ptr.chars().filter(ch -> ch == '*').count();
 
         if (isReturn && ptrCount > 0)
             return "MemorySegment";
@@ -675,7 +684,12 @@ public class HeaderToPassport {
         if (ptrCount > 2)
             warnings.add("Pointer count of " + ptrCount + " is not supported directly. You may need to manually edit generated code.");
 
-        String base = t.replaceAll("\\s+", " ").toLowerCase();
+        String base = t.replaceAll("\\s+", " ");
+
+        if (typeDefToNative.containsKey(base))
+            base = typeDefToNative.get(base).name;
+
+        base = base.toLowerCase(Locale.ROOT);
 
         if (base.startsWith("long long") ||
                 base.startsWith("unsigned long long")) {
@@ -711,6 +725,8 @@ public class HeaderToPassport {
     }
 
     static String mapRecordType(ArgDef cType) {
+        if (cType.error)
+            return cType.origText;
 
         String t = cType.type.trim();
         long ptrCount =  cType.ptr.chars().filter(ch -> ch == '*').count();
@@ -720,6 +736,8 @@ public class HeaderToPassport {
 
         String base = t.replaceAll("\\s+", " ");
 
+        if (typeDefToNative.containsKey(base))
+            base = typeDefToNative.get(base).name;
 
         if (base.startsWith("unsigned"))
             base = base.substring("unsigned".length());
@@ -777,7 +795,7 @@ public class HeaderToPassport {
     // MODEL CLASSES
     // ============================================================
 
-    record ArgDef(String type, String name, String ptr){}
+    record ArgDef(String type, String name, String ptr, boolean error, String origText){}
 
     static class CFunction {
         ArgDef returnType;

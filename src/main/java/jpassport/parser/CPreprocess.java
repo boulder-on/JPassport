@@ -9,7 +9,7 @@ import java.util.concurrent.*;
 
 public class CPreprocess {
 
-    enum OSType{windows, mac, nix, wsl}
+    enum OSType{windows, mac, nix}
 
     static OSType osType = null;
 
@@ -26,7 +26,7 @@ public class CPreprocess {
         boolean noLineMarkers = true; // default: suppress #line markers
         String std = null;
 
-        for (int i = 1; i < args.length; i++) {
+        for (int i = 0; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--no-line-markers")) {
                 noLineMarkers = true;
@@ -52,9 +52,6 @@ public class CPreprocess {
         else
             osType = OSType.nix;
 
-        if (choosePreprocessor() == null && isWindows() && hasWSL())
-            osType = OSType.wsl;
-
         // Choose preprocessor
         String cc = choosePreprocessor();
         if (cc == null) {
@@ -77,8 +74,6 @@ public class CPreprocess {
             // Build command
             List<String> cmd = new ArrayList<>();
 
-            if (osType == OSType.wsl)
-                cmd.add("wsl");
 
             cmd.add(cc);
             cmd.add("-E"); // preprocess only
@@ -167,11 +162,7 @@ public class CPreprocess {
 
     private static boolean isOnPath(String exe) {
         try {
-            ProcessBuilder pb;
-            if (osType == OSType.wsl)
-                pb =  new ProcessBuilder("wsl", exe, "--version");
-            else
-                pb = new ProcessBuilder(exe, "--version");
+            ProcessBuilder pb = new ProcessBuilder(exe, "--version");
 
             pb.redirectErrorStream(true);
             Process p = pb.start();
