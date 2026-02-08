@@ -73,6 +73,11 @@ public class HeaderToPassport {
             header = Files.readString(processedFile.get());
             Files.delete(processedFile.get());
         }
+        else
+        {
+            System.err.println("Preprocessor step failed - no further generation is possible.");
+            return;
+        }
 
         parseTypedefs(header);
         List<CFunction> functions = parseFunctions(header);
@@ -246,12 +251,15 @@ public class HeaderToPassport {
         }
     }
 
-    private static List<CAlias> commonAliases = List.of(
+    private static final List<CAlias> commonAliases = List.of(
             new CAlias("unsigned char", "byte"),
             new CAlias("unsigned short", "short"),
             new CAlias("unsigned int", "int"),
             new CAlias("unsigned long", "long"),
             new CAlias("unsigned long long", "long"),
+            new CAlias("unsigned long long int", "long"),
+            new CAlias("long long unsigned int", "long"),
+            new CAlias("long long int", "long"),
             new CAlias("long long", "long"),
             new CAlias("long double", "double"),
             new CAlias("size_t", "long")
@@ -337,14 +345,24 @@ public class HeaderToPassport {
 
 //        "typedef\\s*(long|int|char|short|float|double|long long|long double|unsigned long long|long int|unsigned)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
 
-            Pattern p = Pattern.compile(
+//            Pattern p = Pattern.compile(
+//                "typedef\\s*(unsigned\\s+short|short|" +
+//                        "unsigned\\s+int|long\\s+int|int|" +
+//                        "unsigned\\s+long\\s+long|long\\s+long|unsigned\\s+long|long|" +
+//                        "unsgined\\s+char|char|" +
+//                        "float|" +
+//                        "long\\s+double|double|" +
+//                        "bool)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
+//                Pattern.DOTALL);
+
+        Pattern p = Pattern.compile(
                 "typedef\\s*(unsigned\\s+short|short|" +
-                        "unsigned\\s+int|long\\s+int|int|" +
+                        "unsigned\\s+int|long\\s+int|long\\s+long\\s+int|long\\s+long\\s+unsigned\\s+int|int|" +
                         "unsigned\\s+long\\s+long|long\\s+long|unsigned\\s+long|long|" +
-                        "unsgined\\s+char|char|" +
+                        "unsigned\\s+char|char|" +
                         "float|" +
                         "long\\s+double|double|" +
-                        "bool)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
+                        "bool|(?:[A-Za-z_][A-Za-z0-9_]*)?)\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
                 Pattern.DOTALL);
 
         Matcher m = p.matcher(text);
