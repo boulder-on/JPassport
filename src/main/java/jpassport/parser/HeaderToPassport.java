@@ -22,8 +22,7 @@ public class HeaderToPassport {
     static Path destinationPath;
     static String packageName;
     static String interfaceName;
-    static List<Path> includeFolders = new ArrayList<>();
-    static List<Path> excludeFolders = new ArrayList<>();
+
     static List<String> warnings = new ArrayList<>();
 
     enum OUTPUT_OBJECTS{methods, records, enums}
@@ -37,8 +36,8 @@ public class HeaderToPassport {
 
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 4) {
-            System.err.println("Usage: [path to header] [path to destination] [package] [extra include folders " + File.pathSeparator +" delimited]");
+        if (args.length < 3) {
+            System.err.println("Usage: [path to header] [path to destination] [package] [preprocessor options]");
             System.exit(1);
         }
 
@@ -47,13 +46,6 @@ public class HeaderToPassport {
         destinationPath = Path.of(args[1]);
         packageName = args[2];
         interfaceName = headerName.replace(".", "_");
-
-
-        var folderNames = args[3].split(File.pathSeparator);
-        includeFolders.add(headerPath.getParent());
-        for (String folderName : folderNames) {
-            includeFolders.add(Path.of(folderName));
-        }
 
         validateArguments(headerPath);
 

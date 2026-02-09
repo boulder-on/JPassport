@@ -2,20 +2,49 @@
 
 For small header files it's easy enough to generate the Java code you need by hand. For larger
 projects with hundreds of native calls that you need to map it might be easier to start with
-automatic header -> java interface generation.
+automatic header java interface generation.
 
 The JPassport jar file is runnable and will create the java interface, records and enums you need.
 
 ```
-java -jar JPassport-1.3.1-24.jar [full path to header file] [destination folder for generated code] [package name to use] [delimited list of include folders]
+java -jar JPassport-1.3.1-24.jar [full path to header file] [destination folder for generated code] [package name to use] [preprocessor options]
 ```
+
+You can also write code to generate the java files if that is easier
+
+```java
+String[] includeFolders = {
+        "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um",
+        "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared",
+        "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt",
+        "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.40.33807\\include"};
+
+String[] genArgs = {
+  "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um\\winbase.h", // the header file to parse
+  "JWin32/src/main/java/jwin32b/winbase",  //the folder for output
+  "jwin32b.winbase",    //the package name to use
+};
+
+List<String> allArgs = new ArrayList<>(Arrays.asList(genArgs));
+for (int n = 0; n < includeFolders.length; n++)
+    allArgs.add("-I" + includeFolders[n]);  //adds the include folders for the preprocessor
+
+var progArgs = allArgs.toArray(new String[0]);
+HeaderToPassport.main(progArgs);
+
+```
+In order to parse your header file a preprocessor is required:
+
+- Windows
+  - clang
+- Linux, Mac
+  - clang
+  - gcc
+  - cpp
 
 The parser will:
 
-- Parse all #includes to make a single giant, ordered, temporary header file
-- If a preprocessor is detected (Windows: clang, Linux or Mac: clang, gcc, cpp) then the temporary header file is preprocessed
-  - IF no preprocessor is found then this step is skipped
-  - standard includes are always skipped. ex #include <sdtio.h>, or anything using <>.
+- Feed the header into the C preprocessor using the -E option which outputs only the preprocessed C code
 - The proprocessed version of the header is parsed and turned into
   - [header name]_h.java - containing the JPassport interface
   - The required records for mapping structs and unions
@@ -35,3 +64,4 @@ The generated code will not be optimized perfectly for any given native API.
 
 It's really important to look at the documentation for the native code you are calling and make sure that the
 generated interface function is reasonable
+
