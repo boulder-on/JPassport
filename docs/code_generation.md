@@ -36,7 +36,7 @@ HeaderToPassport.main(progArgs);
 In order to parse your header file a preprocessor is required:
 
 - Windows
-  - clang
+  - clang (install LLVM)
 - Linux, Mac
   - clang
   - gcc
@@ -53,6 +53,10 @@ The parser will:
 The generated interface can be used normally as per the instructions in this guide.
 
 ## Limitations
+- Unions defined within structs are not properly parsed
+- Some keywords are not handled: volatile, signed
+
+In general, you will get output code. There may be errors in it that you need to correct by hand.
 
 The parsing and interpretation process can only make guesses about the code that should be generated.
 The generated code will not be optimized perfectly for any given native API.
