@@ -69,3 +69,21 @@ The generated code will not be optimized perfectly for any given native API.
 It's really important to look at the documentation for the native code you are calling and make sure that the
 generated interface function is reasonable
 
+For example, here is a C method declaration from the win32 API:
+
+```C
+BOOL DnsHostnameToComputerNameExW(LPCWSTR Hostname, LPWSTR ComputerName, LPDWORD nSize);
+```
+This code will translate to this Java interface method
+
+```Java
+int DnsHostnameToComputerNameExW(String Hostname, String ComputerName, @RefArg long[] nSize);
+```
+In this case, ComputerName will be filled with the computer name when this method returns. There's no way
+for that to happen in this Java interface. A more accurate translation of this interface is:
+
+```Java
+int DnsHostnameToComputerNameExW(String Hostname, @RefArg byte[] ComputerName, @RefArg long[] nSize);
+```
+After the call returns you would need to convert the bytes to a string yourself.
+

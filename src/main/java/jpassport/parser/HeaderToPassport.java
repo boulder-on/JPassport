@@ -64,11 +64,13 @@ public class HeaderToPassport {
         typeDefToNative.put("size_t", new Type("long", true, ""));
         typeDefToNative.put("HANDLE", new Type("long", true, ""));
 
-        typeDefToNative.put("PVOID", new Type("byte", true, "*"));
-        typeDefToNative.put("LPVOID", new Type("byte", true, "*"));
-        typeDefToNative.put("LPCSTR", new Type("char", true, "*"));
-        typeDefToNative.put("LPCWSTR", new Type("char", true, "*"));
-        typeDefToNative.put("PDWORD", new Type("long", true, "*"));
+        typeDefToNative.put("PVOID", new Type("byte", true, "*", true));
+        typeDefToNative.put("LPVOID", new Type("byte", true, "*", true));
+        typeDefToNative.put("LPCSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("LPCWSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("LPWSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("PDWORD", new Type("long", true, "*", true));
+        typeDefToNative.put("LPDWORD", new Type("long", true, "*", true));
         typeDefToNative.put("ULONG64", new Type("long", true, ""));
         typeDefToNative.put("BOOLEAN", new Type("boolean", true, ""));
         typeDefToNative.put("PBOOL", new Type("boolean", true, "*"));
@@ -624,6 +626,10 @@ public class HeaderToPassport {
         long ptrCount = p.ptr.chars().filter(ch -> ch == '*' || ch == '[').count();
         String javaType = mapType(p, false);
 
+        long ptrCount2 = javaType.chars().filter(ch -> ch == '*' || ch == '[').count();
+        if (ptrCount2 > ptrCount)
+            ptrCount = ptrCount2;
+
         if (ptrCount > 2)
             warnings.add("Pointer count of " + ptrCount + " is not supported directly. You may need to manually edit generated code.");
 
@@ -650,7 +656,7 @@ public class HeaderToPassport {
         {
             //Empty structs are just GenericPointers. So if we are not an empty struct then do not change the pointer
             //count. This preserves things like "uint16 *myarg" which should be treated as a java array
-            if (emptyStructs.contains(t))
+            if (emptyStructs.contains(t) || typeDefToNative.get(t).ptrRequired)
                 ptr = typeDefToNative.get(t).ptr;
             t = typeDefToNative.get(t).name;
         }
@@ -678,8 +684,7 @@ public class HeaderToPassport {
         String javaType = switch (base) {
             case "int" -> "int";
             case "short" -> "short";
-            case "long" -> "long";
-            case "long long" -> "long";
+            case "long", "long long" -> "long";
             case "float" -> "float";
             case "double" -> "double";
             case "bool" -> "boolean";
@@ -809,5 +814,10 @@ public class HeaderToPassport {
         Long value,
         boolean forceLong){}
 
-    record Type(String name, boolean isNative, String ptr){}
+    record Type(String name, boolean isNative, String ptr, boolean ptrRequired){
+        public Type(String name, boolean isNative, String ptr)
+        {
+            this(name, isNative, ptr, false);
+        }
+    }
 }
