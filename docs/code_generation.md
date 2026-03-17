@@ -55,6 +55,7 @@ The generated interface can be used normally as per the instructions in this gui
 ## Limitations
 - Unions defined within structs are not properly parsed
 - Some keywords are not handled: volatile, signed
+- Variadic arguments (...) are not handled!
 
 In general, you will get output code. There may be errors in it that you need to correct by hand.
 

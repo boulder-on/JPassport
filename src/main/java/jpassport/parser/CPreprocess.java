@@ -4,6 +4,7 @@ package jpassport.parser;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -13,13 +14,13 @@ public class CPreprocess {
 
     static OSType osType = null;
 
-    public static Path createTmpHeader(String contents) throws IOException {
-        Path p = Files.createTempFile("", ".h");
-        Files.writeString(p, contents);
-        return p;
-    }
+//    public static Path createTmpHeader(String contents) throws IOException {
+//        Path p = Files.createTempFile("", ".h");
+//        Files.writeString(p, contents);
+//        return p;
+//    }
 
-    public static Optional<Path> preprocess(Path header, String[] args) {
+    public static Optional<Path> preprocess(Path header, Path srcDest, String[] args) {
 
         // Parse args
         List<String> extraArgs = new ArrayList<>();
@@ -63,8 +64,9 @@ public class CPreprocess {
         // Create a temp .c translation unit that includes the header
         Path tempTU = null;
         try {
-            tempTU = Files.createTempFile("cpp_include_", ".c");
-            tempTU.toFile().deleteOnExit();
+            var name = header.getFileName().toString();
+            tempTU = Files.createTempFile("cpp_include", ".cpp");
+//            tempTU.toFile().deleteOnExit();
 
             // Use absolute path with forward slashes (portable with clang/gcc on all platforms)
             String absHdr = header.toAbsolutePath().toString().replace('\\', '/');
@@ -77,28 +79,35 @@ public class CPreprocess {
 
             cmd.add(cc);
             cmd.add("-E"); // preprocess only
-            if (noLineMarkers) {
-                cmd.add("-P"); // suppress #line directives
-            }
+//            if (noLineMarkers) {
+//                cmd.add("-P"); // suppress #line directives
+//            }
             if (std != null && !std.isEmpty() && (cc.equals("clang") || cc.equals("gcc"))) {
                 cmd.add("-std=" + std);
             }
 
             // Add user pass-through args (e.g., -I, -D, -nostdinc, --sysroot, -isystem)
+            String includes = extraArgs.removeFirst();
             cmd.addAll(extraArgs);
 
             // Input file last
             cmd.add(tempTU.toString());
 
+            System.out.println("Running command: " + tempTU.getParent().toString());
+            cmd.stream().forEach(System.out::println);
+
             ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.environment().put("INCLUDE", includes);
             // Set working directory to the header's folder for any relative paths the preprocessor might resolve
-            pb.directory(header.toAbsolutePath().getParent().toFile());
+//            pb.directory(header.toAbsolutePath().getParent().toFile());
             pb.redirectErrorStream(false);
 
             Process proc = pb.start();
 
             // Stream stdout to our stdout; stderr to our stderr
-            Path processed = Files.createTempFile("", ".h");
+            if (!Files.exists(srcDest))
+                Files.createDirectories(srcDest);
+            Path processed = Files.createTempFile(srcDest, name + "_", ".h");
             var out = Files.newOutputStream(processed);
             Future<?> outPump = pumpAsync(proc.getInputStream(), out);
             Future<?> errPump = pumpAsync(proc.getErrorStream(), System.err);
@@ -107,6 +116,7 @@ public class CPreprocess {
             outPump.get();
             errPump.get();
             out.close();
+            Files.delete(tempTU);
             if (exit != 0) {
                 System.err.println("\nPreprocessor exited with code: " + exit);
                 return Optional.empty();
@@ -149,15 +159,28 @@ public class CPreprocess {
                 "  java CPreprocess win/foo.h --cc=gcc -I\"C:/SDK/include\" -DDEBUG\n");
     }
 
+    private static String pathToPreProc = null;
+
     private static String choosePreprocessor() {
 //        if (forced != null && isOnPath(forced)) return forced;
-        if (isOnPath("clang")) return "clang";
+//        if (isOnPath("clang")) return "clang";
 
-        if (isWindows()) return "";//only clang on windows
+        if (pathToPreProc == null)
+        {
+            if (isWindows()) {
+                pathToPreProc = pathToCL(Path.of("C:\\Program Files (x86)\\Microsoft Visual Studio\\")).toAbsolutePath().toString();//only clang on windows
+            }
 
-        if (isOnPath("gcc")) return "gcc";
-        if (isOnPath("cpp")) return "cpp";
-        return null;
+            if (isOnPath("gcc")){
+                pathToPreProc = "gcc";
+            }
+            if (isOnPath("cpp")) {
+                pathToPreProc = "cpp";
+            }
+            return pathToPreProc;
+        }
+
+        return pathToPreProc;
     }
 
     private static boolean isOnPath(String exe) {
@@ -180,6 +203,34 @@ public class CPreprocess {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static Path pathToCL(Path root)
+    {
+        var searchRoot = Path.of("C:\\Program Files (x86)\\Microsoft Visual Studio\\");
+        Path clPath = null;
+
+        var found = root.toFile().listFiles(new FilenameFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+                return name.equalsIgnoreCase("cl.exe");
+            }
+        });
+
+        if (found != null && found.length > 0) {return found[0].toPath();};
+
+        var subFolders = root.toFile().listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File pathname) {
+                return pathname.isDirectory();
+            }
+        });
+
+        for (File f : subFolders) {
+            var ret = pathToCL(f.toPath());
+            if (ret != null) return ret;
+        }
+        return null;
     }
 
     private static Future<?> pumpAsync(InputStream in, OutputStream out) {

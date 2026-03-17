@@ -1,4 +1,6 @@
 package jpassport.parser;
+import com.sun.jna.platform.win32.WinNT;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -25,8 +27,15 @@ public class HeaderToPassport {
 
     static List<String> warnings = new ArrayList<>();
 
-    enum OUTPUT_OBJECTS{methods, records, enums}
+    enum OUTPUT_OBJECTS {methods, records, enums}
+
+    static HashSet<String> typesWritten = new HashSet();
+
     static int[] counts = new int[OUTPUT_OBJECTS.values().length];
+
+    static List<CFunction> functions = new ArrayList<>();
+    static List<CRecord> records = new ArrayList<>();
+    static List<CEnum> enums = new ArrayList<>();
 
     //find arguments defined in C as arg[row][col]
     static Pattern pattArray = Pattern.compile(
@@ -42,6 +51,7 @@ public class HeaderToPassport {
             new CAlias("unsigned long long", "long"),
             new CAlias("unsigned long long int", "long"),
             new CAlias("long long unsigned int", "long"),
+            new CAlias("short int", "short"),
             new CAlias("long long int", "long"),
             new CAlias("long long", "long"),
             new CAlias("long double", "double"),
@@ -56,9 +66,13 @@ public class HeaderToPassport {
 
     static {
         typeDefToNative.put("char", new Type("char", true, ""));
+        typeDefToNative.put("uint8_t", new Type("byte", true, ""));
+        typeDefToNative.put("uint_least8_t", new Type("byte", true, ""));
+        typeDefToNative.put("uint_fast8_t", new Type("byte", true, ""));
         typeDefToNative.put("short", new Type("short", true, ""));
         typeDefToNative.put("int", new Type("int", true, ""));
         typeDefToNative.put("long", new Type("long", true, ""));
+        typeDefToNative.put("time_t", new Type("long", true, ""));
         typeDefToNative.put("float", new Type("float", true, ""));
         typeDefToNative.put("double", new Type("double", true, ""));
         typeDefToNative.put("size_t", new Type("long", true, ""));
@@ -68,16 +82,33 @@ public class HeaderToPassport {
         typeDefToNative.put("LPVOID", new Type("byte", true, "*", true));
         typeDefToNative.put("LPCSTR", new Type("char", true, "*", true));
         typeDefToNative.put("LPCWSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("PWSTR", new Type("char", true, "*", true));
         typeDefToNative.put("LPWSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("DWORD", new Type("long", true, "", false));
         typeDefToNative.put("PDWORD", new Type("long", true, "*", true));
         typeDefToNative.put("LPDWORD", new Type("long", true, "*", true));
+        typeDefToNative.put("LONG", new Type("long", true, ""));
+        typeDefToNative.put("LONG64", new Type("long", true, ""));
         typeDefToNative.put("ULONG64", new Type("long", true, ""));
+        typeDefToNative.put("LONGLONG", new Type("long", true, ""));
+        typeDefToNative.put("ULONGLONG", new Type("long", true, ""));
         typeDefToNative.put("BOOLEAN", new Type("boolean", true, ""));
+        typeDefToNative.put("BOOL", new Type("boolean", true, ""));
         typeDefToNative.put("PBOOL", new Type("boolean", true, "*"));
         typeDefToNative.put("BYTE", new Type("byte", true, ""));
+        typeDefToNative.put("UINT8", new Type("byte", true, ""));
+        typeDefToNative.put("UINT64", new Type("long", true, ""));
+        typeDefToNative.put("SHORT", new Type("short", true, ""));
+        typeDefToNative.put("BSTR", new Type("String", true, ""));
+        typeDefToNative.put("WCHAR", new Type("String", true, ""));
     }
 
     private static final Set<String> emptyStructs = new HashSet<>();
+
+    public static Optional<Path> preprocess(Path headerPath, Path dest, List<String> preProcArgs)
+    {
+        return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
+    }
 
     public static void main(String[] args) throws Exception {
         if (args.length < 3) {
@@ -95,7 +126,7 @@ public class HeaderToPassport {
 
         System.out.println("Loading: " + headerPath);
         List<String> preProcArgs = new ArrayList<>(Arrays.asList(args).subList(3, args.length));
-        var processedFile = CPreprocess.preprocess(headerPath, preProcArgs.toArray(new String[0]));
+        var processedFile = CPreprocess.preprocess(headerPath, destinationPath, preProcArgs.toArray(new String[0]));
 
         if (processedFile.isEmpty()) {
             System.err.println("Preprocessor step failed - no further generation is possible.");
@@ -104,21 +135,56 @@ public class HeaderToPassport {
 
         var preProcHeader = processedFile.get();
         System.out.println("Preprocessed file: " + preProcHeader);
-        String header = Files.readString(preProcHeader);
-        Files.delete(preProcHeader);
+        String header = readC(preProcHeader);
+
+
+//        String header = Files.readString(preProcHeader);
+//        Files.delete(preProcHeader);
 
         Arrays.fill(counts, 0);
 
         parseTypedefs(header);
-        List<CFunction> functions = parseFunctions(header);
-        List<CRecord> records = parseRecords(header);
-        List<CEnum> enums = parseEnums(header);
+        functions = parseFunctions(header);
+        records.addAll(parseRecords(header));
+        enums.addAll(parseEnums(header));
 
-        generateJava(records, enums, functions);
+        generateInterface(functions);
+//        generateJava();
         System.out.println("Generation complete: " + destinationPath.toAbsolutePath());
         System.out.println("            Enums created: " + counts[OUTPUT_OBJECTS.enums.ordinal()]);
         System.out.println("  Records/Structs created: " + counts[OUTPUT_OBJECTS.records.ordinal()]);
         System.out.println("Interface methods created: " + counts[OUTPUT_OBJECTS.methods.ordinal()]);
+    }
+
+    private static String readC(Path source) throws IOException
+    {
+        var lines = Files.readAllLines(source);
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines)
+        {
+            line = line.trim();
+            if (line.isEmpty() || line.startsWith("#line") || line.startsWith("#pragma"))
+                continue;
+            sb.append(line).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public static void readCPP(Path cpp, Path dest, String pack) throws IOException
+    {
+        packageName = pack;
+        destinationPath = dest;
+        interfaceName = cpp.getFileName().toString().split("\\.")[0];
+
+        String header = readC(cpp);
+//        String header = Files.readString(cpp);
+        parseTypedefs(header);
+        functions = parseFunctions(header);
+        records.addAll(parseRecords(header));
+        enums.addAll(parseEnums(header));
+
+        generateInterface(functions);
+
     }
 
     private static void validateArguments(Path headerPath) {
@@ -143,6 +209,8 @@ public class HeaderToPassport {
 
     static List<CFunction> parseFunctions(String text) {
         text = text.replaceAll("\\bextern\\b", ""); // ignore extern
+        text = text.replaceAll("\\volatile\\b", ""); // ignore extern
+        text = text.replaceAll("\\const\\b", ""); // ignore extern
 
         List<CFunction> list = new ArrayList<>();
 
@@ -152,15 +220,28 @@ public class HeaderToPassport {
         );
 
         Matcher m = p.matcher(text);
+        int argID = 1;
         while (m.find()) {
             String returnType = m.group(1).trim();
             String name = m.group(2).trim();
             String params = m.group(3).trim();
 
+            //ignore functions declared in the header
+            if (returnType.trim().equals("return"))
+                continue;
+
+            if (name.isEmpty())
+                name = "arg" + argID;
+            argID++;
+
             List<ArgDef> parameters = new ArrayList<>();
-            if (!params.isEmpty() && !params.equals("void")) {
+            if (!params.isEmpty() && !params.equalsIgnoreCase("void")) {
+                int count = 1;
                 for (String param : params.split(",")) {
-                    parameters.add(splitArg(param));
+                    var arg = splitArg(param, count++);
+                    if (arg.isPresent())
+                        parameters.add(arg.get());
+
                 }
             }
 
@@ -168,11 +249,12 @@ public class HeaderToPassport {
             if (returnType.contains("__cdecl"))
                 continue;
 
-            String CDeclaration = returnType + " "  + name + "(" + params + ");";
-            list.add(new CFunction(splitArg(returnType + " dummy"), name, parameters, CDeclaration));
+            String CDeclaration = returnType + " " + name + "(" + params + ");";
+            var retArg = splitArg(returnType, 0);
+            if (retArg.isPresent())
+                list.add(new CFunction(retArg.get(), name, parameters, CDeclaration));
 
-            if (!warnings.isEmpty())
-            {
+            if (!warnings.isEmpty()) {
                 System.out.println("Warnings parsing function: " + name);
                 warnings.stream().forEach(s -> System.out.println("\t" + s));
                 warnings.clear();
@@ -182,9 +264,8 @@ public class HeaderToPassport {
         return list;
     }
 
-    static boolean isAllPtr(String def)
-    {
-        if ( def.chars().filter(ch -> ch == '*').count() == def.length() )
+    static boolean isAllPtr(String def) {
+        if (def.chars().filter(ch -> ch == '*').count() == def.length())
             return true;
 
         if (def.startsWith("[") && def.endsWith("]"))
@@ -192,7 +273,7 @@ public class HeaderToPassport {
         return false;
     }
 
-    record CAlias(String alias, String replace){
+    record CAlias(String alias, String replace) {
 
         String clean(String orig) {
             String regEx = "\\s*" + alias.replace(" ", "\\s+") + "(\\*+\\s+|\\s+)";
@@ -205,7 +286,7 @@ public class HeaderToPassport {
 
                 if (ptrCount == 0)
                     orig = orig.replace(found, " " + replace + " ");
-                else{
+                else {
                     String ptrs = "";
                     for (int i = 0; i < ptrCount; i++)
                         ptrs = ptrs + "*";
@@ -228,19 +309,45 @@ public class HeaderToPassport {
         return orig;
     }
 
-    static ArgDef splitArg(String argDef)
-    {
+    static String[] ignoreKeywords = new String[] {
+            "const",
+            "__stdcall ",
+            "typedef ",
+            "volatile ",
+            "unsigned ",
+            "signed ",
+            "__unaligned ",
+            "enum ",
+            "IN ",
+            "OUT ",
+            "_In_ ",
+            "_Out_ ",
+            "_Outptr_ ",
+            "_Inout_ ",
+            "_In_opt_",
+            "_Inout_opt_",
+            "static ",
+            "_Reserved_"
+    };
+
+    static Optional<ArgDef> splitArg(String argDef, int countArg) {
         argDef = argDef.trim();
-        argDef = argDef.replace("const ", "");
-        argDef = argDef.replace("__stdcall ", "");
+        for (String remove : ignoreKeywords)
+            argDef = argDef.replace(remove, "");
+
         argDef = cleanCommonAliases(argDef);
 
 
-        if (argDef.isEmpty()){
+        if (argDef.isEmpty()) {
             warnings.add("WARNING: there seems to be a problem with an argument definition. Is there an extra comma?");
-            return new ArgDef("error", "error", "", true, argDef);
+            return Optional.empty();//new ArgDef("error", "error", "", true, argDef);
         }
 
+        if (argDef.contains(" * "))
+            argDef = argDef.replace(" * ", "* ");
+        argDef = argDef.replace("struct ", " ");
+        if (argDef.equals("void"))
+            argDef = "";
         String[] parts = argDef.split("\\s+");
 
         String prtDetails = "";
@@ -250,14 +357,19 @@ public class HeaderToPassport {
             parts = Arrays.stream(parts).filter(s -> !s.equals(cdetails)).toList().toArray(new String[0]);
         }
 
-        if (parts.length != 2)
-        {
+        //meant to catch arguments that are just defined by type with no name - common in win32 api
+        if (parts.length == 1)
+            parts = new String[] {parts[0], "arg" + countArg, };
+
+        if (parts.length == 1 || parts.length > 3) {
             warnings.add("ERROR: I don't know how to parse the argument: " + argDef);
-            return new ArgDef("error", "error", "", true,  argDef);
+            return Optional.empty();//new ArgDef("error", "error", "", true, argDef);
         }
 
         String type = parts[0].replace("[]", "*");
         String name = parts[1].replace("[]", "*");
+        type = type.replace("&", "*");
+        name = name.replace("&", "*");
         String ptr = prtDetails;
         while (type.endsWith("*")) {
             ptr = ptr + "*";
@@ -274,22 +386,20 @@ public class HeaderToPassport {
             name = name.substring(1);
         }
 
-        if (type.contains("["))
-        {
+        if (type.contains("[")) {
             int start = type.indexOf("[");
             int end = type.lastIndexOf("]");
-            ptr = type.substring(start, end+1);
+            ptr = type.substring(start, end + 1);
             type = type.replace(ptr, "");
         }
 
-        if (name.contains("["))
-        {
+        if (name.contains("[")) {
             int start = name.indexOf("[");
             int end = name.lastIndexOf("]");
-            ptr = name.substring(start, end+1);
+            ptr = name.substring(start);
             name = name.replace(ptr, "");
         }
-        return new ArgDef(type, name,  ptr, false, argDef);
+        return Optional.of(new ArgDef(type, name, ptr, false, argDef));
     }
 
     // ============================================================
@@ -321,15 +431,12 @@ public class HeaderToPassport {
             if (name.endsWith(";"))
                 name = name.substring(0, name.length() - 1);
 
-            if (!typeDefToNative.containsKey(name))
-            {
+            if (!typeDefToNative.containsKey(name)) {
                 Type t;
-                if (typeDefToNative.containsKey(type))
-                {
+                if (typeDefToNative.containsKey(type)) {
                     t = typeDefToNative.get(type);
                     typeDefToNative.put(name, t);
-                }
-                else
+                } else
                     warnings.add("WARNING: typdef " + name + " cannot be found.");
             }
         }
@@ -338,40 +445,112 @@ public class HeaderToPassport {
 
     static List<CRecord> parseRecords(String text) {
         List<CRecord> list = new ArrayList<>();
+        Set<String> foundRecords = new HashSet<>();
 
         Pattern p = Pattern.compile(
-                "(struct|union)\\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)}\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*;",
+                "(struct|union)\\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)}\\s*([A-Za-z_][A-Za-z0-9_\\*\\,]*)\\s*;",
                 Pattern.DOTALL
+        );
+
+        Pattern subP = Pattern.compile(
+                "(_Field_size_|_Field_size_bytes_|_Field_size_opt_|_Field_size_bytes_)\\((?:[A-Za-z_][A-Za-z0-9_]*)?\\)"
         );
 
         Matcher m = p.matcher(text);
         while (m.find()) {
+            List<ArgDef> fields = new ArrayList<>();
             String kind = m.group(1);
             String body = m.group(2).trim();
             String name = m.group(3).trim();
 
-            List<ArgDef> fields = new ArrayList<>();
-            for (String line : body.split(";")) {
-                fields.add(splitArg(line));
+            int startRec = text.indexOf(body);
+            int endRecAt = 0;
+            if (body.contains("union") || body.contains("struct")) {
+                int openCount = 1;
+                for (int n = startRec; n < text.length(); ++n)
+                {
+                    if (text.charAt(n) == '{')
+                        openCount++;
+                    else if (text.charAt(n) == '}')
+                    {
+                        openCount--;
+                        if (openCount == 0)
+                        {
+                            endRecAt = text.indexOf(';', n);
+                            break;
+                        }
+                    }
+                }
+                String fullRec = text.substring(startRec, endRecAt + 1);
+                var recs = parseRecords(fullRec);
+                list.addAll(recs);
+
+                for (var rec : recs)
+                    body = body.replace(rec.CCode, rec.name + " " + rec.name + ";");
             }
 
-            list.add(new CRecord(name, kind, fields, m.group()));
+            var m2 = subP.matcher(body);
+            while (m2.find())
+            {
+                String matched = m2.group();
+                body = body.replace(matched, "");
+            }
+
+            int argCount = 1;
+            for (String line : body.split(";")) {
+                var arg = splitArg(line, argCount++);
+                if (arg.isPresent())
+                    fields.add(arg.get());
+            }
+
+            //many structs in win32 have a point based name at the end, this helps with the conversion
+            if (name.contains(","))
+            {
+                var parts = name.split(",");
+                String baseName = parts[0];
+                list.add(new CRecord(baseName, kind, fields, m.group()));
+
+                for (int n = 1; n < parts.length; ++n)
+                {
+                    var structName = parts[n];
+                    structName = structName.trim();
+                    if  (structName.contains("NEAR"))
+                        structName = structName.replace("NEAR", "").trim();
+                    if  (structName.contains("FAR"))
+                        structName = structName.replace("FAR", "").trim();
+
+                    if (structName.startsWith("*"))
+                        structName = structName.replace("*", "");
+
+                    typeDefToNative.put(structName, new Type(baseName, true, "*", true));
+                }
+
+            }
+            else
+                list.add(new CRecord(name, kind, fields, m.group()));
+
+            foundRecords.add(name);
         }
 
         //this code is to handle empty records, which are usually just names for pointers
-        p = Pattern.compile(
+        Pattern p2 = Pattern.compile(
                 "typedef\\s+struct\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?\\s+(?:[A-Za-z_][A-Za-z0-9_]*)?;",
                 Pattern.DOTALL
         );
 
-        m = p.matcher(text);
-        while (m.find()) {
-            String kind = m.group();
+        Matcher m2 = p2.matcher(text);
+        while (m2.find()) {
+            String kind = m2.group();
             String[] parts = kind.split(" ");
             String name = parts[parts.length - 1];
             name = name.replace(";", "");
+
+            if (name.contains(":"))
+                name = name.substring(0, kind.indexOf(":"));
+
             list.add(new CRecord(name, "struct", new ArrayList<>(), kind));
-            emptyStructs.add(name);
+            if (!foundRecords.contains(name))
+                emptyStructs.add(name);
         }
 
         return list;
@@ -412,8 +591,7 @@ public class HeaderToPassport {
                 if (parts.length == 2) {
                     try {
                         String number = parts[1].trim();
-                        if (number.toLowerCase().endsWith("l"))
-                        {
+                        if (number.toLowerCase().endsWith("l")) {
                             number = number.substring(0, number.length() - 1);
                             forceLong = true;
                         }
@@ -445,7 +623,7 @@ public class HeaderToPassport {
     // JAVA GENERATION
     // ============================================================
 
-    static void generateJava(List<CRecord> records, List<CEnum> enums, List<CFunction> funcs) throws FileNotFoundException {
+    public static void generateJava() throws FileNotFoundException {
 
         // ---- Structs / Unions → Records ----
         generateJavaRecords(records);
@@ -453,10 +631,13 @@ public class HeaderToPassport {
         // ---- Enums ----
         generateJavaEnums(enums);
 
-        generateInterface(funcs);
+//        generateInterface(functions);
     }
 
     private static void generateInterface(List<CFunction> funcs) throws FileNotFoundException {
+        if (funcs.isEmpty())
+            return;
+
         Path outFile = destinationPath.resolve(interfaceName + ".java");
         try (PrintWriter out = new PrintWriter(outFile.toFile())) {
             out.println("package " + packageName + ";\n\n");
@@ -465,18 +646,39 @@ public class HeaderToPassport {
             out.println("import jpassport.annotations.*;\n\n");
 
             // ---- Functions → Interface ----
-            out.println("public interface " + interfaceName  + "{");
+            out.println("public interface " + interfaceName + "{");
             for (CFunction f : funcs) {
+
+                if (typesWritten.contains(f.name) || f.returnType.origText.trim().equals("return"))
+                    continue;
+
                 warnings.clear();
                 out.println("/*");
                 out.println(f.CCode);
                 out.println("*/");
                 out.print("    " + mapType(f.returnType, true) + " " + f.name + "(");
-                String params = String.join(", ",
-                        f.parameters.stream()
-                                .map(HeaderToPassport::formatParam)
-                                .toList()
-                );
+                StringBuilder params = new StringBuilder();
+                int i = 1;
+                for (int n = 0; n < f.parameters.size(); ++n)
+                {
+                    var p = f.parameters.get(n);
+                    if (p.name.isEmpty())
+                        p = new ArgDef(p.type, "arg" + i, p.ptr, p.error, p.origText);
+                    if (p.type.equals("..."))
+                    {
+                        var pp  = f.parameters.get(n-1);
+                        p = new ArgDef(pp.type, "arg" + i, pp.ptr, p.error, p.origText);
+                    }
+                    params.append(formatParam(p)).append(",");
+                    i++;
+                }
+                if (f.parameters.size() > 0)
+                    params.setLength(params.length()-1);
+//                String params = String.join(", ",
+//                        f.parameters.stream()
+//                                .map(HeaderToPassport::formatParam)
+//                                .toList()
+//                );
                 out.print(params);
                 out.println(");");
                 out.println();
@@ -485,6 +687,7 @@ public class HeaderToPassport {
                     System.err.println("WARNINGS found for method: " + f.name);
                     warnings.forEach(warning -> System.err.println("\t" + warning));
                 }
+                typesWritten.add(f.name);
             }
             out.println("}");
         }
@@ -492,8 +695,12 @@ public class HeaderToPassport {
 
     private static void generateJavaRecords(List<CRecord> records) throws FileNotFoundException {
         for (CRecord r : records) {
+
+            if (typesWritten.contains(r.name))
+                continue;
+
             warnings.clear();
-            Path outFile = destinationPath.resolve(r.name + ".java");
+            Path outFile = destinationPath.resolve(r.name.replace("*", "") + ".java");
             try (PrintWriter out = new PrintWriter(outFile.toFile())) {
                 out.println("package " + packageName + ";\n\n");
                 out.println("import jpassport.*;");
@@ -503,22 +710,24 @@ public class HeaderToPassport {
                 out.println("/*");
                 out.println(r.CCode);
                 out.println("*/");
-                if (r.isEmptyStruct())
-                {
+                if (r.isEmptyStruct()) {
                     out.println("import java.lang.foreign.MemorySegment;\n\n");
                     out.println("public class " + r.name + " extends GenericPointer {");
                     out.println("public " + r.name + "(MemorySegment addr) {\n" +
                             "        super(addr);\n" +
                             "    }");
                     out.println("}");
-                }
-                else {
+                } else {
 
+//                    if (r.name.equals("WHV_DOORBELL_MATCH_DATA"))
+//                        System.out.println();
                     out.println("public record " + r.name + " (");
                     for (int i = 0; i < r.fields.size(); i++) {
                         var f = r.fields.get(i);
-
-                        out.print("    " + mapRecordType(f) + " " + f.name);
+                        String name = f.name;
+                        if (name.contains(":"))
+                            name = name.substring(0, name.indexOf(":"));
+                        out.print("    " + mapRecordType(f) + " " + name);
                         if (i < r.fields.size() - 1) out.println(",");
                     }
 
@@ -532,15 +741,16 @@ public class HeaderToPassport {
                     System.err.println("WARNINGS found for record: " + r.name);
                     warnings.forEach(warning -> System.err.println("\t" + warning));
                 }
+
+                typesWritten.add(r.name);
             }
         }
     }
 
-    static boolean allSequential(List<CEnumValue> enums)
-    {
+    static boolean allSequential(List<CEnumValue> enums) {
         long curVal = 0;
-        for (var e : enums){
-            if (e.value!= curVal)
+        for (var e : enums) {
+            if (e.value != curVal)
                 return false;
             curVal++;
         }
@@ -549,17 +759,20 @@ public class HeaderToPassport {
 
     static void generateJavaEnums(List<CEnum> enums) throws FileNotFoundException {
         for (CEnum e : enums) {
+            if (typesWritten.contains(e.name))
+                continue;
+
             boolean useLongs = e.values.stream().anyMatch(v -> v.forceLong);
             boolean isSequential = allSequential(e.values);
 
-            Path outFile = destinationPath.resolve(e.name + ".java");
+            Path outFile = destinationPath.resolve(e.name.replace("*", "") + ".java");
 
             try (PrintWriter out = new PrintWriter(outFile.toFile())) {
                 out.println("package " + packageName + ";\n\n");
                 out.println("import jpassport.enums.EnumInt;\n");
                 out.println("import jpassport.enums.EnumLong;\n");
 
-                boolean useValues = !isSequential ||  useLongs;
+                boolean useValues = !isSequential || useLongs;
 
                 out.println("/*");
                 out.println(e.CCode);
@@ -574,14 +787,13 @@ public class HeaderToPassport {
 
                 for (int i = 0; i < e.values.size(); i++) {
                     CEnumValue v = e.values.get(i);
-                    if (useValues){
+                    if (useValues) {
                         if (useLongs)
                             out.printf("    %s(%dL), //0x%x\n", v.name, v.value, v.value);
                         else
                             out.printf("    %s(%d), //0x%x\n", v.name, v.value, v.value);
-                    }
-                    else
-                        out.print("    " + v.name);
+                    } else
+                        out.print("    " + v.name + ",\n");
 
 //                    if (i < e.values.size() - 1) out.println(",");
                 }
@@ -589,16 +801,14 @@ public class HeaderToPassport {
 
                 if (useValues) {
 
-                    if (useLongs)
-                    {
+                    if (useLongs) {
                         out.println("\n    public final long value;");
                         out.println("\n    " + e.name + "(long v) { this.value = v; }");
                         out.println("\n    @Override");
                         out.println("    public long getCValue() {");
                         out.println("        return value;");
                         out.println("    }");
-                    }
-                    else {
+                    } else {
                         out.println("\n    public final int value;");
                         out.println("\n    " + e.name + "(int v) { this.value = v; }");
                         out.println("\n    @Override");
@@ -610,7 +820,7 @@ public class HeaderToPassport {
 
                 out.println("}\n");
                 counts[OUTPUT_OBJECTS.enums.ordinal()]++;
-
+                typesWritten.add(e.name);
             }
         }
     }
@@ -635,9 +845,10 @@ public class HeaderToPassport {
 
         if (ptrCount == 2)
             return "@PtrPtrArg " + javaType + " " + p.name;
-        else if (ptrCount ==1 && !emptyStructs.contains(javaType)) {
-            return "@RefArg " + javaType + " " + p.name;
-        } else {
+//        else if (ptrCount == 1 && !emptyStructs.contains(javaType)) {
+//            return "@RefArg " + javaType + " " + p.name;
+//        }
+        else {
             return javaType + " " + p.name;
         }
     }
@@ -652,8 +863,7 @@ public class HeaderToPassport {
 
         String t = def.type.trim();
         String ptr = def.ptr;
-        if (typeDefToNative.containsKey(t))
-        {
+        if (typeDefToNative.containsKey(t)) {
             //Empty structs are just GenericPointers. So if we are not an empty struct then do not change the pointer
             //count. This preserves things like "uint16 *myarg" which should be treated as a java array
             if (emptyStructs.contains(t) || typeDefToNative.get(t).ptrRequired)
@@ -661,10 +871,12 @@ public class HeaderToPassport {
             t = typeDefToNative.get(t).name;
         }
 
-        long ptrCount =  ptr.chars().filter(ch -> ch == '*').count();
+        long ptrCount = ptr.chars().filter(ch -> ch == '*').count();
 
         if (isReturn && ptrCount > 0)
             return "MemorySegment";
+        if (isReturn && def.type.isEmpty())
+            return "void";
 
         if (ptrCount > 2)
             warnings.add("Pointer count of " + ptrCount + " is not supported directly. You may need to manually edit generated code.");
@@ -718,7 +930,7 @@ public class HeaderToPassport {
             return cType.origText;
 
         String t = cType.type.trim();
-        long ptrCount =  cType.ptr.chars().filter(ch -> ch == '*').count();
+        long ptrCount = cType.ptr.chars().filter(ch -> ch == '*').count();
 
         if (ptrCount > 2)
             warnings.add("Pointer count of " + ptrCount + " is not supported directly. You may need to manually edit generated code.");
@@ -754,8 +966,7 @@ public class HeaderToPassport {
             annotation = "@PtrPtrArg ";
         else if (ptrCount == 1)
             annotation = "@Ptr ";
-        else if (cType.ptr.contains("["))
-        {
+        else if (cType.ptr.contains("[")) {
             var matcher = pattArray.matcher(cType.ptr);
             String number = "";
             if (matcher.find()) {
@@ -790,7 +1001,6 @@ public class HeaderToPassport {
             String name,
             List<ArgDef> parameters,
              String CCode) {
-
     }
 
 
