@@ -2,6 +2,7 @@ package jpassport.codebuilder;
 
 import jpassport.ErrorCapture;
 import jpassport.annotations.PtrPtrArg;
+import jpassport.annotations.StructReturnMemory;
 import jpassport.pointers.MemoryBlock;
 import jpassport.PassportException;
 import jpassport.annotations.Ptr;
@@ -9,6 +10,7 @@ import jpassport.annotations.Ptr;
 import java.lang.annotation.Annotation;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.reflect.Field;
 import java.util.Arrays;
 
@@ -32,6 +34,8 @@ public enum ArgClassification {
     generic_ptr_array,
     memory_block,
     arena,
+    segment_allocator,
+    struct_return_memory,
     error_capture,
     enum_ordinal,
     enum_int,
@@ -86,6 +90,8 @@ public enum ArgClassification {
             return generic_ptr;
         if (Arena.class.equals(arg))
             return arena;
+        if (SegmentAllocator.class.equals(arg))
+            return segment_allocator;
         if (ErrorCapture.class.equals(arg))
             return error_capture;
         throw new PassportException("Unhandled type: " + arg.getName());
@@ -96,6 +102,7 @@ public enum ArgClassification {
     {
         boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
         boolean isPtr2Ptr = f.getAnnotationsByType(PtrPtrArg.class).length > 0;
+        boolean isStructReturnMemory = f.getAnnotationsByType(StructReturnMemory.class).length > 0;
         Class<?> arg = f.getType();
 
         if (arg.isPrimitive())
@@ -122,6 +129,8 @@ public enum ArgClassification {
             return isPointer ? enum_array_ptr : enum_array;
 
 
+        if (isStructReturnMemory)
+            return struct_return_memory;
         if (MemorySegment.class.equals(arg))
             return mem_segment;
         if (MemoryBlock.class.equals(arg))

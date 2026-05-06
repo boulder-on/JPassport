@@ -282,6 +282,7 @@ public interface CBConstants {
             Arrays.stream(params).filter(c -> c.isRecord() || c.isEnum()).forEach(extraImports::add);
             Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(c -> c.isRecord() || c.isEnum()).forEach(extraImports::add);
             Arrays.stream(params).filter(CBConstants::isGenericPtr).forEach(extraImports::add);
+            Arrays.stream(params).filter(Class::isArray).map(Class::getComponentType).filter(CBConstants::isGenericPtr).forEach(extraImports::add);
 
             if (retType.isEnum())
                 extraImports.add(retType);
@@ -303,7 +304,9 @@ public interface CBConstants {
             }
         }
 
-        return extraImports;
+        var all =  extraImports.stream().map(c -> c.isArray() ? c.getComponentType() : c).toList();
+        return new HashSet<>(all);
+//        return extraImports;
     }
 
     /**
@@ -315,10 +318,20 @@ public interface CBConstants {
     {
         Set<Class<?>> subRecords = new HashSet<>();
         for (Field f : record.getDeclaredFields()) {
-            if (f.getType().isRecord())
+            var t = f.getType();
+
+            if (t.isRecord() || t.isEnum())
             {
-                subRecords.add(f.getType());
-                subRecords.addAll(findSubRecords(f.getType()));
+                subRecords.add(t);
+                if (t.isRecord())
+                    subRecords.addAll(findSubRecords(t));
+            }
+            else if (t.isArray() && (t.getComponentType().isRecord() || t.getComponentType().isEnum()))
+            {
+                subRecords.add(t.getComponentType());
+                if (t.getComponentType().isRecord())
+                    subRecords.addAll(findSubRecords(t.getComponentType()));
+
             }
         }
         return subRecords;

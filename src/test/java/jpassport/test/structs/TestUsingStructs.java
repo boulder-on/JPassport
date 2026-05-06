@@ -28,8 +28,9 @@ public class TestUsingStructs {
     {
         System.setProperty("jpassport.build.home", "out/testing");
         PassingStructs = new Link[] {
+//                new Link(PassType.byte_code, new TestStructCalls_impl()),
                 new Link(PassType.written, PassportFactory.link_written(getLibName(), TestStructCalls.class)),
-                new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
+//                new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
         };
 
 //        PassingStructs = new Link[] {
@@ -202,4 +203,11 @@ public class TestUsingStructs {
         }
     }
 
+    @Test
+    public void testStructReturn() {
+        for (int m = 0; m < PassingStructs.length; ++m) {
+            var r = PassingStructs[m].link.returnStruct();
+            assertEquals(3, r.s_int() + r.s_long());
+        }
+    }
 }

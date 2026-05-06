@@ -453,6 +453,16 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                             var startAutoClose = cob.newLabel();
                             cob.labelBinding(startAutoClose);
 
+                            if (iMethod.getReturnType().isRecord())
+                            {
+                                cob.aload(arenaSlot);
+                                cob.checkcast(toDesc(SegmentAllocator.class));
+//                                nextlocalVarSlot;
+                                keepers.get(0).stored = nextlocalVarSlot;
+                                nextlocalVarSlot = storeLocalVar(cob, nextlocalVarSlot, SegmentAllocator.class);
+
+                            }
+
                             int ii = -1;
                             //loop converts parameters to native memory if required
                             for (Class<?> t : iMethod.getParameterTypes()) {
@@ -655,6 +665,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                 virtMethodRetType = long.class;
                             else if (isIntEnum(virtMethodRetType) || virtMethodRetType.isEnum())
                                 virtMethodRetType = int.class;
+                            //todo - casting to MemorySegment
                             nextlocalVarSlot = storeLocalVar(cob, returnSlot, virtMethodRetType);
 
                             if (withDebug)
@@ -703,6 +714,9 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
                                     cob.checkcast(toDesc(iMethod.getReturnType()));
                                     returnSlot = nextlocalVarSlot;
                                     nextlocalVarSlot = storeLocalVar(cob, returnSlot, iMethod.getReturnType());
+                                }
+                                case record_ -> {
+//send memory segment to the
                                 }
                             }
 
@@ -819,8 +833,12 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
     private List<ParamKeeper> classifyParams(CodeBuilder cob, Method iMethod)
     {
         ArrayList<ParamKeeper> keepers = new ArrayList<>();
-        Annotation[][] annotations = iMethod.getParameterAnnotations();
+
         int slot = 0;
+        if (iMethod.getReturnType().isRecord())
+            keepers.add(new ParamKeeper(SegmentAllocator.class, ParamType.toType(SegmentAllocator.class), slot++, new Annotation[0]));
+
+        Annotation[][] annotations = iMethod.getParameterAnnotations();
         for (Class<?> c : iMethod.getParameterTypes())
         {
             keepers.add(new ParamKeeper(c, ParamType.toType(c), cob.parameterSlot(slot), annotations[slot]));
@@ -878,7 +896,7 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
             arena = a.getClass();
         }
         return Arrays.stream(m.getParameterTypes()).anyMatch(c -> c.isArray() || c.isRecord()
-                || c.equals(arena) || c.equals(String.class) || c.equals(ErrorCapture.class));
+                || c.equals(arena) || c.equals(String.class) || c.equals(ErrorCapture.class)) || m.getReturnType().isRecord();
     }
 
     private void parseClass()

@@ -1,6 +1,7 @@
 package jpassport;
 
 import jpassport.annotations.*;
+import jpassport.codebuilder.ArenaTypeNeeded;
 import jpassport.codebuilder.ArgClassification;
 import jpassport.codebuilder.CBConstants;
 
@@ -25,7 +26,9 @@ import java.util.*;
 
 import static jpassport.PassportFactory.classToMemory;
 import static jpassport.PassportFactory.isSpecialClass;
+import static jpassport.codebuilder.ArenaTypeNeeded.*;
 import static jpassport.codebuilder.ArgClassification.enum_long;
+import static jpassport.codebuilder.ArgClassification.struct_return_memory;
 import static jpassport.codebuilder.CBConstants.*;
 
 /***
@@ -58,6 +61,21 @@ public class PassportWriter<T extends Passport> implements CBConstants
             put(byte.class, "Byte");
             put(short.class, "Short");
             put(int.class, "Int");
+            put(long.class, "Long");
+            put(float.class, "Float");
+            put(double.class, "Double");
+            put(boolean.class, "Boolean");
+            put(char.class, "Character");
+        }
+    };
+
+    private static final Map<Class<?>, String> typeToClass = new HashMap<>()
+    {
+
+        {
+            put(byte.class, "Byte");
+            put(short.class, "Short");
+            put(int.class, "Integer");
             put(long.class, "Long");
             put(float.class, "Float");
             put(double.class, "Double");
@@ -263,7 +281,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 var varHandling = ArgClassification.classify(f);
                 int paddingBits = getPaddingBytes(f);
 
-                sbOffsets.append(String.format("\t\t%1$sLayout.byteOffset(groupElement(\"%2$s\")),\n", c.getSimpleName(), f.getName()));
+                if(varHandling != struct_return_memory)
+                    sbOffsets.append(String.format("\t\t%1$sLayout.byteOffset(groupElement(\"%2$s\")),\n", c.getSimpleName(), f.getName()));
 
                 // negative indicates pre-padding
                 if (paddingBits < 0)
@@ -310,6 +329,9 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         }
 
                         sbLayout.append(String.format("\t\tMemoryLayout.sequenceLayout(%d, %s).withName(\"%s\"),\n", length, typeToCName.get(arrType), f.getName()));
+                    }
+                    case struct_return_memory -> {
+                        //skip
                     }
 
                     default -> throw new PassportException("Cannot create a struct with field: " + c.getSimpleName() + "." + f.getName());
@@ -452,7 +474,9 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                 var varHandling = ArgClassification.classify(f);
                 Class<?> type = f.getType();
-                String offset = String.format("%sLayoutOffsets[%d] + offset", c.getSimpleName(), Element++);
+                String offset = "";
+                if (varHandling != struct_return_memory)
+                    offset = String.format("%sLayoutOffsets[%d] + offset", c.getSimpleName(), Element++);
 
                 //if the union UnionToNativeIdx annotated field has the index of this field then write to memory.
                 if (isUnion)
@@ -489,6 +513,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                     case memory_block ->
                             sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s().toPtr(scope));\n", f.getName(), offset));
+                    case struct_return_memory -> {//skip
+                         }
                     case enum_ordinal ->
                             sb.append(String.format("\t\tmemStruct.set(JAVA_%2$s, %3$s, rec.%1$s().ordinal());\n", f.getName(), typeToName.get(int.class).toUpperCase(), offset));
                     case enum_int ->
@@ -511,6 +537,10 @@ public class PassportWriter<T extends Passport> implements CBConstants
                             sb.append(String.format("\t\tvar vv%1$d = Utils.enumToPrimitiveInteger(rec.%2$s());\n", Element, f.getName()));
 
                         sb.append(String.format("\t\tmemStruct.set(ADDRESS, %1$s, Utils.toMS(scope, vv%2$d, false));\n", offset, Element));
+                    }
+                    case generic_ptr -> {
+                        sb.append(String.format("\t\tmemStruct.set(ADDRESS, %2$s, rec.%1$s().getPtr());\n", f.getName(), offset));
+
                     }
 
                     default -> throw new PassportException("Type not supported in a struct: " + f.getType() + ", " + c.getSimpleName() +"." + f.getName());
@@ -606,7 +636,10 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 }
 
                 var varHandling = ArgClassification.classify(f);
-                String offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
+                String offset = "";
+                if (varHandling != struct_return_memory)
+                    offset = String.format("%sLayoutOffsets[%d]", c.getSimpleName(), Element++);
+
                 String ifUnionRead = "";
                 // creates a ternary operator to help read back the correct field for unions.
                 if (isUnion)
@@ -642,7 +675,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                     case generic_ptr -> {
                         sb.append(String.format("\t\tvar mem%1$s = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
-                        sb.append(String.format("\t\tvar %1$s = %3$s new %2$s(mem%1$s);\n", f.getName(), type.getName(), ifUnionRead));
+                        sb.append(String.format("\t\tvar %1$s = %3$s new %2$s(mem%1$s);\n", f.getName(), type.getSimpleName(), ifUnionRead));
                     }
                     case string_ ->
                         sb.append(String.format("\t\tvar %1$s = %3$s Utils.readString(memStruct.get(ADDRESS, %2$s));\n", f.getName(), offset, ifUnionRead));
@@ -651,7 +684,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         Annotation[] arrays = f.getAnnotationsByType(Array.class);
                         Class<?> arrType = type.getComponentType();
                         int length = ((Array) arrays[0]).length();
-                        sb.append(String.format("\t\tvar %1$s = %6$s memStruct.asSlice(%4$s, %2$d * %5$s.BYTES).toArray(JAVA_%3$s);\n", f.getName(), length, typeToName.get(arrType).toUpperCase(), offset, typeToName.get(arrType), ifUnionRead));
+                        sb.append(String.format("\t\tvar %1$s = %6$s memStruct.asSlice(%4$s, %2$d * %5$s.BYTES).toArray(JAVA_%3$s);\n", f.getName(), length, typeToName.get(arrType).toUpperCase(), offset, typeToClass.get(arrType), ifUnionRead));
                     }
                     case primitive_array_ptr ->
                         sb.append(String.format("\t\tvar %1$s = %3$s Utils.toArr(memStruct, memStruct.get(ADDRESS, %2$s), rec.%1$s());\n", f.getName(), offset, ifUnionRead));
@@ -659,6 +692,9 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     case memory_block -> {
                         sb.append(String.format("\t\tvar %1$sMS = memStruct.get(ADDRESS, %2$s);\n", f.getName(), offset));
                         sb.append(String.format("\t\tvar %1$s = %2$s MemoryBlock.recreate(%1$sMS, rec.%1$s());\n", f.getName(), ifUnionRead));
+                    }
+                    case struct_return_memory -> {
+                        sb.append(String.format("\t\tvar %1$s = memStruct;\n", f.getName()));
                     }
                     case enum_ordinal, enum_int, enum_long -> {
                         Class<?> etype = varHandling == enum_long ? long.class : int.class;
@@ -727,6 +763,8 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
         if (void.class.equals(retType))
             m_source.append(String.format("\tstatic FunctionDescriptor fd_%s =  FunctionDescriptor.ofVoid(", method.getName()));
+        else if (retType.isRecord())
+            m_source.append(String.format("\tstatic FunctionDescriptor fd_%s =  FunctionDescriptor.of(%sLayout,", method.getName(), retType.getSimpleName()));
         else
         {
             m_source.append(String.format("\tstatic FunctionDescriptor fd_%s =  FunctionDescriptor.of(%s,", method.getName(), classToMemory(retType)));
@@ -775,6 +813,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
         buildMethodMeta(method);
         StringBuilder args = new StringBuilder();
         StringBuilder params = new StringBuilder();
+        StringBuilder preTryArgs = new StringBuilder();
         StringBuilder tryArgs = new StringBuilder();
         StringBuilder postCall = new StringBuilder();
         StringBuilder preCall = new StringBuilder();
@@ -798,7 +837,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 }
                 case generic_ptr -> {
                     strCallReturn = "var ret = (MemorySegment)";
-                    strReturn = "return new " + retType.getName() + "(ret);";
+                    strReturn = "return new " + retType.getSimpleName() + "(ret);";
                 }
                 case enum_long -> {
                     strCallReturn = "var ret = (long)";
@@ -807,6 +846,11 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 case enum_int, enum_ordinal -> {
                     strCallReturn = "var ret = (int)";
                     strReturn = String.format("return (%1$s)%1$sLookup.get(ret);", retType.getSimpleName());
+                }
+                case record_ -> {
+                    strCallReturn = "var ret = (MemorySegment)";
+                    strReturn = String.format("return read%1$s(ret, null);", retType.getSimpleName());
+                    params.append("(SegmentAllocator)scope,");
                 }
                 default -> {
                     strCallReturn = String.format("var ret = (%s)", retType.getSimpleName());
@@ -819,8 +863,11 @@ public class PassportWriter<T extends Passport> implements CBConstants
         Annotation[][] paramAnnotations = method.getParameterAnnotations();
         var methodArgs = method.getParameters();
         int v = 1;
-        boolean bHasAllocatedMemory = false;
+        ArenaTypeNeeded arenaNeeded = none;
         boolean bHasArenaArg = false;
+
+        if (method.getReturnType().isRecord())
+            arenaNeeded = global;
 
         for (Class<?> parameter : method.getParameterTypes())
         {
@@ -844,7 +891,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         params.append("vv").append(v).append(',');
                     }
                     else {
-                        bHasAllocatedMemory = true;
+                        arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                         preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d, %2$s);\n", v,
                                 isRefArgReadBackOnly(methodArgs[v - 1])));
                         params.append("vv").append(v).append(',');
@@ -854,14 +901,14 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 }
 
                 case primitive_array2D -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d, %2$s);\n", v,
                             isRefArgReadBackOnly(methodArgs[v - 1])));
                     params.append("vv").append(v).append(',');
                 }
 
                 case primitive_array2D_ptr2ptrs -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("var vv%1$d = Utils.toPtrPTrMS(scope, v%1$d);", v));
                     params.append("vv").append(v).append(',');
 
@@ -870,13 +917,13 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                 }
                 case string_ -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL : Utils.toCString(v%1$d, scope);\n", v));
                     params.append("vv").append(v).append(',');
 
                 }
                 case string_array -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL : Utils.toCString(v%1$d, scope);\n", v));
                     params.append("vv").append(v).append(',');
 
@@ -885,19 +932,19 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                 }
                 case memory_block -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("MemorySegment vv%1$d = v%1$d == null ? MemorySegment.NULL :v%1$d.toPtr(scope);\n", v));
                     params.append("vv").append(v).append(',');
                     postCall.append(String.format("v%1$d.readBack();\n", v));
                 }
                 case record_ -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("var vv%1$d =  store%2$s(scope, v%1$d);\n", v, parameter.getSimpleName()));
                     params.append("(MemorySegment)vv").append(v).append(",");
 
                 }
                 case record_array -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     Class<?> recordType = parameter.getComponentType();
                     preCall.append(String.format("var vv%1$d =  storeArr%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
                     params.append("(MemorySegment)vv").append(v).append(",");
@@ -906,7 +953,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                         postCall.append(String.format("readArr%2$s(vv%1d, v%1$d);", v, recordType.getSimpleName()));
                 }
                 case record_array_ptr -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     Class<?> recordType = parameter.getComponentType();
                     preCall.append(String.format("var vv%1$d =  storePtrs%2$s(scope, v%1$d);\n", v, recordType.getSimpleName()));
                     params.append("(MemorySegment)vv").append(v).append(",");
@@ -919,7 +966,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     params.append("v").append(v).append(".getPtr(),");
 
                 case generic_ptr_array -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("var vv%1$d = Utils.toMS(scope, v%1$d, %2$s);\n", v,
                             isRefArgReadBackOnly(methodArgs[v - 1])));
                     params.append("vv").append(v).append(',');
@@ -928,7 +975,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
 
                 }
                 case error_capture -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
                     preCall.append(String.format("var vv%1$d = v%1$d.alloc(scope);\n", v));
                     postCall.append(String.format("v%1$d.readAfter(vv%1$d);\n", v));
                     params.append(String.format("vv%1$d,", v));
@@ -942,7 +989,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                     params.append("vv").append(v).append(',');
                 }
                 case enum_array -> {
-                    bHasAllocatedMemory = true;
+                    arenaNeeded = arenaNeeded == none ? confined : arenaNeeded;
 
                     var enumType = ArgClassification.classify(parameter.getComponentType());
                     if (enumType == enum_long)
@@ -980,10 +1027,18 @@ public class PassportWriter<T extends Passport> implements CBConstants
             args.setLength(args.length() - 1);
         if (!params.isEmpty() && params.charAt(params.length() - 1) == ',')
             params.setLength(params.length() - 1);
-        if (bHasAllocatedMemory && !bHasArenaArg)
-        {
-            tryArgs.append("var scope = Arena.ofConfined();");
+
+        if (!bHasArenaArg) {
+            switch (arenaNeeded) {
+                case confined -> tryArgs.append("var scope = Arena.ofConfined();");
+                case global -> preTryArgs.append("var scope = Arena.global();");
+            }
         }
+
+//        if (bHasAllocatedMemory && !bHasArenaArg)
+//        {
+//            tryArgs.append("var scope = Arena.ofConfined();");
+//        }
 
         if (withDebug)
         {
@@ -1016,6 +1071,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                                  }
                                 public %2$s %1$s(%3$s)
                                 {
+                                    %16$s
                                     try %4$s {
                                         %5$s
                                         %6$s %1$s.invokeExact(%7$s);
@@ -1036,7 +1092,7 @@ public class PassportWriter<T extends Passport> implements CBConstants
                 strCallReturn, params,
                 postCall.toString().replace("\n", "\n\t\t\t"),
                 strReturn, interfaceClass.getSimpleName(), m_className,
-                m_libName, nativeName, isCriticalMethod ,hasErrorCapture));
+                m_libName, nativeName, isCriticalMethod ,hasErrorCapture, preTryArgs));
     }
 
     public List<Path> writeModule(Path buildRoot) throws IOException

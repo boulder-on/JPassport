@@ -811,7 +811,7 @@ public class Utils {
         }
 
 
-        return MemoryLayout.structLayout(memLayout.toArray(new MemoryLayout[0]));
+            return MemoryLayout.structLayout(memLayout.toArray(new MemoryLayout[0]));
     }
 
     public static UnionLayout makeUnion(MemoryLayout ... layout)

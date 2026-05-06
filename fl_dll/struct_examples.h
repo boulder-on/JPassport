@@ -53,5 +53,6 @@ extern double passStructOfStructs(PassingStructs* data);
 extern double passStructArrBlock(PassingData data[], int count, int multiply);
 extern double passStructArrPtr(PassingData** data, int count, int multiply);
 
+extern PassingData returnStruct();
 
 #endif //FOREIGN_LINK_STRUCT_EXAMPLES_H

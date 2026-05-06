@@ -18,5 +18,5 @@ public interface TestStructCalls extends Passport {
     double passStructArrBlock(@RefArg TestStruct[] data, int count, int multiply);
     double passStructArrPtr(@RefArg @PtrPtrArg TestStruct[] data, int count, int multiply);
     double passStructOfStructs(@RefArg PassingStructs[] data);
-
+    TestStruct returnStruct();
 }

@@ -1,5 +1,5 @@
 package jpassport.parser;
-import com.sun.jna.platform.win32.WinNT;
+//import com.sun.jna.platform.win32.WinNT;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.nio.file.*;
 import java.util.*;
 import java.util.regex.*;
+import java.util.concurrent.*;
 
 /**
  * TODO:
@@ -25,17 +26,17 @@ public class HeaderToPassport {
     static String packageName;
     static String interfaceName;
 
-    static List<String> warnings = new ArrayList<>();
+    List<String> warnings = new ArrayList<>();
 
     enum OUTPUT_OBJECTS {methods, records, enums}
 
-    static HashSet<String> typesWritten = new HashSet();
+    HashSet<String> typesWritten = new HashSet();
 
-    static int[] counts = new int[OUTPUT_OBJECTS.values().length];
+    int[] counts = new int[OUTPUT_OBJECTS.values().length];
 
-    static List<CFunction> functions = new ArrayList<>();
-    static List<CRecord> records = new ArrayList<>();
-    static List<CEnum> enums = new ArrayList<>();
+    List<CFunction> functions = new ArrayList<>();
+    List<CRecord> records = new ArrayList<>();
+    List<CEnum> enums = new ArrayList<>();
 
     //find arguments defined in C as arg[row][col]
     static Pattern pattArray = Pattern.compile(
@@ -43,7 +44,10 @@ public class HeaderToPassport {
             Pattern.DOTALL
     );
 
-    private static final List<CAlias> commonAliases = List.of(
+    private final List<CAlias> commonAliases = new ArrayList(List.of(
+            new CAlias("__stdcall", "FunctionPtr"),
+            new CAlias("__RPC_USER", "FunctionPtr"),
+
             new CAlias("unsigned char", "byte"),
             new CAlias("unsigned short", "short"),
             new CAlias("unsigned int", "int"),
@@ -59,8 +63,10 @@ public class HeaderToPassport {
             new CAlias("__int32", "int"),
             new CAlias("__uint32", "int"),
             new CAlias("__int16", "short"),
-            new CAlias("__uint16", "short")
-    );
+            new CAlias("__uint16", "short"),
+            new CAlias("__uint64", "long"),
+            new CAlias("__int64", "long")
+    ));
 
     private static final HashMap<String, Type> typeDefToNative = new HashMap<>();
 
@@ -76,31 +82,49 @@ public class HeaderToPassport {
         typeDefToNative.put("float", new Type("float", true, ""));
         typeDefToNative.put("double", new Type("double", true, ""));
         typeDefToNative.put("size_t", new Type("long", true, ""));
-        typeDefToNative.put("HANDLE", new Type("long", true, ""));
+        typeDefToNative.put("uint32_t", new Type("int", true, ""));
+        typeDefToNative.put("uint64_t", new Type("long", true, ""));
+
+        typeDefToNative.put("HANDLE", new Type("MemorySegment", true, ""));
 
         typeDefToNative.put("PVOID", new Type("byte", true, "*", true));
         typeDefToNative.put("LPVOID", new Type("byte", true, "*", true));
-        typeDefToNative.put("LPCSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("LPCSTR", new Type("String", true, ""));
         typeDefToNative.put("LPCWSTR", new Type("char", true, "*", true));
         typeDefToNative.put("PWSTR", new Type("char", true, "*", true));
-        typeDefToNative.put("LPWSTR", new Type("char", true, "*", true));
+        typeDefToNative.put("LPWSTR", new Type("String", true, ""));
         typeDefToNative.put("DWORD", new Type("long", true, "", false));
+        typeDefToNative.put("DWORD64", new Type("long", true, "", false));
         typeDefToNative.put("PDWORD", new Type("long", true, "*", true));
         typeDefToNative.put("LPDWORD", new Type("long", true, "*", true));
+        typeDefToNative.put("DWORD_PTR", new Type("long", true, "*", true));
+        typeDefToNative.put("LARGE_INTEGER", new Type("long", true, "", false));
+
         typeDefToNative.put("LONG", new Type("long", true, ""));
+        typeDefToNative.put("ULONG", new Type("long", true, ""));
         typeDefToNative.put("LONG64", new Type("long", true, ""));
         typeDefToNative.put("ULONG64", new Type("long", true, ""));
         typeDefToNative.put("LONGLONG", new Type("long", true, ""));
         typeDefToNative.put("ULONGLONG", new Type("long", true, ""));
         typeDefToNative.put("BOOLEAN", new Type("boolean", true, ""));
         typeDefToNative.put("BOOL", new Type("boolean", true, ""));
+        typeDefToNative.put("bool", new Type("boolean", true, ""));
         typeDefToNative.put("PBOOL", new Type("boolean", true, "*"));
         typeDefToNative.put("BYTE", new Type("byte", true, ""));
+        typeDefToNative.put("LPBYTE", new Type("byte", true, "[]"));
+
+        typeDefToNative.put("INT32", new Type("int", true, ""));
+        typeDefToNative.put("UINT32", new Type("int", true, ""));
         typeDefToNative.put("UINT8", new Type("byte", true, ""));
         typeDefToNative.put("UINT64", new Type("long", true, ""));
         typeDefToNative.put("SHORT", new Type("short", true, ""));
         typeDefToNative.put("BSTR", new Type("String", true, ""));
         typeDefToNative.put("WCHAR", new Type("String", true, ""));
+        typeDefToNative.put("UCHAR", new Type("char", true, ""));
+        typeDefToNative.put("LPSTR", new Type("String", true, ""));
+        typeDefToNative.put("UINT_PTR", new Type("int", true, "*", true));
+
+
     }
 
     private static final Set<String> emptyStructs = new HashSet<>();
@@ -135,25 +159,27 @@ public class HeaderToPassport {
 
         var preProcHeader = processedFile.get();
         System.out.println("Preprocessed file: " + preProcHeader);
-        String header = readC(preProcHeader);
+        var h2p = new HeaderToPassport();
+//        h2p.readCPP(preProcHeader, destinationPath, packageName);
+//        String header = readC(preProcHeader);
 
 
 //        String header = Files.readString(preProcHeader);
 //        Files.delete(preProcHeader);
 
-        Arrays.fill(counts, 0);
-
-        parseTypedefs(header);
-        functions = parseFunctions(header);
-        records.addAll(parseRecords(header));
-        enums.addAll(parseEnums(header));
-
-        generateInterface(functions);
+//        Arrays.fill(counts, 0);
+//
+//        parseTypedefs(header);
+//        functions = parseFunctions(header);
+//        records.addAll(parseRecords(header));
+//        enums.addAll(parseEnums(header));
+//
+//        generateInterface(functions);
 //        generateJava();
         System.out.println("Generation complete: " + destinationPath.toAbsolutePath());
-        System.out.println("            Enums created: " + counts[OUTPUT_OBJECTS.enums.ordinal()]);
-        System.out.println("  Records/Structs created: " + counts[OUTPUT_OBJECTS.records.ordinal()]);
-        System.out.println("Interface methods created: " + counts[OUTPUT_OBJECTS.methods.ordinal()]);
+        System.out.println("            Enums created: " + h2p.counts[OUTPUT_OBJECTS.enums.ordinal()]);
+        System.out.println("  Records/Structs created: " + h2p.counts[OUTPUT_OBJECTS.records.ordinal()]);
+        System.out.println("Interface methods created: " + h2p.counts[OUTPUT_OBJECTS.methods.ordinal()]);
     }
 
     private static String readC(Path source) throws IOException
@@ -165,27 +191,57 @@ public class HeaderToPassport {
             line = line.trim();
             if (line.isEmpty() || line.startsWith("#line") || line.startsWith("#pragma"))
                 continue;
+            line = line.replace("\\s*const\\s*", " ");
             sb.append(line).append("\n");
         }
         return sb.toString();
     }
 
-    public static void readCPP(Path cpp, Path dest, String pack) throws IOException
-    {
-        packageName = pack;
-        destinationPath = dest;
-        interfaceName = cpp.getFileName().toString().split("\\.")[0];
-
-        String header = readC(cpp);
-//        String header = Files.readString(cpp);
-        parseTypedefs(header);
-        functions = parseFunctions(header);
-        records.addAll(parseRecords(header));
-        enums.addAll(parseEnums(header));
-
-        generateInterface(functions);
-
-    }
+//    public void readCPP(Path pch, Path dest, String pack)
+//    {
+//        packageName = pack;
+//        destinationPath = dest;
+//        interfaceName = pch.getFileName().toString().split("\\.")[0];
+//
+//        try {
+//            String header = readC(cpp);
+//            parseTypedefs(header);
+//
+//            functions = parseFunctions(header);
+//            records.addAll(parseRecords(header));
+//            enums.addAll(parseEnums(header));
+//        }
+//        catch(IOException ex)
+//        {
+//            ex.printStackTrace();
+//        }
+//
+//
+//        // Wait for all to finish (optional)
+////        try {
+////            threads[0].get();
+////            threads[1].get();
+////            threads[2].get();
+////        }
+////        catch(InterruptedException | ExecutionException ex)
+////        {
+////            ex.printStackTrace();
+////        }
+////        executor.shutdown();
+//
+////        functions = parseFunctions(header);
+////        records.addAll(parseRecords(header));
+////        enums.addAll(parseEnums(header));
+//
+//        try {
+//            generateInterface(functions);
+//            generateJava();
+//        }
+//        catch(FileNotFoundException ex)
+//        {
+//            ex.printStackTrace();
+//        }
+//    }
 
     private static void validateArguments(Path headerPath) {
         if (Files.notExists(headerPath)) {
@@ -207,10 +263,12 @@ public class HeaderToPassport {
     // FUNCTION PARSING
     // ============================================================
 
-    static List<CFunction> parseFunctions(String text) {
-        text = text.replaceAll("\\bextern\\b", ""); // ignore extern
-        text = text.replaceAll("\\volatile\\b", ""); // ignore extern
-        text = text.replaceAll("\\const\\b", ""); // ignore extern
+    List<CFunction> parseFunctions(String text) {
+        text = text.replaceAll("\\extern ", ""); // ignore extern
+        text = text.replaceAll("\\volatile ", ""); // ignore extern
+        text = text.replaceAll("\\const ", ""); // ignore extern
+        text = text.replaceAll("\\enum ", ""); // ignore extern
+        text = text.replaceAll("\\_Reserved_ ", ""); // ignore extern
 
         List<CFunction> list = new ArrayList<>();
 
@@ -285,7 +343,12 @@ public class HeaderToPassport {
                 int ptrCount = found.length() - found.replace("*", "").length();
 
                 if (ptrCount == 0)
-                    orig = orig.replace(found, " " + replace + " ");
+                    try {
+                        orig = orig.replace(found, " " + replace + " ");
+                    }
+                catch(Throwable th) {
+                        th.printStackTrace();
+                }
                 else {
                     String ptrs = "";
                     for (int i = 0; i < ptrCount; i++)
@@ -302,7 +365,7 @@ public class HeaderToPassport {
     }
 
 
-    private static String cleanCommonAliases(String orig) {
+    private String cleanCommonAliases(String orig) {
         for (var c : commonAliases) {
             orig = c.clean(orig);
         }
@@ -311,14 +374,14 @@ public class HeaderToPassport {
 
     static String[] ignoreKeywords = new String[] {
             "const",
-            "__stdcall ",
+//            "__stdcall ",
             "typedef ",
             "volatile ",
             "unsigned ",
             "signed ",
             "__unaligned ",
             "enum ",
-            "IN ",
+//            "IN ",
             "OUT ",
             "_In_ ",
             "_Out_ ",
@@ -327,10 +390,11 @@ public class HeaderToPassport {
             "_In_opt_",
             "_Inout_opt_",
             "static ",
-            "_Reserved_"
+            "_Reserved_",
+            "FAR"
     };
 
-    static Optional<ArgDef> splitArg(String argDef, int countArg) {
+    Optional<ArgDef> splitArg(String argDef, int countArg) {
         argDef = argDef.trim();
         for (String remove : ignoreKeywords)
             argDef = argDef.replace(remove, "");
@@ -348,7 +412,16 @@ public class HeaderToPassport {
         argDef = argDef.replace("struct ", " ");
         if (argDef.equals("void"))
             argDef = "";
-        String[] parts = argDef.split("\\s+");
+        if (argDef.contains(" : "))
+        {
+            int idx = argDef.indexOf(" : ");
+            argDef = argDef.substring(0, idx);
+        }
+        if (argDef.contains("[ "))
+            argDef = argDef.replace("[ ", "[");
+        if (argDef.contains(" ]"))
+            argDef = argDef.replace(" ]", "]");
+        String[] parts = argDef.split("(\\s+|\\))");
 
         String prtDetails = "";
         if (parts.length > 2) {
@@ -360,6 +433,17 @@ public class HeaderToPassport {
         //meant to catch arguments that are just defined by type with no name - common in win32 api
         if (parts.length == 1)
             parts = new String[] {parts[0], "arg" + countArg, };
+
+        if (!Arrays.stream(parts).filter(s -> s.contains("FunctionPtr")).findAny().isEmpty())
+        {
+            for (int n = 0; n < parts.length; ++n)
+            {
+                if (parts[n].contains("FunctionPtr"))
+                {
+                    return Optional.of(new ArgDef("FunctionPtr", parts[n+1], "", false, argDef));
+                }
+            }
+        }
 
         if (parts.length == 1 || parts.length > 3) {
             warnings.add("ERROR: I don't know how to parse the argument: " + argDef);
@@ -406,7 +490,7 @@ public class HeaderToPassport {
     // STRUCT / UNION PARSING
     // ============================================================
 
-    static void parseTypedefs(String text) {
+    void parseTypedefs(String text) {
 
         Pattern p = Pattern.compile(
                 "typedef\\s*(unsigned\\s+short|short|" +
@@ -419,17 +503,34 @@ public class HeaderToPassport {
                 Pattern.DOTALL);
 
         Matcher m = p.matcher(text);
+//        int n = 0;
         while (m.find()) {
 
             String typeDefOrig = m.group();
-            String cleanTypeDef = cleanCommonAliases(typeDefOrig);
-            String[] parts = cleanTypeDef.split("\\s+");
+             if (typeDefOrig.contains("struct"))
+                typeDefOrig = typeDefOrig.replace("struct ", " ");
+            for (String remove : ignoreKeywords)
+                typeDefOrig = typeDefOrig.replace(remove, "");
 
-            String type = parts[1];
-            String name = parts[2];
+            typeDefOrig = typeDefOrig.replace(" * ", " *");
+            String cleanTypeDef = cleanCommonAliases(typeDefOrig);
+            String[] parts = cleanTypeDef.trim().split("\\s+");
+
+//            System.out.println(n + ". " + typeDefOrig);
+//            n++;
+
+            if (parts.length < 2)
+            {
+                warnings.add("WARNING: don't know how to parse " + cleanTypeDef);
+                continue;
+            }
+            String type = parts[0];
+            String name = parts[1];
 
             if (name.endsWith(";"))
                 name = name.substring(0, name.length() - 1);
+            name = name.replace("*", "").trim(); //if the pointer is not removed then the regex gets screwed up later
+            var args = splitArg(cleanTypeDef, 1);
 
             if (!typeDefToNative.containsKey(name)) {
                 Type t;
@@ -437,99 +538,179 @@ public class HeaderToPassport {
                     t = typeDefToNative.get(type);
                     typeDefToNative.put(name, t);
                 } else
+                {
                     warnings.add("WARNING: typdef " + name + " cannot be found.");
+//                    var arg = splitArg(type + " " + name, 1);
+                    if (args.isPresent())
+                    {
+                        typeDefToNative.put(name, new Type(type, false, args.get().ptr));
+                        commonAliases.add(new CAlias(type, name));
+                    }
+                    else
+                        typeDefToNative.put(name, new Type(type, false, ""));
+                }
+            }
+        }
+        parseTypedefsOfPointers(text);
+    }
+
+    /**
+     * This handles the special case in the win32 api where there are typedefs like:
+     * typedef struct my_struct *pmystruct
+     *
+     * This sets up the data structures so that these are used as pointers to my_struct.
+     * Without this the namee pmystruct is used and undefined.
+     *
+     * @param text The C file
+     */
+    void parseTypedefsOfPointers(String text) {
+
+        Pattern p = Pattern.compile(
+                "typedef\\s+(struct)\\s+(\\w+)\\s+([\\*\\w]+);",
+                Pattern.DOTALL);
+
+        Matcher m = p.matcher(text);
+//        int n = 0;
+        while (m.find()) {
+
+            String typeDefOrig = m.group();
+            for (String remove : ignoreKeywords)
+                typeDefOrig = typeDefOrig.replace(remove, "");
+
+            typeDefOrig = typeDefOrig.replace(" * ", " *");
+            String cleanTypeDef = cleanCommonAliases(typeDefOrig);
+            String[] parts = cleanTypeDef.trim().split("\\s+");
+
+//            System.out.println(n + ". " + typeDefOrig);
+//            n++;
+
+            String type = parts[1];
+            String name = parts[2];
+
+            if (name.endsWith(";"))
+                name = name.substring(0, name.length() - 1);
+            name = name.replace("*", "").trim(); //if the pointer is not removed then the regex gets screwed up later
+            var args = splitArg(cleanTypeDef, 1);
+
+            if (!typeDefToNative.containsKey(name)) {
+                Type t;
+                if (typeDefToNative.containsKey(type)) {
+                    t = typeDefToNative.get(type);
+                    typeDefToNative.put(name, t);
+                } else
+                {
+                    warnings.add("WARNING: typdef " + name + " cannot be found.");
+//                    var arg = splitArg(type + " " + name, 1);
+                    if (args.isPresent())
+                    {
+                        typeDefToNative.put(name, new Type(type, false, args.get().ptr));
+                        commonAliases.add(new CAlias(type, name));
+                    }
+                    else
+                        typeDefToNative.put(name, new Type(type, false, ""));
+                }
             }
         }
     }
 
+    record structParser(String regex, int kindGroup, int nameGroup, int bodyGroup){}
 
-    static List<CRecord> parseRecords(String text) {
+    List<CRecord> parseRecords(String text) {
         List<CRecord> list = new ArrayList<>();
         Set<String> foundRecords = new HashSet<>();
-
-        Pattern p = Pattern.compile(
-                "(struct|union)\\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)}\\s*([A-Za-z_][A-Za-z0-9_\\*\\,]*)\\s*;",
-                Pattern.DOTALL
+        List<structParser> regexs = List.of(
+                new structParser("(struct|union)\\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)}\\s*([A-Za-z_][A-Za-z0-9_\\*\\,\\s]*)\\s*;", 1, 3, 2),
+                new structParser("(struct|union)\\s*([A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)};", 1, 2, 3),
+                new structParser("typedef\\s+struct\\s+\\w+\\s*\\{([\\s\\S]*?)\\}\\s*(.+?);", -1, 2, 1)
         );
+
+//
+//        Pattern p = Pattern.compile(
+//                "(struct|union)\\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)}\\s*([A-Za-z_][A-Za-z0-9_\\*\\,\\s]*)\\s*;",
+//                Pattern.DOTALL
+//        );
 
         Pattern subP = Pattern.compile(
                 "(_Field_size_|_Field_size_bytes_|_Field_size_opt_|_Field_size_bytes_)\\((?:[A-Za-z_][A-Za-z0-9_]*)?\\)"
         );
 
-        Matcher m = p.matcher(text);
-        while (m.find()) {
-            List<ArgDef> fields = new ArrayList<>();
-            String kind = m.group(1);
-            String body = m.group(2).trim();
-            String name = m.group(3).trim();
+        for (var parser : regexs) {
+            Pattern p = Pattern.compile(
+                    parser.regex,
+                    Pattern.DOTALL);
+            Matcher m = p.matcher(text);
+            while (m.find()) {
+                List<ArgDef> fields = new ArrayList<>();
+                String kind = parser.kindGroup == -1 ? "struct" : m.group(parser.kindGroup);
+                String body = m.group(parser.bodyGroup).trim();
+                String name = m.group(parser.nameGroup);
 
-            int startRec = text.indexOf(body);
-            int endRecAt = 0;
-            if (body.contains("union") || body.contains("struct")) {
-                int openCount = 1;
-                for (int n = startRec; n < text.length(); ++n)
-                {
-                    if (text.charAt(n) == '{')
-                        openCount++;
-                    else if (text.charAt(n) == '}')
-                    {
-                        openCount--;
-                        if (openCount == 0)
-                        {
-                            endRecAt = text.indexOf(';', n);
-                            break;
+                if (name == null || name.isEmpty())
+                    name = "unnamed" + list.size();
+                else
+                    name = name.trim();
+
+                int startRec = text.indexOf(body);
+                int endRecAt = 0;
+                if (body.contains("union") || body.contains("struct")) {
+                    int openCount = 1;
+                    for (int n = startRec; n < text.length(); ++n) {
+                        if (text.charAt(n) == '{')
+                            openCount++;
+                        else if (text.charAt(n) == '}') {
+                            openCount--;
+                            if (openCount == 0) {
+                                endRecAt = text.indexOf(';', n);
+                                break;
+                            }
                         }
                     }
-                }
-                String fullRec = text.substring(startRec, endRecAt + 1);
-                var recs = parseRecords(fullRec);
-                list.addAll(recs);
+                    String fullRec = text.substring(startRec, endRecAt + 1);
+                    var recs = parseRecords(fullRec);
+                    list.addAll(recs);
 
-                for (var rec : recs)
-                    body = body.replace(rec.CCode, rec.name + " " + rec.name + ";");
-            }
-
-            var m2 = subP.matcher(body);
-            while (m2.find())
-            {
-                String matched = m2.group();
-                body = body.replace(matched, "");
-            }
-
-            int argCount = 1;
-            for (String line : body.split(";")) {
-                var arg = splitArg(line, argCount++);
-                if (arg.isPresent())
-                    fields.add(arg.get());
-            }
-
-            //many structs in win32 have a point based name at the end, this helps with the conversion
-            if (name.contains(","))
-            {
-                var parts = name.split(",");
-                String baseName = parts[0];
-                list.add(new CRecord(baseName, kind, fields, m.group()));
-
-                for (int n = 1; n < parts.length; ++n)
-                {
-                    var structName = parts[n];
-                    structName = structName.trim();
-                    if  (structName.contains("NEAR"))
-                        structName = structName.replace("NEAR", "").trim();
-                    if  (structName.contains("FAR"))
-                        structName = structName.replace("FAR", "").trim();
-
-                    if (structName.startsWith("*"))
-                        structName = structName.replace("*", "");
-
-                    typeDefToNative.put(structName, new Type(baseName, true, "*", true));
+                    for (var rec : recs)
+                        body = body.replace(rec.CCode, rec.name + " " + rec.name + ";");
                 }
 
-            }
-            else
-                list.add(new CRecord(name, kind, fields, m.group()));
+                var m2 = subP.matcher(body);
+                while (m2.find()) {
+                    String matched = m2.group();
+                    body = body.replace(matched, "");
+                }
 
-            foundRecords.add(name);
+                int argCount = 1;
+                for (String line : body.split(";")) {
+                    var arg = splitArg(line, argCount++);
+                    if (arg.isPresent())
+                        fields.add(arg.get());
+                }
+
+                //many structs in win32 have a point based name at the end, this helps with the conversion
+                if (name.contains(",")) {
+                    var parts = name.split(",");
+                    String baseName = parts[0];
+                    list.add(new CRecord(baseName, kind, fields, m.group()));
+
+                    for (int n = 1; n < parts.length; ++n) {
+                        var structName = parts[n];
+                        structName = structName.trim();
+                        if (structName.contains("NEAR"))
+                            structName = structName.replace("NEAR", "").trim();
+                        if (structName.contains("FAR"))
+                            structName = structName.replace("FAR", "").trim();
+
+                        if (structName.startsWith("*"))
+                            structName = structName.replace("*", "");
+
+                        typeDefToNative.put(structName, new Type(baseName, true, "*", true));
+                    }
+
+                } else
+                    list.add(new CRecord(name, kind, fields, m.group()));
+
+                foundRecords.add(name);
+            }
         }
 
         //this code is to handle empty records, which are usually just names for pointers
@@ -543,6 +724,7 @@ public class HeaderToPassport {
             String kind = m2.group();
             String[] parts = kind.split(" ");
             String name = parts[parts.length - 1];
+            name = name.trim();
             name = name.replace(";", "");
 
             if (name.contains(":"))
@@ -563,8 +745,12 @@ public class HeaderToPassport {
     static List<CEnum> parseEnums(String text) {
         List<CEnum> list = new ArrayList<>();
 
+//        typedef\s+enum\s+\w+\s*\{\s*([\s\S]*?)\s*\}\s*(\w+)\s*,\s*\*(\w+)\s*;
+
+        //better
+//        typedef\s+enum\s+\w+\s*\{\s*([\s\S]*?)\s*\}\s*(\w+)(?:\s*,\s*\*(\w+))?\s*;
         Pattern p = Pattern.compile(
-                "(?:typedef\\s+)?enum\\s*(?:[A-Za-z_][A-Za-z0-9_]*)?\\s*\\{([^}]*)}\\s*([A-Za-z_][A-Za-z0-9_]*)?\\s*;",
+                "typedef\\s+enum\\s+\\w*\\s*\\{\\s*([\\s\\S]*?)\\s*\\}\\s*(.+?);",
                 Pattern.DOTALL
         );
 
@@ -613,7 +799,19 @@ public class HeaderToPassport {
                 values.add(new CEnumValue(enumName, value, forceLong));
             }
 
-            list.add(new CEnum(name, values, m.group()));
+            if (name.contains(","))
+            {
+                var names = name.split(",");
+                list.add(new CEnum(names[0].trim(), values, m.group()));
+                for (int n = 1; n < names.length; ++n)
+                {
+                    String cleanedName = names[n].trim();
+                    cleanedName = cleanedName.replace("*", "").trim();
+                    typeDefToNative.put(cleanedName, new Type(names[0], true, "*", true));
+                }
+            }
+            else
+                list.add(new CEnum(name.trim(), values, m.group()));
         }
 
         return list;
@@ -623,7 +821,7 @@ public class HeaderToPassport {
     // JAVA GENERATION
     // ============================================================
 
-    public static void generateJava() throws FileNotFoundException {
+    public void generateJava() throws FileNotFoundException {
 
         // ---- Structs / Unions → Records ----
         generateJavaRecords(records);
@@ -631,14 +829,25 @@ public class HeaderToPassport {
         // ---- Enums ----
         generateJavaEnums(enums);
 
-//        generateInterface(functions);
+        generateInterface(functions);
     }
 
-    private static void generateInterface(List<CFunction> funcs) throws FileNotFoundException {
+    private void generateInterface(List<CFunction> funcs) throws FileNotFoundException {
         if (funcs.isEmpty())
             return;
 
         Path outFile = destinationPath.resolve(interfaceName + ".java");
+
+        try {
+            if (!Files.exists(outFile.getParent()))
+                Files.createDirectories(outFile.getParent());
+        }
+        catch(IOException ex)
+        {
+            ex.printStackTrace();
+        }
+
+
         try (PrintWriter out = new PrintWriter(outFile.toFile())) {
             out.println("package " + packageName + ";\n\n");
             out.println("import java.lang.foreign.MemorySegment;");
@@ -693,19 +902,33 @@ public class HeaderToPassport {
         }
     }
 
-    private static void generateJavaRecords(List<CRecord> records) throws FileNotFoundException {
+    private void generateJavaRecords(List<CRecord> records) throws FileNotFoundException {
         for (CRecord r : records) {
 
             if (typesWritten.contains(r.name))
                 continue;
 
             warnings.clear();
-            Path outFile = destinationPath.resolve(r.name.replace("*", "") + ".java");
+            Path outFile = destinationPath.resolve(r.name.trim().replace("*", "") + ".java");
+
+            if (Files.exists(outFile))
+                continue;
+
+            try {
+                if (!Files.exists(outFile.getParent()))
+                    Files.createDirectories(outFile.getParent());
+            }
+            catch(IOException ex)
+            {
+                ex.printStackTrace();
+            }
             try (PrintWriter out = new PrintWriter(outFile.toFile())) {
                 out.println("package " + packageName + ";\n\n");
                 out.println("import jpassport.*;");
                 out.println("import jpassport.pointers.*;");
                 out.println("import jpassport.annotations.*;\n\n");
+                out.println("import java.lang.foreign.*;\n\n");
+
 
                 out.println("/*");
                 out.println(r.CCode);
@@ -757,7 +980,7 @@ public class HeaderToPassport {
         return true;
     }
 
-    static void generateJavaEnums(List<CEnum> enums) throws FileNotFoundException {
+    void generateJavaEnums(List<CEnum> enums) throws FileNotFoundException {
         for (CEnum e : enums) {
             if (typesWritten.contains(e.name))
                 continue;
@@ -765,7 +988,15 @@ public class HeaderToPassport {
             boolean useLongs = e.values.stream().anyMatch(v -> v.forceLong);
             boolean isSequential = allSequential(e.values);
 
-            Path outFile = destinationPath.resolve(e.name.replace("*", "") + ".java");
+            Path outFile = destinationPath.resolve(e.name.replace("*", "").trim() + ".java");
+            try {
+                if (!Files.exists(outFile.getParent()))
+                    Files.createDirectories(outFile.getParent());
+            }
+            catch(IOException ex)
+            {
+                ex.printStackTrace();
+            }
 
             try (PrintWriter out = new PrintWriter(outFile.toFile())) {
                 out.println("package " + packageName + ";\n\n");
@@ -829,7 +1060,7 @@ public class HeaderToPassport {
     // PARAMETER FORMATTER
     // ============================================================
 
-    static String formatParam(ArgDef p) {
+    String formatParam(ArgDef p) {
         if (p.error)
             return p.origText;
 
@@ -857,7 +1088,7 @@ public class HeaderToPassport {
     // TYPE MAPPING
     // ============================================================
 
-    static String mapType(ArgDef def, boolean isReturn) {
+    String mapType(ArgDef def, boolean isReturn) {
         if (def.error)
             return def.origText;
 
@@ -925,7 +1156,7 @@ public class HeaderToPassport {
         return javaType;
     }
 
-    static String mapRecordType(ArgDef cType) {
+    String mapRecordType(ArgDef cType) {
         if (cType.error)
             return cType.origText;
 
@@ -938,7 +1169,11 @@ public class HeaderToPassport {
         String base = t.replaceAll("\\s+", " ");
 
         if (typeDefToNative.containsKey(base))
-            base = typeDefToNative.get(base).name;
+        {
+            Type tt = typeDefToNative.get(base);
+            base = tt.name;
+            ptrCount = tt.ptr.chars().filter(ch -> ch == '*').count();
+        }
 
         if (base.startsWith("unsigned"))
             base = base.substring("unsigned".length());
@@ -995,7 +1230,7 @@ public class HeaderToPassport {
     // MODEL CLASSES
     // ============================================================
 
-    record ArgDef(String type, String name, String ptr, boolean error, String origText){}
+    public static record ArgDef(String type, String name, String ptr, boolean error, String origText){}
 
     record CFunction(ArgDef returnType,
             String name,

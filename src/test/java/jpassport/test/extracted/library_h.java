@@ -1439,7 +1439,7 @@ public class library_h {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * extern void freeMemory(void *memory)
+     * extern void freeMemory(byte []memory)
      * }
      */
     public static FunctionDescriptor freeMemory$descriptor() {
@@ -1449,7 +1449,7 @@ public class library_h {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * extern void freeMemory(void *memory)
+     * extern void freeMemory(byte []memory)
      * }
      */
     public static MethodHandle freeMemory$handle() {
@@ -1459,7 +1459,7 @@ public class library_h {
     /**
      * Address for:
      * {@snippet lang=c :
-     * extern void freeMemory(void *memory)
+     * extern void freeMemory(byte []memory)
      * }
      */
     public static MemorySegment freeMemory$address() {
@@ -1468,7 +1468,7 @@ public class library_h {
 
     /**
      * {@snippet lang=c :
-     * extern void freeMemory(void *memory)
+     * extern void freeMemory(byte []memory)
      * }
      */
     public static void freeMemory(MemorySegment memory) {
@@ -2082,7 +2082,7 @@ public class library_h {
     /**
      * Function descriptor for:
      * {@snippet lang=c :
-     * void *PassPointers(void *hMem)
+     * byte []PassPointers(byte []hMem)
      * }
      */
     public static FunctionDescriptor PassPointers$descriptor() {
@@ -2092,7 +2092,7 @@ public class library_h {
     /**
      * Downcall method handle for:
      * {@snippet lang=c :
-     * void *PassPointers(void *hMem)
+     * byte []PassPointers(byte []hMem)
      * }
      */
     public static MethodHandle PassPointers$handle() {
@@ -2102,7 +2102,7 @@ public class library_h {
     /**
      * Address for:
      * {@snippet lang=c :
-     * void *PassPointers(void *hMem)
+     * byte []PassPointers(byte []hMem)
      * }
      */
     public static MemorySegment PassPointers$address() {
@@ -2111,7 +2111,7 @@ public class library_h {
 
     /**
      * {@snippet lang=c :
-     * void *PassPointers(void *hMem)
+     * byte []PassPointers(byte []hMem)
      * }
      */
     public static MemorySegment PassPointers(MemorySegment hMem) {

@@ -6,7 +6,7 @@
 
     <groupId>io.github.boulder-on</groupId>
     <artifactId>JPassport</artifactId>
-    <version>1.4.0-24</version>
+    <version>1.4.1-24</version>
 
     <packaging>jar</packaging>
     <description>A Java library for interfacing with the foreign linker API.</description>

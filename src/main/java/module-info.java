@@ -8,4 +8,5 @@ module jpassport {
     exports jpassport.pointers;
     exports jpassport.enums;
     exports jpassport.parser;
+    exports jpassport.parser.clang.types;
 }

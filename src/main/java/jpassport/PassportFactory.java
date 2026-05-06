@@ -186,13 +186,13 @@ public class PassportFactory {
             if (hasErrCap)
                 options.add(Linker.Option.captureCallState(ErrorCapture.getErrNames()));
 
-            Linker.Option[] linkeroptions = options.toArray(new Linker.Option[0]);
-            if (linkeroptions.length == 0)
-                methodHandle = cLinker.downcallHandle(addr.get(), fd);
-            else
-                methodHandle = cLinker.downcallHandle(addr.get(), fd, linkeroptions);
+                Linker.Option[] linkeroptions = options.toArray(new Linker.Option[0]);
+                if (linkeroptions.length == 0)
+                    methodHandle = cLinker.downcallHandle(addr.get(), fd);
+                else
+                    methodHandle = cLinker.downcallHandle(addr.get(), fd, linkeroptions);
 
-            return methodHandle;
+                return methodHandle;
         }
 
         return null;
@@ -250,6 +250,8 @@ public class PassportFactory {
             FunctionDescriptor fd;
             if (void.class.equals(retType))
                 fd = FunctionDescriptor.ofVoid(memoryLayout);
+            else if (retType.isRecord())
+                fd = FunctionDescriptor.of(ValueLayout.ADDRESS, memoryLayout); //if a record is return then we need to pass a SegmentAllocator as the first arguement
             else
                 fd = FunctionDescriptor.of(classToMemory(retType), memoryLayout);
 

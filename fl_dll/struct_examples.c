@@ -140,3 +140,14 @@ double passStructOfStructs(PassingStructs* data)
 
     return sum;
 }
+
+PassingData retPD;
+
+PassingData returnStruct()
+{
+//    PassingData* pd = (PassingData *)malloc(sizeof (PassingData));
+    
+    retPD.s_int = 1;
+    retPD.s_long = 2;
+    return retPD;
+}
