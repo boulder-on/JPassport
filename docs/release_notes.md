@@ -1,9 +1,10 @@
 # Release Notes
-- 1.4.1-24
+- 1.5.0-24
     - Added the ability to return a struct from a method
     - Added a SegmentAllocator as a valid agrument type
     - fixed imports for classes that derive from GenericPtr
     - Allow GenericPtrs as part of a struct
+    - Using clang to parse  C files when generating a Passport
 - 1.4.0-24
     - Adding a native code to passport interface generator
     - Added NativeName annotation to allow remapping of native functions to a different name in your interface

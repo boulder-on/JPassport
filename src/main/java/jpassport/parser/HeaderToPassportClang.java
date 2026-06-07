@@ -17,6 +17,7 @@ public class HeaderToPassportClang {
     static Path destinationPath;
     static String packageName;
     static String interfaceName;
+    static List<String> ignoreFunctionNames = new ArrayList<>();
 
     private static final boolean IS_WINDOWS = System.getProperty("os.name").startsWith("Windows");
     // crash recovery is not an issue on Windows, so enable it there by default to work around a libclang issue with reparseTranslationUnit
@@ -84,12 +85,13 @@ public class HeaderToPassportClang {
         return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
     }
 
+    static List<String> clangArgs = new ArrayList<>();
+
     public static void main(String[] args) throws Exception {
         if (args.length < 3) {
             System.err.println("Usage: [path to header] [path to destination] [package] [preprocessor options]");
             System.exit(1);
         }
-
         Path headerPath = Path.of(args[0]);
         String headerName = headerPath.getFileName().toString();
         destinationPath = Path.of(args[1]);
@@ -99,39 +101,19 @@ public class HeaderToPassportClang {
         validateArguments(headerPath);
 
         System.out.println("Loading: " + headerPath);
-        System.out.println("Preprocessed file: " + headerPath);
-
         Arrays.fill(counts, 0);
-        try (var clang = new ClangHtoP(headerPath.getFileName().toString())){
 
-            clang.parseClang();
-             generateJava(clang);
+        var allHeaders = List.of(headerPath);
+        var allheadernames = allHeaders.stream().map(Path::toString).toList();
+
+        if (args.length > 3) {
+            for (int i = 3; i < args.length; i++) {
+                clangArgs.add(args[i]);
+            }
         }
-        catch (Throwable throwable) {
-            throwable.printStackTrace();
-        }
+        clangArgs.add("-I" + headerPath.getParent().toAbsolutePath().toString());
 
-        System.out.println("Generation complete: " + destinationPath.toAbsolutePath());
-        System.out.println("            Enums created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.enums.ordinal()]);
-        System.out.println("  Records/Structs created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.records.ordinal()]);
-        System.out.println("Interface methods created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.methods.ordinal()]);
-    }
-
-    public HeaderToPassportClang(Path headerPath, Path destinationPath, String packageName) throws Exception {
-
-//        Path headerPath = Path.of(args[0]);
-        String headerName = headerPath.getFileName().toString();
-        this.destinationPath = destinationPath;
-        this.packageName = packageName;
-        interfaceName = headerName.replace(".", "_");
-
-//        validateArguments(headerPath);
-
-        System.out.println("Loading: " + headerPath);
-        System.out.println("Preprocessed file: " + headerPath);
-
-        Arrays.fill(counts, 0);
-        try (var clang = new ClangHtoP(headerPath.getFileName().toString())){
+        try (var clang = new ClangHtoP(allheadernames, clangArgs)){
 
             clang.parseClang();
             generateJava(clang);
@@ -146,50 +128,47 @@ public class HeaderToPassportClang {
         System.out.println("Interface methods created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.methods.ordinal()]);
     }
 
-    private static Path buildPCH(Path header)
+
+    public HeaderToPassportClang()
     {
-        String[] includeFolders = {
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt\\winrt",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared",
-                "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt",
-                "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.40.33807\\include"
 
-        };
-
-        ProcessBuilder pb = new ProcessBuilder();
-        List<String> cmd = new ArrayList<>();
-        cmd.add("clang");
-        cmd.add(header.toAbsolutePath().toString());
-        cmd.add("-o");
-        Path toPCH  = Path.of("pch", header.getFileName().toString() + ".pch");
-        cmd.add(toPCH.toAbsolutePath().toString());
-
-        for (String include : includeFolders) {
-            cmd.add("-I");
-            cmd.add(include);
-        }
-        pb.command(cmd);
-        try {
-            var proc = pb.start();
-            var reader = proc.errorReader();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
-            }
-            proc.waitFor();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-
-        return toPCH;
     }
 
 
+    public ClangHtoP processHeader(List<Path> headerPath, Path destinationPath, String packageName, List<String> ignoreFunctions) throws Throwable {
+
+        String headerName = headerPath.get(0).getFileName().toString();
+        this.destinationPath = destinationPath;
+        this.packageName = packageName;
+        interfaceName = headerName.replace(".", "_");
+        ignoreFunctionNames = ignoreFunctions;
+
+        System.out.println("Loading: " + headerName);
+        System.out.println("Preprocessed file: " + headerName);
+
+        Arrays.fill(counts, 0);
+        var h = new ArrayList<String>();
+        headerPath.forEach(p -> h.add(p.getFileName().toString()));
+        var clang = new ClangHtoP(h, clangArgs);
+        try {
+
+            clang.parseClang();
+            generateJava(clang);
+        }
+        catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+
+        System.out.println("Generation complete: " + destinationPath.toAbsolutePath());
+        System.out.println("            Enums created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.enums.ordinal()]);
+        System.out.println("  Records/Structs created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.records.ordinal()]);
+        System.out.println("Interface methods created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.methods.ordinal()]);
+        return clang;
+    }
+
+    public void finishGeneration(ClangHtoP clang) throws IOException {
+        generateJava(clang);
+    }
 
     private static void validateArguments(Path headerPath) {
         if (Files.notExists(headerPath)) {
@@ -206,12 +185,6 @@ public class HeaderToPassportClang {
             }
         }
     }
-
-
-
-    // ============================================================
-    // JAVA GENERATION
-    // ============================================================
 
     public static void generateJava(ClangHtoP clang) throws IOException {
 
@@ -241,6 +214,8 @@ public class HeaderToPassportClang {
             ex.printStackTrace();
         }
 
+        HashSet<String> ignorable = new HashSet<>();
+        ignoreFunctionNames.stream().forEach(n -> ignorable.add(n));
 
         try (PrintWriter out = new PrintWriter(outFile.toFile())) {
             out.println("package " + packageName + ";\n\n");
@@ -248,14 +223,12 @@ public class HeaderToPassportClang {
             out.println("import jpassport.pointers.*;");
             out.println("import jpassport.annotations.*;\n\n");
 
-            // ---- Functions → Interface ----
             out.println("public interface " + interfaceName + "{");
             for (ClangHtoP.CFunction f : funcs) {
 
-//                if (typesWritten.contains(f.name()) || f.returnType().origText().trim().equals("return"))
-//                    continue;
+                if (ignorable.contains(f.name()))
+                    continue;
 
-//                warnings.clear();
                 out.println("/*");
                 out.println(f.CCode());
                 out.println("*/");
@@ -277,20 +250,10 @@ public class HeaderToPassportClang {
                 }
                 if (!f.parameters().isEmpty())
                     params.setLength(params.length()-1);
-//                String params = String.join(", ",
-//                        f.parameters.stream()
-//                                .map(HeaderToPassport::formatParam)
-//                                .toList()
-//                );
                 out.print(params);
                 out.println(");");
                 out.println();
                 counts[HeaderToPassport.OUTPUT_OBJECTS.methods.ordinal()]++;
-//                if (!warnings.isEmpty()) {
-//                    System.err.println("WARNINGS found for method: " + f.name());
-//                    warnings.forEach(warning -> System.err.println("\t" + warning));
-//                }
-//                typesWritten.add(f.name());
             }
             out.println("}");
         }
@@ -345,7 +308,6 @@ public class HeaderToPassportClang {
                         if (i > 0)
                             out.println(",");
                         out.print("    " + mapRecordType(f) + " " + name);
-//                        if (i < r.fields().size() - 1) out.println(",");
                         usedNames.add(f.name());
                     }
 
@@ -355,12 +317,6 @@ public class HeaderToPassportClang {
                 }
 
                 counts[HeaderToPassport.OUTPUT_OBJECTS.records.ordinal()]++;
-//                if (!warnings.isEmpty()) {
-//                    System.err.println("WARNINGS found for record: " + r.name);
-//                    warnings.forEach(warning -> System.err.println("\t" + warning));
-//                }
-
-//                typesWritten.add(r.name());
             }
         }
     }
@@ -377,8 +333,6 @@ public class HeaderToPassportClang {
 
     static void generateJavaEnums(List<ClangHtoP.CEnum> enums) throws FileNotFoundException {
         for (ClangHtoP.CEnum e : enums) {
-//            if (typesWritten.contains(e.name()))
-//                continue;
 
             boolean useLongs = e.values().stream().anyMatch(ClangHtoP.CEnumValue::forceLong);
             boolean isSequential = allSequential(e.values());
@@ -421,7 +375,6 @@ public class HeaderToPassportClang {
                     } else
                         out.print("    " + v.name() + ",\n");
 
-//                    if (i < e.values.size() - 1) out.println(",");
                 }
                 out.println(";");
 
@@ -446,15 +399,10 @@ public class HeaderToPassportClang {
 
                 out.println("}\n");
                 counts[HeaderToPassport.OUTPUT_OBJECTS.enums.ordinal()]++;
-//                typesWritten.add(e.name());
             }
         }
     }
-//
-//    // ============================================================
-//    // PARAMETER FORMATTER
-//    // ============================================================
-//
+
     static String formatParam(ClangHtoP.ArgDef p) {
         if (p.error())
             return p.origText();
@@ -471,17 +419,10 @@ public class HeaderToPassportClang {
 
         if (ptrCount == 2)
             return "@PtrPtrArg " + javaType + " " + p.name();
-//        else if (ptrCount == 1 && !emptyStructs.contains(javaType)) {
-//            return "@RefArg " + javaType + " " + p.name;
-//        }
         else {
             return javaType + " " + p.name();
         }
     }
-
-    // ============================================================
-    // TYPE MAPPING
-    // ============================================================
 
     static String mapType(ClangHtoP.ArgDef def, boolean isReturn) {
         if (def.error())

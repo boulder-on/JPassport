@@ -7,7 +7,7 @@ automatic header java interface generation.
 The JPassport jar file is runnable and will create the java interface, records and enums you need.
 
 ```
-java -jar JPassport-1.3.1-24.jar [full path to header file] [destination folder for generated code] [package name to use] [preprocessor options]
+java -jar JPassport-1.5.0-24.jar [full path to header file] [destination folder for generated code] [package name to use] [preprocessor options]
 ```
 
 You can also write code to generate the java files if that is easier
@@ -33,28 +33,18 @@ var progArgs = allArgs.toArray(new String[0]);
 HeaderToPassport.main(progArgs);
 
 ```
-In order to parse your header file a preprocessor is required:
+In order to parse your header file, Clang is required:
 
 - Windows
-  - clang (install LLVM)
-- Linux, Mac
-  - clang
-  - gcc
-  - cpp
-
-The parser will:
-
-- Feed the header into the C preprocessor using the -E option which outputs only the preprocessed C code
-- The proprocessed version of the header is parsed and turned into
-  - [header name]_h.java - containing the JPassport interface
-  - The required records for mapping structs and unions
-  - The required enums for mapping enums
+  - clang (install LLVM https://releases.llvm.org/download.html)
+- Linux
+  - sudo apt install clang
+- Mac
+  - ask google
 
 The generated interface can be used normally as per the instructions in this guide.
 
 ## Limitations
-- Unions defined within structs are not properly parsed
-- Some keywords are not handled: volatile, signed
 - Variadic arguments (...) are not handled!
 
 In general, you will get output code. There may be errors in it that you need to correct by hand.

@@ -21,9 +21,7 @@ public interface clangParser extends Passport {
     void clang_disposeTranslationUnit(CXTranslationUnit tu);
     void clang_disposeIndex(CXIndex index);
 
-    //    MemorySegment clang_getTranslationUnitCursor(CXTranslationUnitDM arg);
-//
-    long clang_visitChildren(MemorySegment parent,
+    int clang_visitChildren(MemorySegment parent,
                              FunctionPtr visitor,
                              MemorySegment client_data);
 
@@ -35,12 +33,12 @@ public interface clangParser extends Passport {
     CXType clang_getCursorType(MemorySegment C);
     CXString clang_getTypeSpelling(CXType CT);
     long clang_getEnumConstantDeclValue(MemorySegment C);
-    long clang_Type_getSizeOf(CXType T);
-    CXType clang_Type_getValueType(CXType CT);
+//    long clang_Type_getSizeOf(CXType T);
+//    CXType clang_Type_getValueType(CXType CT);
     CXType clang_getTypedefDeclUnderlyingType(MemorySegment cursor);
     CXType clang_getCursorResultType(MemorySegment cursor);
 
-    CXType clang_getArgType(CXType T, int i);
+//    CXType clang_getArgType(CXType T, int i);
     CXSourceRange clang_getCursorExtent(MemorySegment cursor);
     void clang_tokenize(CXTranslationUnit TU, MemorySegment Range,
                         MemorySegment Tokens, @RefArg int[] NumTokens);
@@ -52,5 +50,5 @@ public interface clangParser extends Passport {
     CXType clang_getArrayElementType(CXType T);
     long clang_getArraySize(CXType T);
     MemorySegment clang_getCursorSemanticParent(MemorySegment cursor);
-    MemorySegment clang_getTypeDeclaration(CXType cxtype);
+//    MemorySegment clang_getTypeDeclaration(CXType cxtype);
 }

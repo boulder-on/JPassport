@@ -134,7 +134,7 @@ public class HeaderToPassport {
         return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Throwable {
         if (args.length < 3) {
             System.err.println("Usage: [path to header] [path to destination] [package] [preprocessor options]");
             System.exit(1);
@@ -150,16 +150,20 @@ public class HeaderToPassport {
 
         System.out.println("Loading: " + headerPath);
         List<String> preProcArgs = new ArrayList<>(Arrays.asList(args).subList(3, args.length));
-        var processedFile = CPreprocess.preprocess(headerPath, destinationPath, preProcArgs.toArray(new String[0]));
+        var header2Pass = new HeaderToPassportClang();
+        var headerList = List.of(headerPath);
+        header2Pass.processHeader(headerList, destinationPath, "jwin32", new ArrayList<>());
 
-        if (processedFile.isEmpty()) {
-            System.err.println("Preprocessor step failed - no further generation is possible.");
-            return;
-        }
+//        var processedFile = CPreprocess.preprocess(headerPath, destinationPath, preProcArgs.toArray(new String[0]));
 
-        var preProcHeader = processedFile.get();
-        System.out.println("Preprocessed file: " + preProcHeader);
-        var h2p = new HeaderToPassport();
+//        if (processedFile.isEmpty()) {
+//            System.err.println("Preprocessor step failed - no further generation is possible.");
+//            return;
+//        }
+
+//        var preProcHeader = processedFile.get();
+//        System.out.println("Preprocessed file: " + preProcHeader);
+//        var h2p = new HeaderToPassport();
 //        h2p.readCPP(preProcHeader, destinationPath, packageName);
 //        String header = readC(preProcHeader);
 
@@ -177,9 +181,9 @@ public class HeaderToPassport {
 //        generateInterface(functions);
 //        generateJava();
         System.out.println("Generation complete: " + destinationPath.toAbsolutePath());
-        System.out.println("            Enums created: " + h2p.counts[OUTPUT_OBJECTS.enums.ordinal()]);
-        System.out.println("  Records/Structs created: " + h2p.counts[OUTPUT_OBJECTS.records.ordinal()]);
-        System.out.println("Interface methods created: " + h2p.counts[OUTPUT_OBJECTS.methods.ordinal()]);
+        System.out.println("            Enums created: " + header2Pass.counts[OUTPUT_OBJECTS.enums.ordinal()]);
+        System.out.println("  Records/Structs created: " + header2Pass.counts[OUTPUT_OBJECTS.records.ordinal()]);
+        System.out.println("Interface methods created: " + header2Pass.counts[OUTPUT_OBJECTS.methods.ordinal()]);
     }
 
     private static String readC(Path source) throws IOException

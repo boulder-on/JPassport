@@ -4,9 +4,11 @@ import jpassport.PassportFactory;
 import jpassport.parser.clang.types.*;
 import jpassport.pointers.FunctionPtr;
 
+import java.io.File;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -25,9 +27,9 @@ public class ClangHtoP implements AutoCloseable{
     FunctionPtr visitStructFieldfunctionPtr;
     FunctionPtr visitEnumfunctionPtr;
     static Arena tmpArena = Arena.global();
-    static clangParser clang;
+    static clangParser clang = null;
 
-    List<CFunction> allFunctions = new ArrayList<>();
+    public List<CFunction> allFunctions = new ArrayList<>();
     List<CRecord> allRecords = new ArrayList<>();
     List<CEnum> allEnums = new ArrayList<>();
 
@@ -100,14 +102,12 @@ public class ClangHtoP implements AutoCloseable{
 
     static String[] ignoreKeywords = new String[] {
             "const",
-//            "__stdcall ",
             "typedef ",
             "volatile ",
             "unsigned ",
             "signed ",
             "__unaligned ",
             "enum ",
-//            "IN ",
             "OUT ",
             "_In_ ",
             "_Out_ ",
@@ -220,7 +220,7 @@ public class ClangHtoP implements AutoCloseable{
         tu = clang.clang_createTranslationUnit(Idx, toPCH.toAbsolutePath().toString());
     }
 
-    public ClangHtoP(String hName) throws Throwable
+    public ClangHtoP(List<String> hName, List<String> clangArgs) throws Throwable
     {
         initVisitors();
         String libName = System.getProperty("os.name").startsWith("Windows") ? "libclang" : "clang";
@@ -229,25 +229,32 @@ public class ClangHtoP implements AutoCloseable{
 
 
         System.setProperty("jpassport.build.home", "out/testing");
-        clang = PassportFactory.link_written(libName, clangParser.class);
+        if (clang == null)
+            clang = PassportFactory.link_written(libName, clangParser.class);
 
-        String contents = "#include \"" + hName + "\"\n";
-        CXUnsavedFile [] unsavedFiles = new CXUnsavedFile[] {new CXUnsavedFile(hName + ".c", contents, contents.length())};
+        StringBuilder sb = new StringBuilder();
+        hName.stream().forEach(s -> sb.append("#include \"" + s + "\"\n"));
+
+
+
+        String contents = sb.toString();
+        System.out.println(contents);
+        var tmpFile = File.createTempFile("jpass", ".c");
+        tmpFile.deleteOnExit();
+        Files.write(tmpFile.toPath(), contents.getBytes());
+//        CXUnsavedFile [] unsavedFiles = new CXUnsavedFile[] {new CXUnsavedFile(hName + ".c", contents, contents.length())};
+        CXUnsavedFile [] unsavedFiles = new CXUnsavedFile[0];
 
         Idx = clang.clang_createIndex(1, 1);
 //        tu = clang.clang_createTranslationUnit(Idx, toPCH.toAbsolutePath().toString());
-        String[] args = {
-                "-IC:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0",
-                "-IC:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt",
-                "-IC:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\cppwinrt\\winrt",
-                "-IC:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\um",
-                "-IC:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\shared",
-                "-IC:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.22621.0\\ucrt",
-                "-IC:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Tools\\MSVC\\14.40.33807\\include"
-        };
+        String[] progArgs = new String[clangArgs.size()];
+        int i = 0;
+        for (String s : clangArgs)
+            progArgs[i++] = s;
 
 
-        tu = clang.clang_createTranslationUnitFromSourceFile(Idx, hName + ".c", args.length, args, 1, unsavedFiles);
+//        tu = clang.clang_createTranslationUnitFromSourceFile(Idx, hName + ".c", progArgs.length, progArgs, unsavedFiles.length, unsavedFiles);
+        tu = clang.clang_createTranslationUnitFromSourceFile(Idx,hName.get(0), progArgs.length, progArgs, unsavedFiles.length, null);
     }
 
     public void close()
@@ -273,37 +280,51 @@ public class ClangHtoP implements AutoCloseable{
 
     public void parseClang() {
         var cursor = clang.clang_getTranslationUnitCursor(tu);
+        System.out.println("Typedefs");
         clang.clang_visitChildren(cursor.origMem(), typedefVisitor, MemorySegment.NULL);
+        System.out.println("Structs");
         clang.clang_visitChildren(cursor.origMem(), structUnionVisitor, MemorySegment.NULL);
+        System.out.println("Enums");
         clang.clang_visitChildren(cursor.origMem(), enumVisitor, MemorySegment.NULL);
+        System.out.println("Functions");
         clang.clang_visitChildren(cursor.origMem(), functionVisitor, MemorySegment.NULL);
+        System.out.println("Done");
     }
 
     CFunction currentFunction;
 
-    public MemorySegment functionVisitor(MemorySegment cursor,
+    public int functionVisitor(MemorySegment cursor,
                                  MemorySegment parent,
                                  MemorySegment client_data)
     {
         CXCursorKind kind = clang.clang_getCursorKind(cursor);
 
         if (kind == CXCursor_FunctionDecl)
-                if (clang.clang_isCursorDefinition(cursor) == 1) {
-                    String fname = getString(cursor);
+        {
+//            if (clang.clang_isCursorDefinition(cursor) == 1) {
+                String fname = getString(cursor);
 
-                    CXType returnType = clang.clang_getCursorResultType(cursor);
-                    CXString s = clang.clang_getTypeSpelling(returnType);
-                    String rname = clang.clang_getCString(s);
-                    var argDef = splitArg(returnType, rname, "", 0);
-                    currentFunction = new CFunction(argDef.orElseGet(null), fname, new ArrayList<>(), "");
-                    clang.clang_visitChildren(cursor, visitFunctionParamPtr, MemorySegment.NULL);
-                    allFunctions.add(currentFunction);
-                }
-
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Recurse.ordinal() );
+                CXType returnType = clang.clang_getCursorResultType(cursor);
+                CXString s = clang.clang_getTypeSpelling(returnType);
+                String rname = clang.clang_getCString(s);
+                var argDef = splitArg(returnType, rname, "", 0);
+                String  src = origSource(cursor);
+//                System.out.printf("(%d) Func: %s\n", allFunctions.size(), fname);
+//                    if (!src.contains("__inline")) {
+                currentFunction = new CFunction(argDef.orElseGet(null), fname, new ArrayList<>(), src);
+                clang.clang_visitChildren(cursor, visitFunctionParamPtr, MemorySegment.NULL);
+                allFunctions.add(currentFunction);
+        }
+//        else if (kind == CXCursor_ParmDecl)
+//        {
+//            var p = clang.clang_getCursorSemanticParent(cursor);
+//            CXCursorKind kind2 = clang.clang_getCursorKind(cursor);
+//
+//        }
+        return  CXChildVisitResult.CXChildVisit_Recurse.ordinal();
     }
 
-    public MemorySegment functionParamVisitor(MemorySegment cursor,
+    public int functionParamVisitor(MemorySegment cursor,
                                          MemorySegment parent,
                                          MemorySegment client_data)
     {
@@ -322,14 +343,14 @@ public class ClangHtoP implements AutoCloseable{
                     currentFunction.parameters.add(new ArgDef("int", pname, "", false, ""));
             }
 
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Recurse.ordinal() );
+        return CXChildVisitResult.CXChildVisit_Recurse.ordinal();
     }
 
     Stack<CRecord> buildingRecords = new Stack<>();
     int AnonStructCount = 1;
     int AnonUnionCount = 1;
 
-    public MemorySegment structUnionVisitor(MemorySegment cursor,
+    public int structUnionVisitor(MemorySegment cursor,
                                  MemorySegment parent,
                                  MemorySegment client_data)
     {
@@ -388,16 +409,19 @@ public class ClangHtoP implements AutoCloseable{
                 break;
         }
 
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Recurse.ordinal() );
+        return CXChildVisitResult.CXChildVisit_Recurse.ordinal();
     }
 
-    public MemorySegment typdefVisitor(MemorySegment cursor,
+    public int typdefVisitor(MemorySegment cursor,
                                  MemorySegment parent,
                                  MemorySegment client_data)
     {
         CXCursorKind kind = clang.clang_getCursorKind(cursor);
-
         switch (kind) {
+            case CXCursor_FunctionDecl: {
+                //I don't know why, but walking the AST a second time does not see these
+                functionVisitor(cursor, parent, client_data);
+            }
             case CXCursor_TypedefDecl: {
                 CXType type = clang.clang_getCursorType(cursor);
                 String paramname = getString(cursor);
@@ -416,12 +440,11 @@ public class ClangHtoP implements AutoCloseable{
             default:
                 break;
         }
-
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Recurse.ordinal() );
+        return CXChildVisitResult.CXChildVisit_Recurse.ordinal();
     }
 
 
-    public MemorySegment struct_field_visitor(MemorySegment cursor,
+    public int struct_field_visitor(MemorySegment cursor,
                                               MemorySegment parent,
                                               MemorySegment data) {
         var kind = clang.clang_getCursorKind(cursor);
@@ -448,13 +471,13 @@ public class ClangHtoP implements AutoCloseable{
                 argDef.ifPresent(def -> buildingRecords.peek().fields.add(def));
             }
         }
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Continue.ordinal() );
+        return CXChildVisitResult.CXChildVisit_Continue.ordinal();
     }
 
     CEnum currentEnum;
     int AnonEnumCount = 1;
 
-    public MemorySegment enumVisitor(MemorySegment cursor,
+    public int enumVisitor(MemorySegment cursor,
                                             MemorySegment parent,
                                             MemorySegment client_data)
     {
@@ -471,15 +494,14 @@ public class ClangHtoP implements AutoCloseable{
                 ename = "enumAnon" + AnonEnumCount;
                 AnonEnumCount++;
             }
-            currentEnum = new CEnum(ename, new ArrayList<>(), origSource(cursor));
+                currentEnum = new CEnum(ename, new ArrayList<>(), origSource(cursor));
                 clang.clang_visitChildren(cursor, visitEnumfunctionPtr, MemorySegment.NULL);
                 allEnums.add(currentEnum);
             }
-
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Recurse.ordinal() );
+        return CXChildVisitResult.CXChildVisit_Recurse.ordinal();
     }
 
-    public MemorySegment enum_constant_visitor(MemorySegment cursor,
+    public int enum_constant_visitor(MemorySegment cursor,
                                                MemorySegment parent,
                                                MemorySegment data) {
 
@@ -492,7 +514,7 @@ public class ClangHtoP implements AutoCloseable{
             CEnumValue value = new CEnumValue(ename, val, forceLong);
             currentEnum.values.add(value);
         }
-        return tmpArena.allocateFrom(JAVA_INT, CXChildVisitResult.CXChildVisit_Continue.ordinal() );
+        return CXChildVisitResult.CXChildVisit_Continue.ordinal();
     }
 
 
@@ -581,12 +603,9 @@ public class ClangHtoP implements AutoCloseable{
         }
 
         if (parts.length == 1 || parts.length > 3) {
-//            warnings.add("ERROR: I don't know how to parse the argument: " + argDef);
             return Optional.empty();//new ArgDef("error", "error", "", true, argDef);
         }
 
-//        String type = parts[0].replace("[]", "*");
-//        String name = parts[1].replace("[]", "*");
         type = type.replace("&", "*");
         name = name.replace("&", "*");
         String ptr = ptrDetails;
