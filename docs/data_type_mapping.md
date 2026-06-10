@@ -38,6 +38,7 @@ Return types can be:
 3. char* (maps to a Java String)
 4. any pointer (see limitations)
 10. Java Enums (see Enums)
+11. structs ( but this only works with PassportFactory.link_written())
 
 If an argument is changed by the C library call then the @RefArg annotation is required for that argument.
 The argument also needs to be passed as an array. Ex.

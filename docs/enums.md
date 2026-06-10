@@ -18,7 +18,7 @@ enum weekdays
 enum weekends
 {
     SATURDAY = 0l,
-    SUNDAY = 0xFFFFFFFFF  //NOTE, this value is larger than an int, so must be stored as a float
+    SUNDAY = 0xFFFFFFFFF  //NOTE, this value is larger than an int, so must be stored as a long
 };
 
 //custom ints
@@ -66,7 +66,7 @@ public enum computer implements EnumInt {
 }
 ```
 
-Enums can be passed as method arguments or received as method return values.
+Enums can be passed as method arguments, struct members, or received as method return values.
 
 ```C
 //C method declaration

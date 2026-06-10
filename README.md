@@ -61,7 +61,7 @@ Download the source and run the maven build, or use the maven dependency:
         <dependency>
             <groupId>io.github.boulder-on</groupId>
             <artifactId>JPassport</artifactId>
-            <version>1.4.0-24</version>
+            <version>1.5.0-24</version>
         </dependency>
 
 ### Dependencies

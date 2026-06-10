@@ -43,3 +43,5 @@ double[] testReturnPointer(int count) {
     return values;
 }
 ```
+
+Functions that return a struct must be linked using PassportFactory.link_written().

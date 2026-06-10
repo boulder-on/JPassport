@@ -42,11 +42,12 @@ In order to parse your header file, Clang is required:
 - Mac
   - ask google
 
+Once installed, move libclang.dll (for windows) or libclang.so (for linux or mac) to the folder you run the given commands from.
 The generated interface can be used normally as per the instructions in this guide.
 
 ## Limitations
 - Variadic arguments (...) are not handled!
-
+- Sometimes the VM will crash - I don't know why. Rerunning several times will often fix this.
 In general, you will get output code. There may be errors in it that you need to correct by hand.
 
 The parsing and interpretation process can only make guesses about the code that should be generated.
