@@ -4,15 +4,6 @@ import jpassport.enums.EnumInt;
 
 public enum CXCursorKind implements EnumInt {
     /* Declarations */
-    /**
-     * A declaration whose specific kind is not exposed via this
-     * interface.
-     *
-     * Unexposed declarations have the same operations as any other kind
-     * of declaration; one can extract their location information),
-     * spelling), find their definitions), etc. However), the specific kind
-     * of the declaration is not reported.
-     */
     CXCursor_UnexposedDecl(1),
     /** A C or C++ struct. */
     CXCursor_StructDecl(2),
@@ -102,21 +93,6 @@ public enum CXCursorKind implements EnumInt {
     CXCursor_ObjCSuperClassRef(40),
     CXCursor_ObjCProtocolRef(41),
     CXCursor_ObjCClassRef(42),
-    /**
-     * A reference to a type declaration.
-     *
-     * A type reference occurs anywhere where a type is named but not
-     * declared. For example), given:
-     *
-     * \code
-     * typedef unsigned size_type;
-     * size_type size;
-     * \endcode
-     *
-     * The typedef is a declaration of size_type (CXCursor_TypedefDecl)),
-     * while the type of the variable "size" is referenced. The cursor
-     * referenced by the type of size is the typedef for size_type.
-     */
     CXCursor_TypeRef(43),
     CXCursor_CXXBaseSpecifier(44),
     /**
@@ -133,65 +109,8 @@ public enum CXCursorKind implements EnumInt {
      * some non-expression context), e.g.), a designated initializer.
      */
     CXCursor_MemberRef(47),
-    /**
-     * A reference to a labeled statement.
-     *
-     * This cursor kind is used to describe the jump to "start_over" in the
-     * goto statement in the following example:
-     *
-     * \code
-     *   start_over:
-     *     ++counter;
-     *
-     *     goto start_over;
-     * \endcode
-     *
-     * A label reference cursor refers to a label statement.
-     */
     CXCursor_LabelRef(48),
-
-    /**
-     * A reference to a set of overloaded functions or function templates
-     * that has not yet been resolved to a specific function or function template.
-     *
-     * An overloaded declaration reference cursor occurs in C++ templates where
-     * a dependent name refers to a function. For example:
-     *
-     * \code
-     * template<typename T> void swap(T&), T&);
-     *
-     * struct X { ... };
-     * void swap(X&), X&);
-     *
-     * template<typename T>
-     * void reverse(T* first), T* last) {
-     *   while (first < last - 1) {
-     *     swap(*first), *--last);
-     *     ++first;
-     *   }
-     * }
-     *
-     * struct Y { };
-     * void swap(Y&), Y&);
-     * \endcode
-     *
-     * Here), the identifier "swap" is associated with an overloaded declaration
-     * reference. In the template definition), "swap" refers to either of the two
-     * "swap" functions declared above), so both results will be available. At
-     * instantiation time), "swap" may also refer to other functions found via
-     * argument-dependent lookup (e.g.), the "swap" function at the end of the
-     * example).
-     *
-     * The functions \c clang_getNumOverloadedDecls() and
-     * \c clang_getOverloadedDecl() can be used to retrieve the definitions
-     * referenced by this cursor.
-     */
     CXCursor_OverloadedDeclRef(49),
-
-    /**
-     * A reference to a variable that occurs in some non-expression
-     * context), e.g.), a C++ lambda capture list.
-     */
     CXCursor_VariableRef(50),
 
     CXCursor_LastRef(CXCursor_VariableRef.value),
@@ -274,10 +193,6 @@ public enum CXCursorKind implements EnumInt {
     /** [C99 6.5.2.1] Array Subscripting.
      */
     CXCursor_ArraySubscriptExpr(113),
-
-    /** A builtin binary operation expression such as "x + y" or
-     * "x <= y".
-     */
     CXCursor_BinaryOperator(114),
 
     /** Compound assignment such as "+=".
@@ -302,53 +217,15 @@ public enum CXCursorKind implements EnumInt {
     /** Describes an C or C++ initializer list.
      */
     CXCursor_InitListExpr(119),
-
-    /** The GNU address of label extension), representing &&label.
-     */
     CXCursor_AddrLabelExpr(120),
-
-    /** This is the GNU Statement Expression extension: ({int X=4; X;})
-     */
     CXCursor_StmtExpr(121),
 
-    /** Represents a C11 generic selection.
-     */
     CXCursor_GenericSelectionExpr(122),
-
-    /** Implements the GNU __null extension), which is a name for a null
-     * pointer constant that has integral type (e.g.), int or long) and is the same
-     * size and alignment as a pointer.
-     *
-     * The __null extension is typically only used by system headers), which define
-     * NULL as __null in C++ rather than using 0 (which is an integer that may not
-     * match the size of a pointer).
-     */
     CXCursor_GNUNullExpr(123),
-
-    /** C++'s static_cast<> expression.
-     */
     CXCursor_CXXStaticCastExpr(124),
-
-    /** C++'s dynamic_cast<> expression.
-     */
     CXCursor_CXXDynamicCastExpr(125),
-
-    /** C++'s reinterpret_cast<> expression.
-     */
     CXCursor_CXXReinterpretCastExpr(126),
-
-    /** C++'s const_cast<> expression.
-     */
     CXCursor_CXXConstCastExpr(127),
-
-    /** Represents an explicit C++ type conversion that uses "functional"
-     * notion (C++ [expr.type.conv]).
-     *
-     * Example:
-     * \code
-     *   x(int(0.5);
-     * \endcode
-     */
     CXCursor_CXXFunctionalCastExpr(128),
 
     /** A C++ typeid expression (C++ [expr.typeid]).
@@ -412,46 +289,8 @@ public enum CXCursorKind implements EnumInt {
      * \endcode
      */
     CXCursor_ObjCBridgedCastExpr(141),
-
-    /** Represents a C++0x pack expansion that produces a sequence of
-     * expressions.
-     *
-     * A pack expansion expression contains a pattern (which itself is an
-     * expression) followed by an ellipsis. For example:
-     *
-     * \code
-     * template<typename F), typename ...Types>
-     * void forward(F f), Types &&...args) {
-     *  f(static_cast<Types&&>(args)...);
-     * }
-     * \endcode
-     */
     CXCursor_PackExpansionExpr(142),
-
-    /** Represents an expression that computes the length of a parameter
-     * pack.
-     *
-     * \code
-     * template<typename ...Types>
-     * struct count {
-     *   static const unsigned value(sizeof...(Types);
-     * };
-     * \endcode
-     */
     CXCursor_SizeOfPackExpr(143),
-
-    /* Represents a C++ lambda expression that produces a local function
-     * object.
-     *
-     * \code
-     * void abssort(float *x), unsigned N) {
-     *   std::sort(x), x + N),
-     *             [](float a), float b) {
-     *               return std::abs(a) < std::abs(b);
-     *             });
-     * }
-     * \endcode
-     */
     CXCursor_LambdaExpr(144),
 
     /** Objective-c Boolean Literal.
@@ -483,9 +322,6 @@ public enum CXCursorKind implements EnumInt {
      * OpenMP 5.0 [2.1.6 Iterators]
      */
     CXCursor_OMPIteratorExpr(151),
-
-    /** OpenCL's addrspace_cast<> expression.
-     */
     CXCursor_CXXAddrspaceCastExpr(152),
 
     CXCursor_LastExpr(CXCursor_CXXAddrspaceCastExpr.value),
