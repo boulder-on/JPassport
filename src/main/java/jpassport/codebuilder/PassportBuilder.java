@@ -85,6 +85,12 @@ public class PassportBuilder<T extends Passport> extends ClassLoader implements 
         this.withDebug = withDebug;
         List<Method> interfaceMethods = PassportFactory.getDeclaredMethods(interfaceClass);
 
+        for (var method : interfaceMethods)
+        {
+            if (method.getReturnType().isRecord())
+                throw new IllegalArgumentException("Method " + method.getName() + " returns a struct. Please use JPassport.link_written()");
+        }
+
         classBytes = ClassFile.of().build(thisClassDesc, clb ->
         {
             var entry = ConstantPoolBuilder.of().classEntry(toDesc(Passport.class));

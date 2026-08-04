@@ -80,10 +80,10 @@ public class HeaderToPassportClang {
 
     private static final Set<String> emptyStructs = new HashSet<>();
 
-    public static Optional<Path> preprocess(Path headerPath, Path dest, List<String> preProcArgs)
-    {
-        return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
-    }
+//    public static Optional<Path> preprocess(Path headerPath, Path dest, List<String> preProcArgs)
+//    {
+//        return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
+//    }
 
     static List<String> clangArgs = new ArrayList<>();
 
@@ -116,7 +116,7 @@ public class HeaderToPassportClang {
         try (var clang = new ClangHtoP(allheadernames, clangArgs)){
 
             clang.parseClang();
-            generateJava(clang);
+            generateJava(clang, new HashSet<>());
         }
         catch (Throwable throwable) {
             throwable.printStackTrace();
@@ -128,6 +128,49 @@ public class HeaderToPassportClang {
         System.out.println("Interface methods created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.methods.ordinal()]);
     }
 
+    public static List<ClangHtoP.CFunction> build(String[] args, Set<String> ignoreFunctions) throws Exception {
+        if (args.length < 3) {
+            System.err.println("Usage: [path to header] [path to destination] [package] [preprocessor options]");
+            System.exit(1);
+        }
+        Path headerPath = Path.of(args[0]);
+        String headerName = headerPath.getFileName().toString();
+        destinationPath = Path.of(args[1]);
+        packageName = args[2];
+        interfaceName = headerName.replace(".", "_");
+
+        validateArguments(headerPath);
+
+        System.out.println("Loading: " + headerPath);
+        Arrays.fill(counts, 0);
+
+        var allHeaders = List.of(headerPath);
+        var allheadernames = allHeaders.stream().map(Path::toString).toList();
+
+        if (args.length > 3) {
+            for (int i = 3; i < args.length; i++) {
+                clangArgs.add(args[i]);
+            }
+        }
+        clangArgs.add("-I" + headerPath.getParent().toAbsolutePath().toString());
+        List<ClangHtoP.CFunction> ret = new ArrayList<>();
+
+        try (var clang = new ClangHtoP(allheadernames, clangArgs)){
+
+            clang.parseClang();
+            generateJava(clang, ignoreFunctions);
+            ret = clang.allFunctions;
+        }
+        catch (Throwable throwable) {
+            throwable.printStackTrace();
+        }
+
+        System.out.println("Generation complete: " + destinationPath.toAbsolutePath());
+        System.out.println("            Enums created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.enums.ordinal()]);
+        System.out.println("  Records/Structs created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.records.ordinal()]);
+        System.out.println("Interface methods created: " + counts[HeaderToPassport.OUTPUT_OBJECTS.methods.ordinal()]);
+        return ret;
+    }
 
     public HeaderToPassportClang()
     {
@@ -153,7 +196,7 @@ public class HeaderToPassportClang {
         try {
 
             clang.parseClang();
-            generateJava(clang);
+            generateJava(clang, new HashSet<>());
         }
         catch (Throwable throwable) {
             throwable.printStackTrace();
@@ -167,7 +210,7 @@ public class HeaderToPassportClang {
     }
 
     public void finishGeneration(ClangHtoP clang) throws IOException {
-        generateJava(clang);
+        generateJava(clang, new HashSet<>());
     }
 
     private static void validateArguments(Path headerPath) {
@@ -186,7 +229,7 @@ public class HeaderToPassportClang {
         }
     }
 
-    public static void generateJava(ClangHtoP clang) throws IOException {
+    public static void generateJava(ClangHtoP clang, Set<String> ignoreFunctions) throws IOException {
 
 
         typeDefToNative = clang.typeDefToNative;
@@ -196,10 +239,10 @@ public class HeaderToPassportClang {
 
         // ---- Enums ----
         generateJavaEnums(clang.allEnums);
-        generateInterface(clang.allFunctions);
+        generateInterface(clang.allFunctions, ignoreFunctions);
     }
 
-    private static void generateInterface(List<ClangHtoP.CFunction> funcs) throws FileNotFoundException {
+    private static void generateInterface(List<ClangHtoP.CFunction> funcs, Set<String> ignoreFunctions) throws FileNotFoundException {
         if (funcs.isEmpty())
             return;
 
@@ -219,19 +262,29 @@ public class HeaderToPassportClang {
 
         try (PrintWriter out = new PrintWriter(outFile.toFile())) {
             out.println("package " + packageName + ";\n\n");
+            out.println("import jpassport.Passport;");
             out.println("import java.lang.foreign.MemorySegment;");
             out.println("import jpassport.pointers.*;");
             out.println("import jpassport.annotations.*;\n\n");
 
-            out.println("public interface " + interfaceName + "{");
+            out.println("public interface " + interfaceName + " extends Passport{");
+            Set<String> functionsMade = new HashSet<>();
+
             for (ClangHtoP.CFunction f : funcs) {
 
-                if (ignorable.contains(f.name()))
+                if (ignoreFunctions.contains(f.name()))
+                {
+                    System.out.println("Skipping function: " + f.name());
                     continue;
+                }
 
-                out.println("/*");
-                out.println(f.CCode());
-                out.println("*/");
+//                out.println("/*");
+//                out.println(f.CCode());
+//                out.println("*/");
+                if (functionsMade.contains(f.name()))
+                    continue;
+                functionsMade.add(f.name());
+
                 out.print("    " + mapType(f.returnType(), true) + " " + f.name() + "(");
                 StringBuilder params = new StringBuilder();
                 int i = 1;

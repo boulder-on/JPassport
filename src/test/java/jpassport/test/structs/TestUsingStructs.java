@@ -30,7 +30,7 @@ public class TestUsingStructs {
         PassingStructs = new Link[] {
 //                new Link(PassType.byte_code, new TestStructCalls_impl()),
                 new Link(PassType.written, PassportFactory.link_written(getLibName(), TestStructCalls.class)),
-//                new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
+                new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
         };
 
 //        PassingStructs = new Link[] {

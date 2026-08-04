@@ -129,10 +129,10 @@ public class HeaderToPassport {
 
     private static final Set<String> emptyStructs = new HashSet<>();
 
-    public static Optional<Path> preprocess(Path headerPath, Path dest, List<String> preProcArgs)
-    {
-        return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
-    }
+//    public static Optional<Path> preprocess(Path headerPath, Path dest, List<String> preProcArgs)
+//    {
+//        return CPreprocess.preprocess(headerPath, dest, preProcArgs.toArray(new String[0]));
+//    }
 
     public static void main(String[] args) throws Throwable {
         if (args.length < 3) {
@@ -148,7 +148,7 @@ public class HeaderToPassport {
 
         validateArguments(headerPath);
 
-        System.out.println("Loading: " + headerPath);
+        System.out.println("Processing: " + headerPath);
         List<String> preProcArgs = new ArrayList<>(Arrays.asList(args).subList(3, args.length));
         var header2Pass = new HeaderToPassportClang();
         var headerList = List.of(headerPath);

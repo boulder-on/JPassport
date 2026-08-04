@@ -24,21 +24,21 @@ public class CPreprocess {
 
         // Parse args
         List<String> extraArgs = new ArrayList<>();
-        boolean noLineMarkers = true; // default: suppress #line markers
+//        boolean noLineMarkers = true; // default: suppress #line markers
         String std = null;
 
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
-            if (a.equals("--no-line-markers")) {
-                noLineMarkers = true;
-            } else if (a.equals("--with-line-markers")) {
-                noLineMarkers = false;
-            } else if (a.startsWith("--std=")) {
-                std = a.substring("--std=".length()).trim();
-            } else {
+//            if (a.equals("--no-line-markers")) {
+//                noLineMarkers = true;
+//            } else if (a.equals("--with-line-markers")) {
+//                noLineMarkers = false;
+//            } else if (a.startsWith("--std=")) {
+//                std = a.substring("--std=".length()).trim();
+//            } else {
                 // Pass-through flags like -I<dir>, -DNAME=VAL, -nostdinc, --sysroot=..., etc.
                 extraArgs.add(a);
-            }
+//            }
         }
 
         if (!Files.isRegularFile(header)) {
@@ -78,7 +78,7 @@ public class CPreprocess {
 
 
             cmd.add(cc);
-            cmd.add("-E"); // preprocess only
+//            cmd.add("-E"); // preprocess only
 //            if (noLineMarkers) {
 //                cmd.add("-P"); // suppress #line directives
 //            }

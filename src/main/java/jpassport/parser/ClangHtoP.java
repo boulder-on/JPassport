@@ -232,13 +232,13 @@ public class ClangHtoP implements AutoCloseable{
         if (clang == null)
             clang = PassportFactory.link_written(libName, clangParser.class);
 
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder("#include <minwindef.h>\n");
         hName.stream().forEach(s -> sb.append("#include \"" + s + "\"\n"));
 
 
 
         String contents = sb.toString();
-        System.out.println(contents);
+       System.out.println(contents);
         var tmpFile = File.createTempFile("jpass", ".c");
         tmpFile.deleteOnExit();
         Files.write(tmpFile.toPath(), contents.getBytes());
@@ -311,9 +311,11 @@ public class ClangHtoP implements AutoCloseable{
                 String  src = origSource(cursor);
 //                System.out.printf("(%d) Func: %s\n", allFunctions.size(), fname);
 //                    if (!src.contains("__inline")) {
+//            if (!src.contains("__cdecl")) {
                 currentFunction = new CFunction(argDef.orElseGet(null), fname, new ArrayList<>(), src);
                 clang.clang_visitChildren(cursor, visitFunctionParamPtr, MemorySegment.NULL);
                 allFunctions.add(currentFunction);
+//            }
         }
 //        else if (kind == CXCursor_ParmDecl)
 //        {
