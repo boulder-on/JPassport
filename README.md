@@ -1,4 +1,4 @@
-# JPassport - Java 24
+# JPassport - Java (24-27)
 
 JPassport works like [Java Native Access (JNA)](https://github.com/java-native-access/jna) but uses the 
 [Foreign Function and Memory API](https://openjdk.java.net/jeps/393) (FFM) instead of JNI. 
@@ -31,6 +31,7 @@ the cognitive load on building the interfaces and records. When using JPassport 
 any FFM, it should look like bland Java code.
 
 **Java 24 and later** are required to use this library. There are separate branches for Java 17 to 22.
+I have tested up to Java 27 and all versions work.
 
 [FFM](https://docs.oracle.com/en/java/javase/22/core/foreign-function-and-memory-api.html) is final in 
 Java 22. The [Class-file API](https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/lang/classfile/package-summary.html) is final in Java 24.
