@@ -1,4 +1,7 @@
 # Release Notes
+- 1.5.1-24 (unreleased)
+  - Fixed an issue calculating the size of a struct with an enum
+  - Pushing further on code generation for win32
 - 1.5.0-24
     - Added the ability to return a struct from a method
     - Added a SegmentAllocator as a valid agrument type

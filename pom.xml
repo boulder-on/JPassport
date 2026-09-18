@@ -154,7 +154,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>jpassport.parser.HeaderToPassportClang</mainClass>
+                            <mainClass>jpassport.parser.GeneratePassport</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

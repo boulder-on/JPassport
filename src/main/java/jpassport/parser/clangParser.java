@@ -1,6 +1,7 @@
 package jpassport.parser;
 
 import jpassport.Passport;
+import jpassport.annotations.PtrPtrArg;
 import jpassport.annotations.RefArg;
 import jpassport.parser.clang.types.*;
 import jpassport.pointers.FunctionPtr;
@@ -20,6 +21,12 @@ public interface clangParser extends Passport {
     CXCursor clang_getTranslationUnitCursor(CXTranslationUnit tu);
     void clang_disposeTranslationUnit(CXTranslationUnit tu);
     void clang_disposeIndex(CXIndex index);
+
+    CXTranslationUnit clang_parseTranslationUnit(
+            CXIndex CIdx, String source_filename,
+            String[] command_line_args, int num_command_line_args,
+            CXUnsavedFile[] unsaved_files, int num_unsaved_files,
+            int options);
 
     int clang_visitChildren(MemorySegment parent,
                              FunctionPtr visitor,

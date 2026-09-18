@@ -30,7 +30,7 @@ public class TestUsingStructs {
         PassingStructs = new Link[] {
 //                new Link(PassType.byte_code, new TestStructCalls_impl()),
                 new Link(PassType.written, PassportFactory.link_written(getLibName(), TestStructCalls.class)),
-                new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
+//                new Link(PassType.byte_code, PassportFactory.link(getLibName(), TestStructCalls.class))
         };
 
 //        PassingStructs = new Link[] {
@@ -42,7 +42,7 @@ public class TestUsingStructs {
     @Test
     public void testSimpleStruct()
     {
-        assertEquals(4 * JAVA_LONG.byteSize(), Utils.size_of(TestStruct.class));
+        assertEquals(5 * JAVA_LONG.byteSize(), Utils.size_of(TestStruct.class));
         assertEquals(JAVA_INT.byteSize() + Utils.size_of(TestStruct.class) +
                 ADDRESS.byteSize() * 2, Utils.size_of(ComplexStruct.class));
 

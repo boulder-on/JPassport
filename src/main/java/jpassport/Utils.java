@@ -656,9 +656,9 @@ public class Utils {
         if (type.equals(double.class)) return ValueLayout.JAVA_DOUBLE.byteSize();
         if (type.isRecord()) return size_of(type);
         throw new IllegalArgumentException("Cannot get size for non-primative");
-    };
+    }
 
-    public static long size_of(Class<?> c)
+    public static long size_of_old(Class<?> c)
     {
         if (!c.isRecord())
             throw new IllegalArgumentException("Can only get size of records, not " + c.getName());
@@ -672,6 +672,10 @@ public class Utils {
             size += getPaddingBytes(f);
 
             Class<?> type = f.getType();
+            if (f.getName().equalsIgnoreCase("origMem"))
+                continue;
+            if (type.isAssignableFrom(MemorySegment.class))
+                size += ADDRESS.byteSize();
             if (type.isPrimitive())
                 size += typeToSize(type);
             else if (type.isRecord())
@@ -686,6 +690,15 @@ public class Utils {
                         size += size_of(type);
                 }
             }
+            else if (type.isEnum())
+            {
+                var interfaces = List.of(type.getInterfaces());
+
+                if (interfaces.contains(EnumInt.class))
+                    size += JAVA_INT.byteSize();
+                else if (interfaces.contains(EnumLong.class))
+                    size += JAVA_LONG.byteSize();
+            }
             else if (String.class.equals(type) || MemoryBlock.class.equals(type))
                 size += ValueLayout.ADDRESS.byteSize();
             else if (type.isArray())
@@ -696,11 +709,82 @@ public class Utils {
                 if (arrays.length > 0)
                 {
                     int length = ((Array) arrays[0]).length();
-                    size += length * typeToSize(type.getComponentType());
+                    if (isPointer)
+                        size += length * ValueLayout.ADDRESS.byteSize();
+                    else
+                        size += length * typeToSize(type.getComponentType());
                 }
                 else if (isPointer)
                     size += ValueLayout.ADDRESS.byteSize();
             }
+        }
+        return size;
+    }
+
+    public static long size_of(Class<?> c)
+    {
+        if (!c.isRecord())
+            throw new IllegalArgumentException("Can only get size of records, not " + c.getName());
+
+        if (isUnion(c))
+            return size_of_union(c);
+
+        long size = 0;
+        int byteBarrier = System.getProperty("sun.arch.data.model").contains("64") ? 8 : 4;
+
+        for (Field f : c.getDeclaredFields())
+        {
+            size += getPaddingBytes(f);
+
+            Class<?> type = f.getType();
+            if (f.getName().equalsIgnoreCase("origMem"))
+                continue;
+            if (type.isAssignableFrom(MemorySegment.class))
+                size += ADDRESS.byteSize();
+            if (type.isPrimitive())
+                size += typeToSize(type);
+            else if (type.isRecord())
+            {
+                if (isUnion(type))
+                    size += size_of_union(type);
+                else {
+                    boolean isPtr = f.getAnnotationsByType(Ptr.class).length > 0;
+                    if (isPtr)
+                        size += ValueLayout.ADDRESS.byteSize();
+                    else
+                        size += size_of(type);
+                }
+            }
+            else if (type.isEnum())
+            {
+                var interfaces = List.of(type.getInterfaces());
+
+                if (interfaces.contains(EnumInt.class))
+                    size += JAVA_INT.byteSize();
+                else if (interfaces.contains(EnumLong.class))
+                    size += JAVA_LONG.byteSize();
+            }
+            else if (String.class.equals(type) || MemoryBlock.class.equals(type))
+                size += ValueLayout.ADDRESS.byteSize();
+            else if (type.isArray())
+            {
+                Annotation[] arrays = f.getAnnotationsByType(Array.class);
+                boolean isPointer = f.getAnnotationsByType(Ptr.class).length > 0;
+
+                if (arrays.length > 0)
+                {
+                    int length = ((Array) arrays[0]).length();
+                    if (isPointer)
+                        size += length * ValueLayout.ADDRESS.byteSize();
+                    else
+                        size += length * typeToSize(type.getComponentType());
+                }
+                else if (isPointer)
+                    size += ValueLayout.ADDRESS.byteSize();
+            }
+
+//            while (size % byteBarrier != 0)
+//                size += 1;
         }
         return size;
     }

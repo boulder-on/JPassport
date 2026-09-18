@@ -9,4 +9,5 @@ module jpassport {
     exports jpassport.enums;
     exports jpassport.parser;
     exports jpassport.parser.clang.types;
+    exports jpassport.apibuilder;
 }
