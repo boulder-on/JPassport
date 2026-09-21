@@ -341,8 +341,7 @@ public class HeaderDefs implements AutoCloseable {
         switch (kind) {
             case CXCursor_FunctionDecl: {
                 //I don't know why, but walking the AST a second time does not see these
-                //DM - TEST removal
-//                functionVisitor(cursor, parent, client_data);
+                functionVisitor(cursor, parent, client_data);
             }
             case CXCursor_TypedefDecl: {
                 CXType type = clang.clang_getCursorType(cursor);
